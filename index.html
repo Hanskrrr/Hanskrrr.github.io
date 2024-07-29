@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Enter Password</title>
+</head>
+<body>
+    <h1>Enter the Password</h1>
+    <form id="passwordForm">
+        <input type="password" id="password" placeholder="Password">
+        <button type="button" onclick="checkPassword()">Submit</button>
+    </form>
+    <p id="error" style="color:red;"></p>
+    <script>
+        function checkPassword() {
+            const password = document.getElementById('password').value;
+            const correctPassword = 'your_password_here'; // 设定的密码
+            if (password === correctPassword) {
+                window.location.href = 'audio.html';
+            } else {
+                document.getElementById('error').textContent = 'Incorrect password. Try again!';
+            }
+        }
+    </script>
+</body>
+</html>
