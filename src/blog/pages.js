@@ -1,7 +1,8 @@
 // Blog pages: home (hero + article list), article, projects and about.
 import { $, el, main, reducedMotion } from '../core/dom.js';
 import { articles } from '../content/articles.js';
-import { monitorSprite, pixelScene } from './pixel-art.js';
+import { profile } from '../content/profile.js';
+import { avatarSprite, pixelScene } from './pixel-art.js';
 import { animateScene } from './scene.js';
 
 const categoryTone = { Web: 'blue', JavaScript: 'yellow', '安全': 'green', UI: 'purple' };
@@ -15,11 +16,21 @@ export function setSearch(value) { search = value; renderArticleList(); }
 function tag(category) {
   return `<span class="tag tag-${categoryTone[category] || 'blue'}">${category}</span>`;
 }
+const escapeHtml = text => String(text).replace(/[&<>"']/g, ch => `&#${ch.charCodeAt(0)};`);
+
+function sidebar() {
+  const links = profile.links.map(link => `<a class="small-link" href="${escapeHtml(link.href)}" target="_blank" rel="noreferrer">${escapeHtml(link.label)} <span aria-hidden="true">↗</span></a>`).join('');
+  const now = profile.now?.items?.length
+    ? `<section class="now-box" aria-labelledby="now-title"><p class="aside-label" id="now-title">NOW<span>${escapeHtml(profile.now.updated || '')}</span></p><dl>${profile.now.items.map(([label, text]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(text)}</dd></div>`).join('')}</dl></section>`
+    : '';
+  return `<aside class="sidebar"><div class="profile-card"><div class="avatar-tile">${avatarSprite(profile.avatar)}</div><h3>${escapeHtml(profile.handle)}</h3><ul class="focus-list">${profile.focus.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul><div class="profile-links">${links}<a class="small-link" href="/?view=about" data-nav="about">关于 <span aria-hidden="true">→</span></a></div></div>${now}<p class="aside-note">当前文章与媒体均为演示内容。</p></aside>`;
+}
+
 function renderBlog() {
   const topics = Object.keys(categoryTone);
-  main.innerHTML = `<section class="hero"><div class="hero-copy"><div class="eyebrow">TECHNICAL BLOG<span class="slash">/</span>2026</div><h1>Hanskrrr<span>.</span></h1><h2>技术文章与开发记录</h2><p>前端开发、计算机基础与个人项目。</p><div class="hero-actions"><button class="button button-primary" data-action="browse">浏览文章 <span aria-hidden="true">↓</span></button><a class="button" href="/?view=projects" data-nav="projects">查看项目 <span aria-hidden="true">→</span></a></div></div><div class="hero-art">${pixelScene()}</div></section>
-    <div class="content-grid"><section id="articles" aria-labelledby="articles-title"><div class="section-heading"><h2 id="articles-title">最新文章</h2><span class="count">04</span><span>INDEX 001-004</span></div><div class="article-tools"><div class="filters" aria-label="文章分类">${['全部', ...topics].map(value => `<button class="filter" data-filter="${value}" aria-pressed="${category === value}">${value}</button>`).join('')}</div><label class="search-field"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M5 1h5v1H5zM3 2h2v1H3zM10 2h2v1h-2zM2 3h1v2H2zM12 3h1v2h-1zM1 5h1v5H1zM13 5h1v5h-1zM2 10h1v2H2zM12 10h1v2h-1zM3 12h2v1H3zM10 12h2v1h-2zM5 13h5v1H5zM12 12h1v1h-1zM13 13h1v1h-1zM14 14h1v1h-1z"/></svg><input type="search" id="article-search" placeholder="搜索文章" aria-label="搜索文章"></label></div><div id="article-list"></div></section>
-    <aside class="sidebar"><p class="aside-label">ABOUT</p><div class="profile-card">${monitorSprite()}<h3>一个个人网站</h3><p>以博客为入口，展示文章、项目、图片和音频。</p><a href="/?view=about" data-nav="about" class="small-link">关于本站 <span aria-hidden="true">→</span></a></div><div class="topic-list"><p class="aside-label">TOPICS</p>${topics.map(value => `<button data-filter="${value}"><span>${value}</span><span>${String(articles.filter(article => article.category === value).length).padStart(2, '0')}</span></button>`).join('')}</div><p class="aside-note">当前文章与媒体均为演示内容。</p></aside></div>`;
+  main.innerHTML = `<section class="hero"><div class="hero-copy"><div class="eyebrow">PERSONAL SITE<span class="slash">/</span>2026</div><h1>${escapeHtml(profile.handle)}<span>.</span></h1><h2>${escapeHtml(profile.tagline)}</h2><p>${escapeHtml(profile.intro)}</p><div class="hero-actions"><button class="button button-primary" data-action="browse">浏览文章 <span aria-hidden="true">↓</span></button><a class="button" href="/?view=projects" data-nav="projects">查看项目 <span aria-hidden="true">→</span></a></div><a class="terminal-hint" href="/terminal/" data-nav="terminal"><span aria-hidden="true">›_</span> terminal</a></div><div class="hero-art">${pixelScene()}</div></section>
+    <div class="content-grid"><section id="articles" aria-labelledby="articles-title"><div class="section-heading"><h2 id="articles-title">最新文章</h2><span class="count">04</span></div><div class="article-tools"><div class="filters" aria-label="文章分类">${['全部', ...topics].map(value => `<button class="filter" data-filter="${value}" aria-pressed="${category === value}">${value}</button>`).join('')}</div><label class="search-field"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M5 1h5v1H5zM3 2h2v1H3zM10 2h2v1h-2zM2 3h1v2H2zM12 3h1v2h-1zM1 5h1v5H1zM13 5h1v5h-1zM2 10h1v2H2zM12 10h1v2h-1zM3 12h2v1H3zM10 12h2v1h-2zM5 13h5v1H5zM12 12h1v1h-1zM13 13h1v1h-1zM14 14h1v1h-1z"/></svg><input type="search" id="article-search" placeholder="搜索文章" aria-label="搜索文章"></label></div><div id="article-list"></div></section>
+    ${sidebar()}</div>`;
   $('#article-search').value = search;
   renderArticleList();
   stopScene();

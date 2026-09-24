@@ -168,21 +168,9 @@ export function pixelScene() {
   return svg(sceneGrid(), { className: 'pixel-art pixel-scene', background: 'px-sky3' });
 }
 
-/** Small monitor sprite used as the site mark in the sidebar. */
-export function monitorSprite() {
-  return svg(sprite([
-    '.oooooooooooo.',
-    'ossssssssssssk',
-    'osbbbbbbbbbbsk',
-    'osbgbbbbbbbbsk',
-    'osbbgbbbbbbbsk',
-    'osbgbbyyyybbsk',
-    'osbbbbbbbbbbsk',
-    'osbbbbbbbbbbsk',
-    'ossssssssssssk',
-    '.kkkkkkkkkkkk.',
-    '.....oook.....',
-    '...oooooook...',
-  ], { o: 'px-frame', k: 'px-frame-dark', s: 'px-screen-edge', b: 'px-screen', g: 'px-grass-light', y: 'px-window' }),
-  { className: 'pixel-art pixel-sprite' });
+/** The owner's 16×16 avatar (rows from content/profile.js). */
+export function avatarSprite(rows) {
+  return svg(sprite(rows, {
+    h: 'px-av-hair', f: 'px-av-skin', e: 'px-av-eye', k: 'px-av-phones', s: 'px-av-shirt', c: 'px-av-collar',
+  }), { className: 'pixel-art pixel-avatar' });
 }
