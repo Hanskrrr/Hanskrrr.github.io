@@ -57,5 +57,25 @@ addEventListener('pagehide', () => {
   if (app.view === 'exhibit' || app.view === 'terminal') renderView('terminal');
 });
 
+// Konami code (↑ ↑ ↓ ↓ ← → ← → B A): the homepage critter dances. Ignored while typing.
+const konami = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+let konamiIndex = 0;
+document.addEventListener('keydown', event => {
+  if (event.target.closest?.('input, textarea, select, [contenteditable]')) return;
+  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  konamiIndex = key === konami[konamiIndex] ? konamiIndex + 1 : key === konami[0] ? 1 : 0;
+  if (konamiIndex === konami.length) {
+    konamiIndex = 0;
+    dispatchEvent(new CustomEvent('gallery:dance'));
+  }
+});
+
+// A hello for anyone who opens the developer console.
+console.log(
+  '%c   ▘  ▝\n  ▄████▄\n ██▀██▀██\n ████████\n  ▀▀  ▀▀\n%cHi! There is a terminal at /terminal/ — try typing pet.',
+  'color:#b18bff;font:14px/1 monospace',
+  'color:#aef0a4;font:13px monospace',
+);
+
 const initial = routeFromUrl();
 navigate(initial.view, initial.article?.id, { push: false, animated: false, focus: initial.view === 'terminal' });

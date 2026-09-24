@@ -55,6 +55,9 @@
   --cloud: #34327c; --twinkle: #ffffff; --smoke: #8f89d8; --smoke-thin: #4f4a9a;
   --firefly: #ffe98f; --meteor: #fff2b8; --meteor-tail: #8f89d8;
   --critter-edge: #7b5fd0; --critter-body: #d3bfff; --critter-eye: #121133; --heart: #ffe98f;
+  /* Seasons and night light */
+  --snow: #e8ecff; --trunk: #4a3a6e; --leaf: #2f7a53; --leaf-light: #63c27a;
+  --leaf-autumn: #e8a33a; --leaf-autumn-light: #ffe98f; --blossom: #d3bfff; --blossom-light: #f4eaff; --window-off: #2e2c72;
 
   background: var(--bg);
   color: var(--ink);
@@ -99,6 +102,8 @@
   --cloud: #ffffff; --twinkle: #ffffff; --smoke: #ffffff; --smoke-thin: #eef1ff;
   --firefly: transparent; --meteor: transparent; --meteor-tail: transparent;
   --critter-edge: #6a3fd6; --critter-body: #d9c8ff; --critter-eye: #221d5c; --heart: #6a3fd6;
+  --snow: #ffffff; --trunk: #6b4f7a; --leaf: #4aa062; --leaf-light: #8fd69a;
+  --leaf-autumn: #e89a2e; --leaf-autumn-light: #ffd95e; --blossom: #c9b6f2; --blossom-light: #ffffff; --window-off: #6d84e0;
 }
 
 /* ---------- Base ---------- */
@@ -304,6 +309,10 @@ main:focus, main:focus-visible { outline: none; }
 .px-firefly { fill: var(--firefly); } .px-meteor { fill: var(--meteor); } .px-meteor-tail { fill: var(--meteor-tail); }
 .px-critter-edge { fill: var(--critter-edge); } .px-critter-body { fill: var(--critter-body); } .px-critter-eye { fill: var(--critter-eye); }
 .px-heart { fill: var(--heart); }
+.px-snow { fill: var(--snow); } .px-trunk { fill: var(--trunk); } .px-window-off { fill: var(--window-off); }
+.px-leaf { fill: var(--leaf); } .px-leaf-light { fill: var(--leaf-light); }
+.px-leaf-autumn { fill: var(--leaf-autumn); } .px-leaf-autumn-light { fill: var(--leaf-autumn-light); }
+.px-blossom { fill: var(--blossom); } .px-blossom-light { fill: var(--blossom-light); }
 .hero-art { -webkit-user-select: none; user-select: none; }
 
 /* ---------- Article list ---------- */

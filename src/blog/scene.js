@@ -2,8 +2,10 @@
 // pixel scene and moved in whole pixels at a stepped 10 fps: stars twinkle, clouds
 // drift, chimney smoke rises, fireflies wander (night), a shooting star passes now
 // and then, and a tiny version of the terminal creature sometimes strolls out of
-// the cabin. Clicking the picture calls it out. Everything pauses while the picture
-// is off-screen or the tab is hidden, and stays still with reduced motion.
+// the cabin. Clicking the picture calls it out; the Konami code makes it dance.
+// Seasons add falling leaves (autumn), petals (spring) or snow (winter).
+// Everything pauses while the picture is off-screen or the tab is hidden, and
+// stays still with reduced motion.
 import { gridToPaths, SCENE_HEIGHT, SCENE_WIDTH, sceneLayout, sprite } from './pixel-art.js';
 
 const TICK = 100;
@@ -60,7 +62,7 @@ function pixel(svg, className) {
 
 /** Start the animation on a rendered .pixel-scene <svg>. Returns stop(). */
 export function animateScene(svg, { reducedMotion = false } = {}) {
-  const { stars, surface, cabin } = sceneLayout();
+  const { stars, surface, cabin, tree, season } = sceneLayout();
   const live = document.createElementNS(NS, 'g');
   live.setAttribute('class', 'scene-live');
   svg.append(live);
@@ -78,13 +80,23 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
   const smoke = Array.from({ length: 5 }, () => ({ age: -1, x: 0, y: 0, px: pixel(live, 'px-smoke') }));
   smoke.forEach(puff => puff.px.hide());
 
-  const fireflies = Array.from({ length: 4 }, () => {
+  const fireflies = Array.from({ length: { summer: 6, spring: 3, autumn: 3, winter: 0 }[season] ?? 4 }, () => {
     const x = rand(30, SCENE_WIDTH - 4);
     return { x, y: surface(x) - rand(2, 6), on: true, px: pixel(live, 'px-firefly') };
   });
 
   const meteor = { wait: rand(120, 260), step: -1, x: 0, y: 0, head: pixel(live, 'px-meteor'), tail: [pixel(live, 'px-meteor-tail'), pixel(live, 'px-meteor-tail'), pixel(live, 'px-meteor-tail')] };
   [meteor.head, ...meteor.tail].forEach(part => part.hide());
+
+  // Seasonal particles: leaves and petals fall from the tree, snow from the sky.
+  const falling = season === 'summer' ? [] : Array.from({ length: season === 'winter' ? 12 : 4 }, () => ({ age: -1, x: 0, y: 0, rest: 0, px: pixel(live, 'px-snow') }));
+  falling.forEach(item => item.px.hide());
+  const fallClass = { autumn: ['px-leaf-autumn', 'px-leaf-autumn-light'], spring: ['px-blossom', 'px-blossom-light'], winter: ['px-snow', 'px-snow'] }[season];
+  function spawnFalling(item) {
+    if (season === 'winter') Object.assign(item, { age: 0, x: rand(0, SCENE_WIDTH - 1), y: rand(-20, 0), rest: 0 });
+    else Object.assign(item, { age: 0, x: rand(tree.x, tree.x + tree.width - 1), y: tree.top + rand(2, tree.canopyRows), rest: 0 });
+    item.cls = fallClass[rand(0, 1)];
+  }
 
   const home = cabin.door - 3;           // critter's x when standing at the door
   const critter = { state: 'home', wait: rand(40, 120), x: home, target: home, pause: 0, hop: 0, heart: 0, step: 0, sprite: layer(live), heartSprite: layer(live) };
@@ -126,8 +138,29 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
         fly.on ? fly.px.at(fly.x, fly.y) : fly.px.hide();
       }
     }
+    updateFalling();
     updateMeteor();
     updateCritter();
+  }
+
+  function updateFalling() {
+    for (const item of falling) {
+      if (item.age < 0) {
+        if (Math.random() < (season === 'winter' ? 0.2 : 0.02)) spawnFalling(item);
+        continue;
+      }
+      item.age += 1;
+      if (item.rest > 0) {                       // lying on the ground for a moment
+        if (--item.rest === 0) { item.age = -1; item.px.hide(); }
+        continue;
+      }
+      const slow = season === 'winter' ? 2 : 3;
+      if (item.age % slow === 0) item.y += 1;
+      if (item.age % 4 === 0) item.x += season === 'spring' ? 1 : rand(-1, 1);
+      if (item.x < 0 || item.x >= SCENE_WIDTH) { item.age = -1; item.px.hide(); continue; }
+      if (item.y >= surface(item.x) - 1) { item.y = surface(item.x) - 1; item.rest = season === 'winter' ? 6 : 25; }
+      if (item.y >= 0) item.px.at(item.x, item.y, item.cls); else item.px.hide();
+    }
   }
 
   function updateMeteor() {
@@ -178,7 +211,7 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
         return;
       }
       case 'idle':
-        drawCritter(critter.pause % 17 === 0 ? 'blink' : 'front');
+        drawCritter(critter.hop > 8 ? (critter.hop % 8 < 4 ? 'left' : 'right') : critter.pause % 17 === 0 ? 'blink' : 'front');
         if (--critter.pause <= 0 && !critter.hop) Object.assign(critter, { state: 'walk', target: home });
     }
   }
@@ -190,8 +223,14 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
       Object.assign(critter, { state: 'idle', pause: rand(30, 50), hop: 8, heart: 16 });
     }
   }
+  // The Konami code (see main.js) makes it dance.
+  function onDance() {
+    if (critter.state === 'home') Object.assign(critter, { x: home + 10, target: home + 10 });
+    Object.assign(critter, { state: 'idle', pause: 60, hop: 48, heart: 60 });
+  }
   const art = svg.closest('.hero-art');
   art?.addEventListener('click', onClick);
+  addEventListener('gallery:dance', onDance);
 
   // --- scheduling ---------------------------------------------------------
   let visible = true;
@@ -209,6 +248,7 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
     clearTimeout(timer);
     observer?.disconnect();
     art?.removeEventListener('click', onClick);
+    removeEventListener('gallery:dance', onDance);
   }
   timer = setTimeout(loop, TICK);
   return stop;

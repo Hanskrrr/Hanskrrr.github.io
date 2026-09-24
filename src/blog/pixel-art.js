@@ -55,11 +55,26 @@ function ridge(peaks, slope) {
   return x => Math.min(...peaks.map(([px, py]) => Math.round(py + Math.abs(x - px) * slope)));
 }
 
+/** Northern-hemisphere season for a date: winter Dec–Feb, spring Mar–May, … */
+export function seasonOf(date = new Date()) {
+  return ['winter', 'winter', 'spring', 'spring', 'spring', 'summer', 'summer', 'summer', 'autumn', 'autumn', 'autumn', 'winter'][date.getMonth()];
+}
+
+const TREE_CANOPY = ['..lllll..', '.lLllllL.', 'lllLlllll', 'llllllLll', '.lllllll.', '..lllll..', '....t....', '....t....', '...ttt...'];
+const TREE_BARE = ['..s.s.s..', '.st.t.ts.', '..t.t.t..', '...ttt...', '....t....', '....t....', '....t....', '....t....', '...ttt...'];
+const LEAVES = {
+  spring: ['px-blossom', 'px-blossom-light'],
+  summer: ['px-leaf', 'px-leaf-light'],
+  autumn: ['px-leaf-autumn', 'px-leaf-autumn-light'],
+};
+
 /**
- * Night sky, moon, two mountain ranges, a meadow and a lit cabin, plus the
- * positions the animation layer needs (ground height, cabin, stars).
+ * Night sky, moon, two mountain ranges, a meadow, a lit cabin and a tree that
+ * follows the season, plus the positions the animation layer needs.
+ * season: 'spring' | 'summer' | 'autumn' | 'winter'; hour: 0–23 (the cabin
+ * light is off from 1 to 6 a.m.).
  */
-export function sceneLayout() {
+export function sceneLayout({ season = seasonOf(), hour = new Date().getHours() } = {}) {
   const W = SCENE_WIDTH;
   const H = SCENE_HEIGHT;
   const grid = Array.from({ length: H }, () => Array(W).fill(''));
@@ -122,11 +137,25 @@ export function sceneLayout() {
       set(x, y, name);
     }
   }
-  for (let count = 0; count < 14; count += 1) {
+  const flowers = { spring: 30, summer: 14, autumn: 8, winter: 0 }[season];
+  for (let count = 0; count < flowers; count += 1) {
     const x = Math.floor(next() * W);
     if (x > 12 && x < 30) continue;
     set(x, hill(x) + 2 + Math.floor(next() * 5), next() < 0.5 ? 'px-flower' : 'px-flower-alt');
   }
+  if (season === 'autumn') {
+    // A few fallen leaves on the meadow's edge.
+    for (let x = 30; x < W; x += 5 + Math.floor(next() * 4)) set(x, hill(x), next() < 0.5 ? 'px-leaf-autumn' : 'px-leaf-autumn-light');
+  }
+
+  // A tree on the right-hand meadow.
+  const treeX = 79;
+  const treeBase = hill(treeX + 4) - 1;
+  const [leaf, leafLight] = LEAVES[season] || [];
+  const tree = sprite(season === 'winter' ? TREE_BARE : TREE_CANOPY, { l: leaf, L: leafLight, t: 'px-trunk', s: 'px-snow' });
+  tree.forEach((row, dy) => row.forEach((name, dx) => {
+    if (name) set(treeX + dx, treeBase - tree.length + 1 + dy, name);
+  }));
 
   // Cabin with a chimney and a lit window, standing on the meadow.
   const cabin = sprite([
@@ -140,7 +169,7 @@ export function sceneLayout() {
     '.wyywwdw.',
     '.wyywwdw.',
     '.wwwwwdw.',
-  ], { r: 'px-roof', w: 'px-wall', y: 'px-window', d: 'px-door', k: 'px-door' });
+  ], { r: 'px-roof', w: 'px-wall', y: hour >= 1 && hour < 6 ? 'px-window-off' : 'px-window', d: 'px-door', k: 'px-door' });
   const cabinX = 16;
   const ground = Math.min(...Array.from({ length: 9 }, (_, i) => hill(cabinX + i)));
   cabin.forEach((row, dy) => row.forEach((name, dx) => {
@@ -150,22 +179,39 @@ export function sceneLayout() {
     for (let y = ground + 1; y < hill(cabinX + dx); y += 1) set(cabinX + dx, y, 'px-grass');
   }
   const top = ground - cabin.length + 1;
+  if (season === 'winter') {
+    // Snow on ridges, the meadow's top row and the roof's upper edge.
+    const before = grid.map(row => [...row]);
+    for (let y = 0; y < H; y += 1) {
+      for (let x = 0; x < W; x += 1) {
+        const name = before[y][x];
+        if (['px-far-light', 'px-near-light', 'px-grass-light'].includes(name)) grid[y][x] = 'px-snow';
+        if (name === 'px-roof' && before[y - 1]?.[x] !== 'px-roof') grid[y][x] = 'px-snow';
+        // A dithered second row of snow on the meadow.
+        if (name === 'px-grass' && before[y - 1]?.[x] === 'px-grass-light' && (x + y) % 2 === 0) grid[y][x] = 'px-snow';
+      }
+    }
+  }
   // Walking surface: the meadow's top row, or just below the cabin's floor.
   const surface = x => (x >= cabinX && x < cabinX + 9 ? ground + 1 : hill(Math.max(0, Math.min(W - 1, x))));
   return {
     grid,
     stars,
     surface,
+    season,
     cabin: { x: cabinX, top, door: cabinX + 6, chimney: [cabinX + 2, top] },
+    tree: { x: treeX, top: treeBase - tree.length + 1, width: 9, canopyRows: season === 'winter' ? 3 : 6 },
   };
 }
 
-export function sceneGrid() {
-  return sceneLayout().grid;
+/** Deterministic default (summer, daytime light) unless options are given. */
+export function sceneGrid(options = { season: 'summer', hour: 12 }) {
+  return sceneLayout(options).grid;
 }
 
-export function pixelScene() {
-  return svg(sceneGrid(), { className: 'pixel-art pixel-scene', background: 'px-sky3' });
+/** The homepage scene for today's season and the visitor's local hour. */
+export function pixelScene(options = {}) {
+  return svg(sceneLayout(options).grid, { className: 'pixel-art pixel-scene', background: 'px-sky3' });
 }
 
 /** The owner's 16×16 avatar (rows from content/profile.js). */
