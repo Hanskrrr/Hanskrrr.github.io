@@ -25,7 +25,7 @@ const critterFrames = {
   left: ['.g..g.', '.oooo.', 'obebbo', 'obbbbo', '.o..o.'],
   left2: ['.g..g.', '.oooo.', 'obebbo', 'obbbbo', '..oo..'],
 };
-const CRITTER = Object.fromEntries(Object.entries(critterFrames).map(([name, rows]) => [name, sprite(rows, CRITTER_KEYS)]));
+export const CRITTER = Object.fromEntries(Object.entries(critterFrames).map(([name, rows]) => [name, sprite(rows, CRITTER_KEYS)]));
 const HEART = sprite(['h.h', 'hhh', '.h.'], { h: 'px-heart' });
 
 function layer(svg) {

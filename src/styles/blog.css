@@ -475,6 +475,21 @@ main:focus, main:focus-visible { outline: none; }
 
 .loading { padding: 120px 0; color: var(--muted); font-size: 16px; }
 
+/* 404 page (src/404.html) */
+.lost-page { min-height: 100svh; display: grid; place-content: center; justify-items: center; gap: 0; padding: 48px 16px; text-align: center; }
+.lost-page h1 { font-family: var(--pixel); font-weight: 400; font-size: 48px; line-height: 48px; margin: 20px 0 16px; text-shadow: 3px 3px 0 var(--purple); }
+:root[data-theme="paper"] .lost-page h1 { text-shadow: 3px 3px 0 var(--drop); }
+.lost-page .muted { margin: 0; }
+.lost-page .hero-actions { justify-content: center; }
+.lost-art {
+  width: min(384px, 100%);
+  aspect-ratio: 2 / 1;
+  margin-bottom: 36px;
+  line-height: 0;
+  --fc: var(--line); --dc: var(--drop); --d: 8px;
+  box-shadow: 0 calc(-1 * var(--px)) 0 0 var(--fc), 0 var(--px) 0 0 var(--fc), calc(-1 * var(--px)) 0 0 0 var(--fc), var(--px) 0 0 0 var(--fc), var(--d) var(--d) 0 0 var(--dc);
+}
+
 /* ---------- Dialogs ---------- */
 dialog {
   color: var(--ink);
