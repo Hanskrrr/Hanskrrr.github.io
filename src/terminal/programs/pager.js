@@ -1,4 +1,4 @@
-import {createTextScreen,graphemeCells,clipCells} from '../text-screen.js';
+import {createTextScreen,graphemeCells,clipCells} from '../ui/text-screen.js';
 
 export function layoutText(text, columns) {
   const width = Math.max(2,columns);

@@ -1,4 +1,4 @@
-import { createTextScreen } from '../text-screen.js';
+import { createTextScreen } from '../ui/text-screen.js';
 import { photoCatalog } from '../../content/photos.js';
 import { fitImageToCells, imageDataToCharacterLines } from './gallery-renderer.js';
 

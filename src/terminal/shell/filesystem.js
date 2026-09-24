@@ -1,5 +1,5 @@
-import { audioTracks } from '../content/audio.js';
-import { photoCatalog } from '../content/photos.js';
+import { audioTracks } from '../../content/audio.js';
+import { photoCatalog } from '../../content/photos.js';
 
 /**
  * A read-only catalog for the public terminal. This is an in-memory filesystem,

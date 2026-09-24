@@ -1,4 +1,4 @@
-import { createTextScreen, clipCells } from '../text-screen.js';
+import { createTextScreen, clipCells } from '../ui/text-screen.js';
 
 export function formatTime(seconds) {
   const total = Math.floor(Number.isFinite(seconds) && seconds > 0 ? seconds : 0);

@@ -39,6 +39,15 @@
   font-feature-settings: "kern" 0, "liga" 0, "calt" 0;
   scroll-behavior: auto;
   scroll-padding-top: 0;
+  /* Pixel creature (ui/creature.js) */
+  --pet-edge: #626262;
+  --pet-body: #c7c7c7;
+  --pet-shade: #969696;
+  --pet-light: #eeeeee;
+  --pet-eye: #080808;
+  --pet-sprout: #e2e2e2;
+  --pet-cheek: #969696;
+  --pet-glyph: #e2e2e2;
 }
 
 :root[data-view="terminal"][data-terminal-theme="blue"] {
@@ -61,6 +70,14 @@
   --tty-error: #ff9fb0;
   --tty-logo-face: #9fb3ff;
   --tty-logo-edge: #7b5fd0;
+  --pet-edge: #7b5fd0;
+  --pet-body: #b9a3ff;
+  --pet-shade: #8f76e8;
+  --pet-light: #e6ddff;
+  --pet-eye: #10102a;
+  --pet-sprout: #aef0a4;
+  --pet-cheek: #ffe98f;
+  --pet-glyph: #ffe98f;
 }
 
 :root[data-view="terminal"][data-terminal-theme="light"] {
@@ -82,6 +99,14 @@
   --tty-error: #a22e38;
   --tty-logo-face: #254e93;
   --tty-logo-edge: #7c95bd;
+  --pet-edge: #715299;
+  --pet-body: #c9b6f2;
+  --pet-shade: #a68fdc;
+  --pet-light: #efe8ff;
+  --pet-eye: #292929;
+  --pet-sprout: #2f8a4a;
+  --pet-cheek: #e2b93b;
+  --pet-glyph: #715299;
 }
 
 [data-view="terminal"] body {
@@ -395,3 +420,25 @@
 
 /* Programs share the text screen; the player keeps its native <audio> hidden. */
 [data-view="terminal"] .tty-player audio { display: none; }
+
+/* Start screen: creature (17 cells incl. its glyph column) + one-cell gap + summary, on the 8×16 grid. */
+[data-view="terminal"] .tty-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+[data-view="terminal"] .tty-pet,
+[data-view="terminal"] .tty-info {
+  margin: 0;
+  font: inherit;
+  line-height: 16px;
+  white-space: pre;
+}
+[data-view="terminal"] .tty-pet { flex: none; }
+[data-view="terminal"] .tty-info { min-width: 0; }
+[data-view="terminal"] .tty-key { color: var(--faint); }
+[data-view="terminal"] .tty-value { color: var(--tty-directory); }
+[data-view="terminal"] .tty-rule { color: var(--line); }
+/* help: command names stand out from their arguments. */
+[data-view="terminal"] .tty-cmd { color: var(--tty-host); }
+[data-view="terminal"] .tty-line.help { color: var(--faint); }

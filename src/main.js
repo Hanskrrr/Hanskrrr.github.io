@@ -8,7 +8,7 @@ import { $, announce, main, reducedMotion, storage } from './core/dom.js';
 import { app, cancelTransitions, definePage, navigate, onLeave, renderView, routeFromUrl, runLeaveHooks } from './core/router.js';
 import { applyTheme, openSettings } from './core/theme.js';
 import { blogPages, setCategory, setSearch } from './blog/pages.js';
-import { handleGlobalKeydown, handleMainClick, handleSelectionChange, leaveTerminal, terminalPage } from './terminal/controller.js';
+import { handleGlobalKeydown, handleMainClick, handleSelectionChange, leaveTerminal, terminalPage } from './terminal/page.js';
 import { exhibitPage, lockContent } from './vault/exhibit.js';
 
 for (const [name, page] of Object.entries(blogPages)) definePage(name, page);

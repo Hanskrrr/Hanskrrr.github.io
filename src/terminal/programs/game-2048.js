@@ -1,5 +1,5 @@
 import { moveBoard, newBoard, canMove, hasWon } from './game-2048-model.js';
-import { createTextScreen } from '../text-screen.js';
+import { createTextScreen } from '../ui/text-screen.js';
 
 const BEST_KEY = 'gallery-2048-best';
 const keys = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down' };
