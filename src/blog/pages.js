@@ -81,7 +81,7 @@ function renderArticleList() {
   $('.section-heading .count').textContent = String(filtered.length).padStart(2, '0');
 }
 
-async function articleBody(article) {
+export async function articleBody(article) {
   if (!bodies.has(article.id)) {
     // A prerendered page (/articles/<slug>/) already carries the body.
     const prerendered = document.querySelector(`.prose[data-article="${article.id}"]`);

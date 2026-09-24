@@ -148,7 +148,7 @@ img { image-rendering: pixelated; }
 /* ---------- Pixel frame: notched corners + hard drop shadow ---------- */
 .button, .style-trigger, .brand-symbol, .search-field, .filter[aria-pressed="true"], .tag,
 .hero-art, .profile-card, .project-card, .exhibit-note, .room-stage, .room-panel,
-.room-photos figure, dialog, .icon-button, .count {
+.room-photos figure, dialog, .icon-button, .count, .term-card, .return-chip {
   --fc: var(--line);
   --dc: var(--drop);
   --d: var(--lift);
@@ -618,6 +618,18 @@ dialog::backdrop { background: color-mix(in srgb, var(--bg-deep) 80%, transparen
   .article-toc summary { pointer-events: none; color: var(--faint); }
   .article-toc summary::before { content: none; }
 }
+
+/* ---------- Term links and their preview card ---------- */
+.prose a.block-link { color: var(--green-ink); text-decoration-style: dashed; }
+.term-card { position: absolute; z-index: 20; padding: 14px 16px 12px; background: var(--surface); --d: 4px; }
+.term-card-body { min-height: 0; max-height: 40vh; overflow-y: auto; }
+.term-card .term-card-body > * { margin: 0 0 8px; }
+.term-card .term-card-body p, .term-card .term-card-body li { font-size: 15px; line-height: 1.8; }
+.term-card-jump { display: inline-block; margin-top: 4px; font: 16px/16px var(--pixel); color: var(--accent); }
+.return-chip { position: fixed; right: 24px; bottom: 24px; z-index: 20; padding: 10px 14px; border: 0; cursor: pointer; font: 16px/16px var(--pixel); color: var(--ink); background: var(--surface-2); --d: 4px; }
+.return-chip:hover { background: var(--surface); }
+.term-target { animation: term-flash 1.6s steps(8) both; }
+@keyframes term-flash { from { background: color-mix(in srgb, var(--yellow) 35%, transparent); } to { background: transparent; } }
 
 /* ---------- Topics ---------- */
 .topic-filters { display: flex; flex-direction: column; gap: 12px; min-width: 0; }

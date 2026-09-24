@@ -8,6 +8,7 @@ import { $, announce, main, reducedMotion, storage } from './core/dom.js';
 import { app, cancelTransitions, definePage, navigate, onLeave, renderView, routeFromUrl, runLeaveHooks } from './core/router.js';
 import { labelThemeButton, toggleTheme } from './core/theme.js';
 import { blogPages, setSearch, setTopic } from './blog/pages.js';
+import { attachTermPreviews, closeReturnChip, closeTermCard, handleTermClick } from './blog/term-preview.js';
 import { handleGlobalKeydown, handleMainClick, handleSelectionChange, leaveTerminal, terminalPage } from './terminal/page.js';
 import { exhibitPage, lockContent } from './vault/exhibit.js';
 
@@ -16,10 +17,14 @@ definePage('terminal', terminalPage);
 definePage('exhibit', exhibitPage);
 onLeave(leaveTerminal);
 onLeave(lockContent);
+onLeave(closeTermCard);
+onLeave(closeReturnChip);
+attachTermPreviews();
 
 document.addEventListener('click', event => {
   const target = event.target.closest('a,button');
   if (!target || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+  if (handleTermClick(event, target)) return;
   // In-page #links scroll without a history entry, so Back still leaves the page.
   const href = target.getAttribute('href');
   if (href?.length > 1 && href.startsWith('#')) {
