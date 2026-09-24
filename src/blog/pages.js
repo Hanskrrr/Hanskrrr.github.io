@@ -127,7 +127,7 @@ function renderArticle(article) {
 function renderGraph() {
   // Square on phones, so labels stay readable without sideways scrolling.
   const size = main.clientWidth < 600 ? { width: 440, height: 440 } : { width: 800, height: 560 };
-  main.innerHTML = `${intro(`GRAPH / ${String(articles.length).padStart(2, '0')}`, '知识图谱', '小方块是文章，按主题挂在分类下；实线是文章之间的链接。点方块打开文章，点分类查看该分类的文章。')}<div class="graph-frame">${globalGraph(size)}</div><ul class="graph-legend">${topics.map(genre => `<li><a class="tag tag-${toneOf(genre.id)}" href="/?view=blog" data-topic="${genre.id}">${escapeHtml(genre.name)}</a></li>`).join('')}</ul>`;
+  main.innerHTML = `${intro(`GRAPH / ${String(articles.length).padStart(2, '0')}`, '知识图谱', '点一下试试')}<div class="graph-frame">${globalGraph(size)}</div><ul class="graph-legend">${topics.map(genre => `<li><a class="tag tag-${toneOf(genre.id)}" href="/?view=blog" data-topic="${genre.id}">${escapeHtml(genre.name)}</a></li>`).join('')}</ul>`;
   attachHighlight($('.knowledge-graph'));
 }
 function intro(kicker,title,description) {
@@ -137,7 +137,7 @@ function renderProjects() {
   main.innerHTML = `${intro('PROJECTS / 03','项目','当前演示中的三个组成部分。')}<div class="project-grid"><article class="project-card"><span>01 / BLOG</span><h2>技术博客</h2><p>文章分类、关键词搜索和独立阅读界面。</p><a class="small-link" href="/?view=blog" data-nav="blog">查看文章 <span aria-hidden="true">→</span></a></article><article class="project-card"><span>02 / TERMINAL</span><h2>交互终端</h2><p>通过指令浏览公开内容，支持历史记录和自动补全。</p><a class="small-link" href="/terminal/" data-nav="terminal">打开终端 <span aria-hidden="true">→</span></a></article><article class="project-card"><span>03 / APPEARANCE</span><h2>两种像素配色</h2><p>点右上角的方块，在夜空与纸页之间切换。</p><button class="small-link" data-action="toggle-theme">切换配色 <span aria-hidden="true">→</span></button></article></div>`;
 }
 function renderAbout() {
-  main.innerHTML = `${intro('ABOUT / THIS SITE','关于本站','Hanskrrr 的个人网站设计演示。')}<div class="about-body"><p>这个网站以技术博客作为常规入口，并提供一个可以执行指令的终端。内容形式包括文章、图片和音频。</p><div class="about-list"><div><strong>视觉风格</strong><span>像素风格，以靛蓝与紫色为主，淡黄与薄荷绿点缀；正文保留清晰的系统字体。可在右上角切换两种配色。</span></div><div><strong>内容状态</strong><span>当前文章、图片与音频均为示例，供检查布局和交互。</span></div><div><strong>浏览方式</strong><span>使用顶部导航阅读文章和项目；在页脚进入终端，输入 help 查看公开指令。</span></div></div></div>`;
+  main.innerHTML = `${intro('ABOUT / THIS SITE','关于本站','Hanskrrr的个人网站')}<div class="about-body"><p>一个普通的知识/技术记录博客。</p><div class="about-list"><div><strong>我是谁</strong><span>尝试把知识拼凑成完整故事的人</span></div><div><strong>会看到什么</strong><span>对知识的反刍，一些想法，还有可能存在的角落</span></div></div></div>`;
 }
 
 export const blogPages = {
