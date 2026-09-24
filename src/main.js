@@ -1,0 +1,61 @@
+// Entry point: registers the pages, wires page-level events and opens the first route.
+//   core/      DOM helpers, router, themes and settings
+//   blog/      blog pages and pixel art
+//   terminal/  the /terminal/ page, virtual shell and full-screen programs
+//   vault/     decryption and the session-only exhibit page
+//   content/   public articles, photo and audio catalogues
+import { $, announce, main, reducedMotion, storage } from './core/dom.js';
+import { app, cancelTransitions, definePage, navigate, onLeave, renderView, routeFromUrl, runLeaveHooks } from './core/router.js';
+import { applyTheme, openSettings } from './core/theme.js';
+import { blogPages, setCategory, setSearch } from './blog/pages.js';
+import { handleGlobalKeydown, handleMainClick, handleSelectionChange, leaveTerminal, terminalPage } from './terminal/controller.js';
+import { exhibitPage, lockContent } from './vault/exhibit.js';
+
+for (const [name, page] of Object.entries(blogPages)) definePage(name, page);
+definePage('terminal', terminalPage);
+definePage('exhibit', exhibitPage);
+onLeave(leaveTerminal);
+onLeave(lockContent);
+
+document.addEventListener('click', event => {
+  const target = event.target.closest('a,button');
+  if (!target || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+  if (target.dataset.nav) { event.preventDefault(); navigate(target.dataset.nav); }
+  if (target.dataset.article) { event.preventDefault(); navigate('article', target.dataset.article); }
+  if (target.dataset.filter) setCategory(target.dataset.filter);
+  if (target.dataset.themeChoice) applyTheme(target.dataset.themeChoice);
+  if (target.dataset.close) $(`#${target.dataset.close}`).close();
+  switch (target.dataset.action) {
+    case 'settings': openSettings(); break;
+    case 'browse': $('#articles')?.scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth' }); break;
+    case 'lock': navigate('terminal', undefined, { push: false }); break;
+  }
+});
+main.addEventListener('click', handleMainClick);
+document.addEventListener('keydown', handleGlobalKeydown);
+document.addEventListener('selectionchange', handleSelectionChange);
+document.addEventListener('input', event => {
+  if (event.target.id === 'article-search') setSearch(event.target.value);
+});
+$('#default-view').addEventListener('change', event => {
+  storage.set('gallery-default-view', event.target.value === 'site' ? null : event.target.value);
+  announce('已保存本机默认入口');
+});
+document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', event => {
+  if (event.target !== dialog) return;
+  const rect = dialog.getBoundingClientRect();
+  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+}));
+addEventListener('popstate', () => {
+  const route = routeFromUrl();
+  navigate(route.view, route.article?.id, { push: false });
+});
+addEventListener('pagehide', () => {
+  cancelTransitions();
+  runLeaveHooks();
+  // Clear pending and unsubmitted input before a browser history snapshot is retained.
+  if (app.view === 'exhibit' || app.view === 'terminal') renderView('terminal');
+});
+
+const initial = routeFromUrl();
+navigate(initial.view, initial.article?.id, { push: false, animated: false, focus: initial.view === 'terminal' });

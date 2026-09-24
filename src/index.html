@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="night">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Hanskrrr 的技术博客、项目与内容展示。">
+  <meta name="theme-color" content="#1a1942">
+  <title>Hanskrrr · 技术博客</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <script src="/config.js"></script>
+  <script>
+    (() => {
+      const read = key => { try { return localStorage.getItem(key); } catch { return null; } };
+      const root = document.documentElement;
+      const config = window.GALLERY_CONFIG;
+      const theme = read('gallery-theme') || config.theme;
+      if (['night', 'paper'].includes(theme)) root.dataset.theme = theme;
+      const terminalTheme = read('gallery-terminal-theme') || config.terminalTheme;
+      root.dataset.terminalTheme = ['linux', 'blue', 'light'].includes(terminalTheme) ? terminalTheme : 'blue';
+      const query = new URLSearchParams(location.search);
+      const terminal = /^\/terminal\/?$/.test(location.pathname) ||
+        (!query.has('view') && !query.has('article') && (read('gallery-default-view') || config.defaultView) === 'terminal');
+      if (terminal) root.dataset.view = 'terminal';
+    })();
+  </script>
+  <link rel="stylesheet" href="/styles/blog.css">
+  <link rel="stylesheet" href="/styles/terminal.css">
+  <script type="module" src="/main.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到内容</a>
+  <div class="site-shell">
+    <header class="site-header">
+      <a class="brand" href="/?view=blog" data-nav="blog" aria-label="Hanskrrr 博客首页"><span class="brand-symbol" aria-hidden="true">H</span><span>Hanskrrr<span class="brand-sub">/ GALLERY</span></span></a>
+      <nav aria-label="主导航"><a href="/?view=blog" data-nav="blog">文章</a><a href="/?view=projects" data-nav="projects">项目</a><a href="/?view=about" data-nav="about">关于</a></nav>
+      <button class="style-trigger" data-action="settings" aria-haspopup="dialog"><span class="theme-dot" aria-hidden="true"></span><span>切换风格</span></button>
+    </header>
+    <main id="main" tabindex="-1"><div class="loading" role="status">正在加载…</div></main>
+    <footer class="site-footer"><span>© 2026 Hanskrrr<span class="footer-separator">/</span><span>设计演示 · 内容均为示例</span></span><div><a href="https://github.com/Hanskrrr/Hanskrrr.github.io" target="_blank" rel="noreferrer">GitHub</a><a class="terminal-link" href="/terminal/" data-nav="terminal" aria-label="打开终端"><span aria-hidden="true">&gt;_</span>terminal</a></div></footer>
+  </div>
+  <div id="announcer" class="sr-only" aria-live="polite"></div>
+  <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
+    <div class="dialog-heading"><div><span class="eyebrow">APPEARANCE</span><h2 id="settings-title">界面设置</h2></div><button class="icon-button" data-close="settings-dialog" aria-label="关闭设置">×</button></div>
+    <p class="muted">选择博客与展览的配色；终端使用独立配色。</p>
+    <div class="theme-options">
+      <button data-theme-choice="night" class="theme-option"><span class="theme-swatches swatches-night" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span><strong>01 · 夜空</strong><small>深靛蓝底 / 紫色 / 淡黄与薄荷绿点缀</small></button>
+      <button data-theme-choice="paper" class="theme-option"><span class="theme-swatches swatches-paper" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span><strong>02 · 纸页</strong><small>淡黄底 / 靛蓝文字 / 紫色与绿色点缀</small></button>
+    </div>
+    <label class="setting-row" for="default-view"><span><strong>本机默认入口</strong><small>只影响此浏览器打开根链接时的界面。</small></span><select id="default-view"><option value="site">跟随站点</option><option value="blog">博客</option><option value="terminal">终端</option></select></label>
+    <p class="settings-note">全站默认入口由站点配置决定；此设置不会解锁私密内容。</p>
+  </dialog>
+  <dialog id="photo-dialog" class="photo-dialog" aria-labelledby="photo-title"><div class="dialog-heading"><h2 id="photo-title">图片示例</h2><button class="icon-button" data-close="photo-dialog" aria-label="关闭图片">×</button></div><div id="photo-detail"></div></dialog>
+  <noscript><p>此演示需要 JavaScript 来切换界面和运行终端。</p></noscript>
+</body>
+</html>

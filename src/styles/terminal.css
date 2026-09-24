@@ -1,0 +1,397 @@
+/* Terminus TTF 4.49.3 is bundled unmodified; see public/fonts/Terminus-COPYING.txt. */
+@font-face {
+  font-family: "Terminus";
+  src: url("../fonts/TerminusTTF-4.49.3.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+}
+
+/* The terminal is a full-page text console, independent of the blog theme. */
+:root[data-view="terminal"] {
+  color-scheme: dark;
+  --bg: #080808;
+  --surface: #080808;
+  --surface-2: #171717;
+  --ink: #c7c7c7;
+  --muted: #c7c7c7;
+  --faint: #969696;
+  --accent: #e2e2e2;
+  --solid: #c7c7c7;
+  --line: #626262;
+  --line-soft: #333;
+  --shadow: none;
+  --radius: 0;
+  --tty-font: "Terminus", "Noto Sans Mono CJK SC", "Sarasa Mono SC", "PingFang SC", monospace;
+  --tty-cell: 8px;
+  --tty-user: #87cbd0;
+  --tty-host: #c8afe7;
+  --tty-path: #a5bbec;
+  --tty-directory: #a5bbec;
+  --tty-error: #edaaa7;
+  --tty-logo-face: #dedede;
+  --tty-logo-edge: #727272;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--tty-font);
+  font-kerning: none;
+  font-variant-ligatures: none;
+  font-feature-settings: "kern" 0, "liga" 0, "calt" 0;
+  scroll-behavior: auto;
+  scroll-padding-top: 0;
+}
+
+:root[data-view="terminal"][data-terminal-theme="blue"] {
+  /* Deep indigo console matching the blog's pixel palette: mint user,
+     butter-yellow host, periwinkle paths, violet logo edge. */
+  --bg: #10102a;
+  --surface: #10102a;
+  --surface-2: #1d1d4a;
+  --ink: #bcc6f5;
+  --muted: #bcc6f5;
+  --faint: #939bd2;
+  --accent: #eceeff;
+  --solid: #bcc6f5;
+  --line: #5a5fa8;
+  --line-soft: #26285a;
+  --tty-user: #aef0a4;
+  --tty-host: #ffe98f;
+  --tty-path: #8ca4ff;
+  --tty-directory: #8ca4ff;
+  --tty-error: #ff9fb0;
+  --tty-logo-face: #9fb3ff;
+  --tty-logo-edge: #7b5fd0;
+}
+
+:root[data-view="terminal"][data-terminal-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f4f2;
+  --surface: #f4f4f2;
+  --surface-2: #e6e6e2;
+  --ink: #292929;
+  --muted: #292929;
+  --faint: #5a5a5a;
+  --accent: #080808;
+  --solid: #292929;
+  --line: #777;
+  --line-soft: #c4c4c0;
+  --tty-user: #146575;
+  --tty-host: #715299;
+  --tty-path: #325caf;
+  --tty-directory: #325caf;
+  --tty-error: #a22e38;
+  --tty-logo-face: #254e93;
+  --tty-logo-edge: #7c95bd;
+}
+
+[data-view="terminal"] body {
+  background: var(--bg);
+  color: var(--ink);
+  transition: none;
+}
+
+[data-view="terminal"] .site-shell {
+  width: 100%;
+  max-width: none;
+  min-height: 100svh;
+  margin: 0;
+  padding: 0;
+  background: none;
+}
+
+[data-view="terminal"] .site-header,
+[data-view="terminal"] .site-footer {
+  display: none;
+}
+
+[data-view="terminal"] main {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+[data-view="terminal"] .tty {
+  min-height: 100svh;
+  margin: 0;
+  padding: 8px;
+  color: var(--ink);
+  font: 400 16px/16px var(--tty-font);
+  font-kerning: none;
+  font-variant-ligatures: none;
+  font-feature-settings: "kern" 0, "liga" 0, "calt" 0;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+[data-view="terminal"] .tty[hidden] { display: none; }
+
+[data-view="terminal"] .tty-program {
+  min-height: 100svh;
+  max-width: 100%;
+  padding: 8px;
+  color: var(--ink);
+  background: var(--bg);
+  font: 400 16px/16px var(--tty-font);
+  letter-spacing: 0;
+  font-kerning: none;
+  font-variant-ligatures: none;
+  outline: none;
+  overflow-wrap: anywhere;
+}
+
+[data-view="terminal"] .tty-screen {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font: 400 16px/16px var(--tty-font);
+  font-kerning: none;
+  font-variant-ligatures: none;
+  letter-spacing: 0;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  tab-size: 4;
+}
+
+[data-view="terminal"] .tty-program button,
+[data-view="terminal"] .tty-program input {
+  font: inherit;
+}
+
+[data-view="terminal"] .tty-program button:focus-visible,
+[data-view="terminal"] .tty-program input:focus-visible {
+  outline: 1px solid var(--tty-user);
+  outline-offset: 3px;
+}
+
+[data-view="terminal"] .tty-output {
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+}
+
+[data-view="terminal"] .tty-line {
+  min-height: 16px;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+[data-view="terminal"] .tty-line.command {
+  margin-top: 0;
+}
+
+[data-view="terminal"] .tty-user { color: var(--tty-user); }
+[data-view="terminal"] .tty-host { color: var(--tty-host); }
+[data-view="terminal"] .tty-path,
+[data-view="terminal"] .tty-line.directory { color: var(--tty-directory); }
+[data-view="terminal"] .tty-line.media { color: var(--tty-host); }
+[data-view="terminal"] .tty-line.error { color: var(--tty-error); }
+
+[data-view="terminal"] .tty-banner {
+  margin: 16px 0 24px;
+}
+[data-view="terminal"] .tty-banner pre {
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+[data-view="terminal"] .tty-banner-face { color: var(--tty-logo-face); }
+[data-view="terminal"] .tty-banner-edge { color: var(--tty-logo-edge); }
+[data-view="terminal"] .tty-banner-compact { display: none; }
+/* 52 cells × 8px, plus the terminal's 16px of horizontal padding. */
+@media (max-width: 431px) {
+  [data-view="terminal"] .tty-banner-wide { display: none; }
+  [data-view="terminal"] .tty-banner-compact { display: block; }
+}
+
+[data-view="terminal"] .tty-line.feedback {
+  color: inherit;
+}
+
+[data-view="terminal"] .tty-link {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+[data-view="terminal"] .tty-link:hover {
+  color: var(--accent);
+}
+
+[data-view="terminal"] .tty-form {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font: inherit;
+}
+
+[data-view="terminal"] .tty-form[hidden] { display: none; }
+
+[data-view="terminal"] .tty-edit-render {
+  min-height: 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  pointer-events: none;
+}
+
+[data-view="terminal"] .tty-cursor {
+  display: inline;
+  color: inherit;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+[data-view="terminal"] .tty-form:focus-within .tty-cursor {
+  color: var(--bg);
+  background: var(--ink);
+  box-shadow: none;
+  animation: tty-caret 1s step-end infinite;
+}
+
+[data-view="terminal"] .tty-form.tty-selecting .tty-cursor {
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+
+/* The real control overlays the same wrapped text; native IME and selections
+   stay available without showing an HTML input box or a second caret. */
+[data-view="terminal"] .tty-form textarea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+  color: transparent;
+  caret-color: transparent;
+  font: inherit;
+  line-height: 16px;
+  text-indent: var(--prompt-width);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  resize: none;
+  overflow: hidden;
+  appearance: none;
+}
+
+[data-view="terminal"] .tty-form textarea:disabled {
+  opacity: 1;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes tty-caret {
+  50% { background: transparent; color: var(--ink); }
+}
+
+[data-view="terminal"] .tty-link:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+}
+
+[data-view="terminal"] ::selection {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+[data-view="terminal"] .photo-dialog {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: none;
+  font-family: var(--tty-font);
+  animation: none;
+}
+
+[data-view="terminal"] .photo-dialog .icon-button {
+  box-shadow: none;
+  border: 1px solid var(--line);
+  background: none;
+  font-family: var(--tty-font);
+  font-size: 16px;
+}
+[data-view="terminal"] .photo-dialog::backdrop {
+  background: #000a;
+  backdrop-filter: none;
+}
+
+[data-view="terminal"] .photo-dialog .dialog-heading {
+  margin-bottom: 16px;
+}
+
+[data-view="terminal"] .photo-dialog h2 {
+  font: 400 16px/16px var(--tty-font);
+}
+
+[data-view="terminal"] .photo-dialog .icon-button,
+[data-view="terminal"] .photo-dialog img {
+  border-radius: 0;
+}
+
+:root[data-view="terminal"]::view-transition-old(content),
+:root[data-view="terminal"]::view-transition-new(content) {
+  animation-name: tty-fade-out;
+  animation-duration: 120ms;
+  animation-timing-function: ease;
+}
+
+:root[data-view="terminal"]::view-transition-new(content) {
+  animation-name: tty-fade-in;
+}
+
+@keyframes tty-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes tty-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  [data-view="terminal"] .tty-form:focus-within .tty-cursor {
+    animation: none;
+  }
+  :root[data-view="terminal"]::view-transition-old(content),
+  :root[data-view="terminal"]::view-transition-new(content) {
+    animation: none;
+  }
+}
+
+/* Programs share the text screen; the player keeps its native <audio> hidden. */
+[data-view="terminal"] .tty-player audio { display: none; }
