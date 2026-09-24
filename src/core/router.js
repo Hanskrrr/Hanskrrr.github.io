@@ -1,6 +1,6 @@
 // URL ⇄ page mapping and page swaps. Pages and "leave" clean-up hooks are registered
 // by main.js, so this module does not depend on any page implementation.
-import { announce, main, reducedMotion, storage } from './dom.js';
+import { announce, main, reducedMotion } from './dom.js';
 import { updateBrowserColor } from './theme.js';
 import { articles } from '../content/articles.js';
 
@@ -27,8 +27,7 @@ export function routeFromUrl() {
   const article = articles.find(item => item.id === slug);
   if (article) return { view: 'article', article };
   if (['blog', 'projects', 'about', 'graph'].includes(query.get('view'))) return { view: query.get('view') };
-  const preference = storage.get('gallery-default-view') || window.GALLERY_CONFIG.defaultView;
-  return { view: preference === 'terminal' ? 'terminal' : 'blog' };
+  return { view: window.GALLERY_CONFIG.defaultView === 'terminal' ? 'terminal' : 'blog' };
 }
 export function routeUrl(nextView, articleId) {
   if (nextView === 'terminal') return '/terminal/';

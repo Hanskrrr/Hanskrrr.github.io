@@ -1,4 +1,4 @@
-// Blog colour themes (night/paper), terminal colour themes and the settings dialog.
+// Blog colour themes (night/paper, toggled by the header button) and terminal colour themes.
 import { $, announce, storage } from './dom.js';
 
 export const themes = ['night', 'paper'];
@@ -13,16 +13,19 @@ export function updateBrowserColor() {
     ? terminalThemes[document.documentElement.dataset.terminalTheme]?.background || terminalThemes.blue.background
     : themeColors[document.documentElement.dataset.theme] || themeColors.night;
 }
-export function openSettings() {
-  $('#default-view').value = storage.get('gallery-default-view') || 'site';
-  document.querySelectorAll('[data-theme-choice]').forEach(button => button.setAttribute('aria-pressed',button.dataset.themeChoice === document.documentElement.dataset.theme));
-  $('#settings-dialog').showModal();
+const themeNames = { night: '夜空', paper: '纸页' };
+/** Label the header button with the theme it switches to. */
+export function labelThemeButton() {
+  const next = document.documentElement.dataset.theme === 'paper' ? 'night' : 'paper';
+  const button = $('[data-action="toggle-theme"]');
+  button.title = `切换到${themeNames[next]}配色`;
+  button.setAttribute('aria-label', button.title);
 }
-export function applyTheme(theme) {
-  if (!themes.includes(theme)) return;
+export function toggleTheme() {
+  const theme = document.documentElement.dataset.theme === 'paper' ? 'night' : 'paper';
   document.documentElement.dataset.theme = theme;
-  storage.set('gallery-theme',theme);
-  document.querySelectorAll('[data-theme-choice]').forEach(button => button.setAttribute('aria-pressed',button.dataset.themeChoice === theme));
+  storage.set('gallery-theme', theme);
   updateBrowserColor();
-  announce('已切换界面风格');
+  labelThemeButton();
+  announce(`已切换到${themeNames[theme]}配色`);
 }

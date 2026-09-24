@@ -1,12 +1,12 @@
 // Entry point: registers the pages, wires page-level events and opens the first route.
-//   core/      DOM helpers, router, themes and settings
+//   core/      DOM helpers, router and themes
 //   blog/      blog pages and pixel art
 //   terminal/  the /terminal/ page, virtual shell and full-screen programs
 //   vault/     decryption and the session-only exhibit page
 //   content/   public articles, photo and audio catalogues
 import { $, announce, main, reducedMotion, storage } from './core/dom.js';
 import { app, cancelTransitions, definePage, navigate, onLeave, renderView, routeFromUrl, runLeaveHooks } from './core/router.js';
-import { applyTheme, openSettings } from './core/theme.js';
+import { labelThemeButton, toggleTheme } from './core/theme.js';
 import { blogPages, setSearch, setTopic } from './blog/pages.js';
 import { handleGlobalKeydown, handleMainClick, handleSelectionChange, leaveTerminal, terminalPage } from './terminal/page.js';
 import { exhibitPage, lockContent } from './vault/exhibit.js';
@@ -27,10 +27,9 @@ document.addEventListener('click', event => {
     setTopic(target.dataset.topic);
     if (app.view !== 'blog') navigate('blog');
   }
-  if (target.dataset.themeChoice) applyTheme(target.dataset.themeChoice);
   if (target.dataset.close) $(`#${target.dataset.close}`).close();
   switch (target.dataset.action) {
-    case 'settings': openSettings(); break;
+    case 'toggle-theme': toggleTheme(); break;
     case 'browse': $('#articles')?.scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth' }); break;
     case 'lock': navigate('terminal', undefined, { push: false }); break;
   }
@@ -40,10 +39,6 @@ document.addEventListener('keydown', handleGlobalKeydown);
 document.addEventListener('selectionchange', handleSelectionChange);
 document.addEventListener('input', event => {
   if (event.target.id === 'article-search') setSearch(event.target.value);
-});
-$('#default-view').addEventListener('change', event => {
-  storage.set('gallery-default-view', event.target.value === 'site' ? null : event.target.value);
-  announce('已保存本机默认入口');
 });
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', event => {
   if (event.target !== dialog) return;
@@ -81,5 +76,6 @@ console.log(
   'color:#aef0a4;font:13px monospace',
 );
 
+labelThemeButton();
 const initial = routeFromUrl();
 navigate(initial.view, initial.article?.id, { push: false, animated: false, focus: initial.view === 'terminal' });
