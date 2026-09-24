@@ -13,7 +13,7 @@ export const profile = {
   now: {
     updated: '2026-09-24',
     items: [
-      ['在做', '这个像素风格的个人网站'],
+      ['在做', '这个网站'],
     ],
   },
   // 16×16 pixel avatar. h hair · f face · e eyes/mouth · k headphones · s shirt · c collar

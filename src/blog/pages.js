@@ -127,7 +127,7 @@ function renderArticle(article) {
 function renderGraph() {
   // Square on phones, so labels stay readable without sideways scrolling.
   const size = main.clientWidth < 600 ? { width: 440, height: 440 } : { width: 800, height: 560 };
-  main.innerHTML = `${intro(`GRAPH / ${String(articles.length).padStart(2, '0')}`, '知识图谱', '点一下试试')}<div class="graph-frame">${globalGraph(size)}</div><ul class="graph-legend">${topics.map(genre => `<li><a class="tag tag-${toneOf(genre.id)}" href="/?view=blog" data-topic="${genre.id}">${escapeHtml(genre.name)}</a></li>`).join('')}</ul>`;
+  main.innerHTML = `${intro(`GRAPH / ${String(articles.length).padStart(2, '0')}`, '知识图谱(still working on it...)', '点一下试试')}<div class="graph-frame">${globalGraph(size)}</div><ul class="graph-legend">${topics.map(genre => `<li><a class="tag tag-${toneOf(genre.id)}" href="/?view=blog" data-topic="${genre.id}">${escapeHtml(genre.name)}</a></li>`).join('')}</ul>`;
   attachHighlight($('.knowledge-graph'));
 }
 function intro(kicker,title,description) {
