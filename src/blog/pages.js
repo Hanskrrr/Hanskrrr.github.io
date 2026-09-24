@@ -1,11 +1,13 @@
 // Blog pages: home (hero + article list), article, projects and about.
-import { $, el, main } from '../core/dom.js';
+import { $, el, main, reducedMotion } from '../core/dom.js';
 import { articles } from '../content/articles.js';
 import { monitorSprite, pixelScene } from './pixel-art.js';
+import { animateScene } from './scene.js';
 
 const categoryTone = { Web: 'blue', JavaScript: 'yellow', '安全': 'green', UI: 'purple' };
 let category = '全部';
 let search = '';
+let stopScene = () => {};
 
 export function setCategory(value) { category = value; renderArticleList(); }
 export function setSearch(value) { search = value; renderArticleList(); }
@@ -20,6 +22,8 @@ function renderBlog() {
     <aside class="sidebar"><p class="aside-label">ABOUT</p><div class="profile-card">${monitorSprite()}<h3>一个个人网站</h3><p>以博客为入口，展示文章、项目、图片和音频。</p><a href="/?view=about" data-nav="about" class="small-link">关于本站 <span aria-hidden="true">→</span></a></div><div class="topic-list"><p class="aside-label">TOPICS</p>${topics.map(value => `<button data-filter="${value}"><span>${value}</span><span>${String(articles.filter(article => article.category === value).length).padStart(2, '0')}</span></button>`).join('')}</div><p class="aside-note">当前文章与媒体均为演示内容。</p></aside></div>`;
   $('#article-search').value = search;
   renderArticleList();
+  stopScene();
+  stopScene = animateScene($('.pixel-scene'), { reducedMotion: reducedMotion.matches });
 }
 function articleRow(article) {
   const link = el('a', 'article-row');

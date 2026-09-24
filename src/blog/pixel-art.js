@@ -55,8 +55,11 @@ function ridge(peaks, slope) {
   return x => Math.min(...peaks.map(([px, py]) => Math.round(py + Math.abs(x - px) * slope)));
 }
 
-/** Night sky, moon, two mountain ranges, a meadow and a lit cabin. */
-export function sceneGrid() {
+/**
+ * Night sky, moon, two mountain ranges, a meadow and a lit cabin, plus the
+ * positions the animation layer needs (ground height, cabin, stars).
+ */
+export function sceneLayout() {
   const W = SCENE_WIDTH;
   const H = SCENE_HEIGHT;
   const grid = Array.from({ length: H }, () => Array(W).fill(''));
@@ -88,11 +91,13 @@ export function sceneGrid() {
 
   // Stars: seeded, kept out of the moon and below-horizon area.
   const next = random(20260923);
+  const stars = [];
   for (let count = 0; count < 34;) {
     const x = Math.floor(next() * W);
     const y = Math.floor(next() * 34);
     if ((x - mx) ** 2 + (y - my) ** 2 < (r + 4) ** 2) continue;
     set(x, y, next() < 0.35 ? 'px-star' : 'px-star-dim');
+    stars.push([x, y]);
     count += 1;
   }
   [[14, 7], [44, 5], [88, 30]].forEach(([x, y]) => {
@@ -123,10 +128,11 @@ export function sceneGrid() {
     set(x, hill(x) + 2 + Math.floor(next() * 5), next() < 0.5 ? 'px-flower' : 'px-flower-alt');
   }
 
-  // Cabin with a lit window, standing on the meadow.
+  // Cabin with a chimney and a lit window, standing on the meadow.
   const cabin = sprite([
-    '....r....',
-    '...rrr...',
+    '..k......',
+    '..k.r....',
+    '..krrr...',
     '..rrrrr..',
     '.rrrrrrr.',
     'rrrrrrrrr',
@@ -134,7 +140,7 @@ export function sceneGrid() {
     '.wyywwdw.',
     '.wyywwdw.',
     '.wwwwwdw.',
-  ], { r: 'px-roof', w: 'px-wall', y: 'px-window', d: 'px-door' });
+  ], { r: 'px-roof', w: 'px-wall', y: 'px-window', d: 'px-door', k: 'px-door' });
   const cabinX = 16;
   const ground = Math.min(...Array.from({ length: 9 }, (_, i) => hill(cabinX + i)));
   cabin.forEach((row, dy) => row.forEach((name, dx) => {
@@ -143,7 +149,19 @@ export function sceneGrid() {
   for (let dx = 0; dx < 9; dx += 1) {
     for (let y = ground + 1; y < hill(cabinX + dx); y += 1) set(cabinX + dx, y, 'px-grass');
   }
-  return grid;
+  const top = ground - cabin.length + 1;
+  // Walking surface: the meadow's top row, or just below the cabin's floor.
+  const surface = x => (x >= cabinX && x < cabinX + 9 ? ground + 1 : hill(Math.max(0, Math.min(W - 1, x))));
+  return {
+    grid,
+    stars,
+    surface,
+    cabin: { x: cabinX, top, door: cabinX + 6, chimney: [cabinX + 2, top] },
+  };
+}
+
+export function sceneGrid() {
+  return sceneLayout().grid;
 }
 
 export function pixelScene() {

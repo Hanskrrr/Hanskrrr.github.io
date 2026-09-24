@@ -51,6 +51,10 @@
   --flower: #ffe98f; --flower-alt: #d3bfff;
   --roof: #9a6cf0; --wall: #d3c6ff; --window: #ffe98f; --door: #45348a;
   --frame: #5a55b0; --frame-dark: #0c0b26; --screen: #121133; --screen-edge: #2e2c72;
+  /* Animated layer (blog/scene.js) */
+  --cloud: #34327c; --twinkle: #ffffff; --smoke: #8f89d8; --smoke-thin: #4f4a9a;
+  --firefly: #ffe98f; --meteor: #fff2b8; --meteor-tail: #8f89d8;
+  --critter-edge: #7b5fd0; --critter-body: #d3bfff; --critter-eye: #121133; --heart: #ffe98f;
 
   background: var(--bg);
   color: var(--ink);
@@ -91,6 +95,10 @@
   --flower: #ffe37a; --flower-alt: #fffdf1;
   --roof: #6a3fd6; --wall: #fffdf1; --window: #ffe37a; --door: #2b2570;
   --frame: #2b2570; --frame-dark: #2b2570; --screen: #221d5c; --screen-edge: #4a4486;
+  /* Daytime: clouds and smoke are white; fireflies and meteors are not visible. */
+  --cloud: #ffffff; --twinkle: #ffffff; --smoke: #ffffff; --smoke-thin: #eef1ff;
+  --firefly: transparent; --meteor: transparent; --meteor-tail: transparent;
+  --critter-edge: #6a3fd6; --critter-body: #d9c8ff; --critter-eye: #221d5c; --heart: #6a3fd6;
 }
 
 /* ---------- Base ---------- */
@@ -291,6 +299,12 @@ main:focus, main:focus-visible { outline: none; }
 .px-roof { fill: var(--roof); } .px-wall { fill: var(--wall); } .px-window { fill: var(--window); } .px-door { fill: var(--door); }
 .px-frame { fill: var(--frame); } .px-frame-dark { fill: var(--frame-dark); }
 .px-screen { fill: var(--screen); } .px-screen-edge { fill: var(--screen-edge); }
+.px-cloud { fill: var(--cloud); } .px-twinkle { fill: var(--twinkle); }
+.px-smoke { fill: var(--smoke); } .px-smoke-thin { fill: var(--smoke-thin); }
+.px-firefly { fill: var(--firefly); } .px-meteor { fill: var(--meteor); } .px-meteor-tail { fill: var(--meteor-tail); }
+.px-critter-edge { fill: var(--critter-edge); } .px-critter-body { fill: var(--critter-body); } .px-critter-eye { fill: var(--critter-eye); }
+.px-heart { fill: var(--heart); }
+.hero-art { -webkit-user-select: none; user-select: none; }
 
 /* ---------- Article list ---------- */
 .content-grid { display: grid; grid-template-columns: minmax(0, 1fr) 256px; gap: 64px; padding: 8px 0 88px; }
