@@ -15,6 +15,7 @@
   color-scheme: dark;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
   --pixel: "Gallery Pixel", var(--sans);
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --px: 3px;
   --lift: 6px;
 
@@ -137,7 +138,7 @@ img { image-rendering: pixelated; }
 .hero h1, .hero h2, .section-heading, .filter, .search-field input, .article-meta,
 .article-row h3, .aside-label, .profile-card h3, .focus-list, .now-box dt, .terminal-hint, .tag,
 .page-intro h1, .project-card > span, .project-card h2, .about-list strong,
-.article-page h1, .prose h2, .back-link, .site-footer, dialog h2, .theme-option strong,
+.article-page h1, .prose h2, .prose h3, .callout-title, .article-links h2, .article-links h3, .knowledge-graph text, .back-link, .site-footer, dialog h2, .theme-option strong,
 .setting-row strong, .loading, .empty-state {
   font-family: var(--pixel);
   font-weight: 400;
@@ -333,7 +334,7 @@ main:focus, main:focus-visible { outline: none; }
 .section-heading h2 { font-size: 32px; line-height: 32px; font-weight: 400; margin: 0; }
 .article-tools {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   padding-bottom: 20px;
@@ -594,6 +595,84 @@ dialog::backdrop { background: color-mix(in srgb, var(--bg-deep) 80%, transparen
 ::view-transition-group(content) { animation-duration: .24s; }
 
 /* ---------- Responsive ---------- */
+/* ---------- Rendered markdown (vault articles) ---------- */
+.prose { min-height: 120px; }
+.prose[aria-busy="true"]::before { content: "正在加载…"; font-family: var(--pixel); color: var(--faint); }
+.prose h3 { font-size: 16px; line-height: 24px; margin: 32px 0 8px; color: var(--accent); }
+.prose h4, .prose h5, .prose h6 { font-size: 16px; margin: 24px 0 8px; color: var(--ink); }
+.prose ul, .prose ol { color: var(--muted); font-size: 16px; line-height: 2; padding-left: 28px; margin: 16px 0; }
+.prose li::marker { color: var(--green-ink); }
+.prose a { color: var(--accent); text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 4px; }
+.prose a:hover { text-decoration-style: solid; }
+.prose strong { color: var(--ink); }
+.prose hr { border: 0; height: var(--px); margin: 40px 0; background-image: linear-gradient(90deg, var(--line) 50%, transparent 0); background-size: 12px var(--px); }
+.prose img { display: block; max-width: 100%; height: auto; margin: 24px auto; image-rendering: pixelated; }
+.prose code { font-family: var(--mono); font-size: .9em; padding: 1px 4px; color: var(--ink); background: var(--bg-deep); }
+.prose pre { overflow-x: auto; margin: 24px 0; padding: 16px; font-size: 14px; line-height: 1.7; background: var(--bg-deep); box-shadow: inset 0 0 0 var(--px) var(--line-soft); }
+.prose pre code { padding: 0; background: none; }
+.prose blockquote { margin: 24px 0; padding: 4px 20px; box-shadow: inset var(--px) 0 0 var(--purple); }
+.prose blockquote p { margin: 8px 0; }
+.prose .callout { padding: 12px 20px; background: var(--surface); box-shadow: inset var(--px) 0 0 var(--blue); }
+.prose .callout[data-callout="tip"], .prose .callout[data-callout="success"] { box-shadow: inset var(--px) 0 0 var(--green); }
+.prose .callout[data-callout="warning"], .prose .callout[data-callout="caution"], .prose .callout[data-callout="danger"] { box-shadow: inset var(--px) 0 0 var(--yellow); }
+.callout-title { color: var(--ink) !important; font-size: 16px !important; line-height: 24px !important; }
+.callout-title::before { content: "▣ "; color: var(--accent); }
+.table-wrap { overflow-x: auto; margin: 24px 0; }
+.prose table { border-collapse: collapse; min-width: 100%; font-size: 15px; line-height: 1.7; color: var(--muted); }
+.prose th, .prose td { padding: 8px 12px; text-align: left; border: 1px solid var(--line-soft); }
+.prose th { color: var(--ink); background: var(--surface); }
+.math-block { overflow-x: auto; overflow-y: hidden; margin: 24px 0; padding: 4px 0; color: var(--ink); }
+.prose .katex { color: var(--ink); font-size: 1.1em; }
+.prose pre.mermaid { display: flex; justify-content: center; background: var(--surface); box-shadow: none; font-family: var(--sans); }
+.prose pre.mermaid:not([data-processed]) { color: var(--faint); white-space: pre-wrap; }
+.prose pre.mermaid svg { max-width: 100%; height: auto; }
+
+/* ---------- Topics ---------- */
+.topic-filters { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.sub-filters .filter { font-size: 16px; padding: 4px 8px; }
+.sub-filters::before { content: "└"; color: var(--line); font-family: var(--pixel); padding: 4px 0; }
+a.tag { text-decoration: none; }
+a.tag:hover { filter: brightness(1.08); }
+
+/* ---------- Links and the knowledge graph ---------- */
+.article-links { margin-top: 56px; padding-top: 24px; background-image: linear-gradient(90deg, var(--line) 50%, transparent 0); background-size: 12px var(--px); background-repeat: repeat-x; }
+.article-links h2 { font-size: 32px; line-height: 40px; margin: 16px 0 24px; }
+.article-links-body { display: grid; grid-template-columns: minmax(0, 280px) 1fr; gap: 32px; align-items: center; }
+.article-links h3 { font-size: 16px; line-height: 16px; margin: 0 0 12px; color: var(--faint); }
+.article-links ul { list-style: none; margin: 0 0 24px; padding: 0; }
+.article-links li { padding: 6px 0; font-size: 15px; line-height: 1.6; }
+.article-links li::before { content: "▸ "; color: var(--green-ink); }
+.article-links li a { color: var(--muted); }
+.article-links li a:hover { color: var(--accent); }
+
+.graph-frame { padding: 8px; margin-bottom: 24px; background: var(--bg-deep); box-shadow: inset 0 0 0 var(--px) var(--line-soft); }
+.knowledge-graph { display: block; width: 100%; height: auto; shape-rendering: crispEdges; }
+.local-graph { max-width: 280px; margin: auto; }
+.knowledge-graph text { font-size: 16px; fill: var(--muted); text-anchor: middle; cursor: pointer; }
+.knowledge-graph .node-article text { font-size: 13px; font-family: var(--sans); fill: var(--faint); }
+.knowledge-graph .node-genre text { fill: var(--ink); }
+.graph-edge { stroke: var(--line); stroke-width: 2; }
+.graph-edge.edge-tree { stroke: var(--line-soft); stroke-dasharray: 3 3; }
+.graph-node rect { fill: var(--blue); stroke: var(--drop); stroke-width: 2; transition: transform .12s steps(2); transform-box: fill-box; transform-origin: center; }
+.graph-node.tone-yellow rect { fill: var(--yellow); }
+.graph-node.tone-green rect { fill: var(--green); }
+.graph-node.tone-purple rect { fill: var(--purple); }
+.graph-node.node-sub rect { fill: var(--surface-2); stroke-width: 3; }
+.graph-node.node-sub.tone-blue rect { stroke: var(--blue); }
+.graph-node.node-sub.tone-yellow rect { stroke: var(--yellow); }
+.graph-node.node-sub.tone-green rect { stroke: var(--green); }
+.graph-node.node-sub.tone-purple rect { stroke: var(--purple); }
+.graph-node:hover rect, .graph-node:focus-visible rect, .graph-node.is-current rect { transform: scale(1.5); }
+.graph-node.is-current text { fill: var(--ink); }
+.graph-node:focus-visible { outline: none; }
+.knowledge-graph.is-focused .graph-node:not(.is-near), .knowledge-graph.is-focused .graph-edge:not(.is-near) { opacity: .25; }
+.knowledge-graph.is-focused .graph-node.is-near text { fill: var(--ink); }
+.graph-edge.is-near { stroke: var(--accent); }
+.graph-legend { display: flex; flex-wrap: wrap; gap: 12px; list-style: none; padding: 0; margin: 0 0 88px; }
+.room-prose { margin-top: 8px; }
+.room-prose h2 { font-size: 20px; line-height: 28px; margin: 24px 0 8px; }
+
+
 @media (max-width: 1050px) {
   .site-shell { width: calc(100% - 64px); }
   .site-header { gap: 24px; }
@@ -617,6 +696,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--bg-deep) 80%, transparen
   .sidebar .avatar-tile { grid-row: span 3; margin: 0; }
   .now-box { margin-top: 32px; }
   .project-grid { grid-template-columns: 1fr; gap: 28px; }
+  .article-links-body { grid-template-columns: 1fr; }
   .site-footer { flex-direction: column; align-items: flex-start; justify-content: center; padding: 24px 0; }
 }
 @media (max-width: 520px) {

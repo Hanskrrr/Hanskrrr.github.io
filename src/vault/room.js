@@ -1,8 +1,11 @@
 // The unlocked exhibit as the creature's room. Each object opens one part of the
 // decrypted content in the panel below; a row of text buttons offers the same
-// choices for keyboards and small screens. Decrypted text is only ever inserted
-// with textContent, and media URLs are created lazily and revoked on lock.
+// choices for keyboards and small screens. Decrypted text is inserted with
+// textContent, except private vault notes, whose html was rendered at publish time
+// (markdown-it with raw HTML off) and is authenticated by the cipher. Media URLs are
+// created lazily and revoked on lock.
 import { gridToPaths, svg } from '../blog/pixel-art.js';
+import { enhance } from '../blog/rich.js';
 import { creatureGrid, CREATURE_AT, HOTSPOTS, ROOM_HEIGHT, ROOM_WIDTH, roomGrid } from './room-art.js';
 
 const LABELS = { intro: '窗外', journal: '日记', photos: '照片', timeline: '时间线', music: '音乐', creature: '小生物' };
@@ -79,7 +82,14 @@ export function mountRoom(container, content, { mediaUrl, reducedMotion = false 
       const body = el('article', 'room-article');
       const show = index => {
         const article = content.articles[index];
-        body.replaceChildren(el('h3', '', article.title), el('p', 'room-text', article.body));
+        body.replaceChildren(el('h3', '', article.title));
+        if (article.html) {
+          // Rendered by scripts/publish.mjs from the owner's vault; authenticated by AES-GCM.
+          const prose = el('div', 'prose room-prose');
+          prose.innerHTML = article.html;
+          body.append(prose);
+          enhance(prose);
+        } else body.append(el('p', 'room-text', article.body));
         list.querySelectorAll('button').forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));
       };
       content.articles.forEach((article, index) => {

@@ -4,6 +4,7 @@
 import { audioTracks } from '../../content/audio.js';
 import { photoCatalog } from '../../content/photos.js';
 import { commandHelp, manuals, terminalThemeNames } from './manual.js';
+import { articlePath } from './filesystem.js';
 import { matchesGlob } from './parse.js';
 
 /** Commands that take no arguments and only emit an action of the same name. */
@@ -186,8 +187,10 @@ export const aliases = {
   audio: (args, ctx) => args.length ? null : { lines: ctx.directoryListing(ctx.nodeFor(`${ctx.fs.home}/audio`)) },
   projects: (args, ctx) => args.length ? null : { lines: ctx.directoryListing(ctx.nodeFor(`${ctx.fs.home}/projects`)) },
   about: (args, ctx) => args.length ? null : { lines: [ctx.line(ctx.nodeFor(`${ctx.fs.home}/about.txt`).content)] },
-  read: (args, ctx) => args.length === 1 && ctx.articles.some(article => article.id === args[0])
-    ? { name: 'cat', args: [`${ctx.fs.home}/articles/${args[0]}.md`] } : null,
+  read: (args, ctx) => {
+    const article = args.length === 1 && ctx.articles.find(item => item.id === args[0]);
+    return article ? { name: 'cat', args: [articlePath(ctx.fs.home, article)] } : null;
+  },
   photo: (args, ctx) => args.length === 1 && /^[1-3]$/.test(args[0])
     ? { name: 'open', args: [`${ctx.fs.home}/photos/0${args[0]}.svg`] } : null,
   play: (args, ctx) => args.length ? null : { name: 'open', args: [`${ctx.fs.home}/audio/sample.wav`] },

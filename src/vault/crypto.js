@@ -30,7 +30,8 @@ function readEnvelope(envelope) {
   return { salt, iv, ciphertext };
 }
 
-function readExhibit(value) {
+/** Validate decrypted content; unknown fields are dropped. */
+export function readExhibit(value) {
   const text = (input, maximum) => {
     if (typeof input !== 'string' || input.length > maximum) throw new Error('Invalid content');
     return input;
@@ -48,10 +49,13 @@ function readExhibit(value) {
     version: 1,
     title: text(value.title, 300),
     intro: text(value.intro, 10_000),
-    articles: value.articles.map(article => ({
-      title: text(article?.title, 300),
-      body: text(article?.body, 500_000),
-    })),
+    // Private vault notes also carry pre-rendered html (from scripts/publish.mjs) and a date.
+    articles: value.articles.map(article => {
+      const item = { title: text(article?.title, 300), body: text(article?.body, 500_000) };
+      if (article.html !== undefined) item.html = text(article.html, 4_000_000);
+      if (article.date !== undefined) item.date = text(article.date, 40);
+      return item;
+    }),
     images: value.images.map(item => media(item, ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp'])),
   };
   if (value.audio !== undefined) {

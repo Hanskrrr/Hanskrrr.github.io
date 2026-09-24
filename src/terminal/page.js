@@ -5,6 +5,7 @@
 //   actions.js effects for shell results (navigate, open a program, theme…)
 import { $, el, main, reducedMotion } from '../core/dom.js';
 import { app } from '../core/router.js';
+import { articleText } from '../content/article-text.js';
 import { articles } from '../content/articles.js';
 import { audioTracks } from '../content/audio.js';
 import { photoCatalog } from '../content/photos.js';
@@ -19,7 +20,7 @@ import { createIntro } from './ui/intro.js';
 import { attachLineEditor, input, setInput, syncInput } from './ui/line-editor.js';
 import { appendBlock, clearOutput, logLine, makePrompt, output, promptText } from './ui/output.js';
 
-const shell = createShell(articles);
+const shell = createShell(articles.map(article => ({ ...article, text: articleText[article.id] })));
 const history = { entries: [], index: 0 };
 let snapshot;
 let pet;

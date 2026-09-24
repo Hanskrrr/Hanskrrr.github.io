@@ -1,6 +1,9 @@
 import { audioTracks } from '../../content/audio.js';
 import { photoCatalog } from '../../content/photos.js';
 
+/** ~/articles/<genre>/<sub>/<id>.md, mirroring the blog's topics. */
+export const articlePath = (home, article) => `${home}/articles/${article.topic ? `${article.topic}/` : ''}${article.id}.md`;
+
 /**
  * A read-only catalog for the public terminal. This is an in-memory filesystem,
  * not access to the visitor's computer or a server shell.
@@ -36,10 +39,10 @@ export function createFilesystem(articles = []) {
       '这是公开网站内容的只读目录。',
       '使用 ls 查看目录，cd 切换目录，cat 阅读文字，open 打开网页或媒体。',
       '',
-      'cd articles',
-      'ls',
-      'cat static-web.md',
-      'open static-web.md',
+      'tree articles',
+      'cd articles/<分类>/<子分类>',
+      'less <文章>.md',
+      'open <文章>.md',
       'cd ~',
       '',
       '输入 help 查看可用命令。',
@@ -54,12 +57,13 @@ export function createFilesystem(articles = []) {
     if (!article || typeof article.id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(article.id)) {
       throw new TypeError('Public article IDs must contain only letters, digits, underscores or hyphens.');
     }
-    const content = [
-      `# ${article.title}`,
-      article.description || '',
-      ...(article.sections || []).map(([heading, body]) => `## ${heading}\n\n${body}`),
-    ].filter(Boolean).join('\n\n');
-    add(`${home}/articles/${article.id}.md`, 'file', { content, action: { type: 'article', id: article.id } });
+    if (article.topic !== undefined && !/^[a-z0-9-]+\/[a-z0-9-]+$/.test(article.topic)) throw new TypeError('Article topics look like genre/sub.');
+    const content = [`# ${article.title}`, article.summary, article.text].filter(Boolean).join('\n\n');
+    const path = articlePath(home, article);
+    const missing = [];
+    for (let dir = path.slice(0, path.lastIndexOf('/')); !nodes.has(dir); dir = dir.slice(0, dir.lastIndexOf('/'))) missing.unshift(dir);
+    missing.forEach(dir => add(dir, 'directory'));
+    add(path, 'file', { content, action: { type: 'article', id: article.id } });
   }
   for (const [index,photo] of photoCatalog.entries()) {
     add(`${home}/photos/${photo.file}`, 'file', {

@@ -22,15 +22,17 @@ export function cancelTransitions() {
 export function routeFromUrl() {
   if (/^\/terminal\/?$/.test(location.pathname)) return { view: 'terminal' };
   const query = new URLSearchParams(location.search);
-  const article = articles.find(item => item.id === query.get('article'));
+  // /articles/<slug>/ (and the older /?article=<slug>)
+  const slug = /^\/articles\/([a-z0-9-]+)\/?$/.exec(location.pathname)?.[1] ?? query.get('article');
+  const article = articles.find(item => item.id === slug);
   if (article) return { view: 'article', article };
-  if (['blog', 'projects', 'about'].includes(query.get('view'))) return { view: query.get('view') };
+  if (['blog', 'projects', 'about', 'graph'].includes(query.get('view'))) return { view: query.get('view') };
   const preference = storage.get('gallery-default-view') || window.GALLERY_CONFIG.defaultView;
   return { view: preference === 'terminal' ? 'terminal' : 'blog' };
 }
 export function routeUrl(nextView, articleId) {
   if (nextView === 'terminal') return '/terminal/';
-  if (nextView === 'article') return `/?article=${encodeURIComponent(articleId)}`;
+  if (nextView === 'article') return `/articles/${encodeURIComponent(articleId)}/`;
   return `/?view=${nextView}`;
 }
 export function swapPage(update, { animated = true, focus = true } = {}) {
@@ -53,7 +55,7 @@ export function swapPage(update, { animated = true, focus = true } = {}) {
 }
 export function navigate(nextView, articleId, { push = true, animated = true, focus = true, fromTerminal = false } = {}) {
   runLeaveHooks();
-  if (push) history.pushState({}, '', routeUrl(nextView, articleId) + (fromTerminal && nextView === 'article' ? '&from=terminal' : ''));
+  if (push) history.pushState({}, '', routeUrl(nextView, articleId) + (fromTerminal && nextView === 'article' ? '?from=terminal' : ''));
   const article = articles.find(item => item.id === articleId);
   swapPage(() => renderView(nextView, article), { animated, focus });
 }

@@ -7,7 +7,7 @@
 import { $, announce, main, reducedMotion, storage } from './core/dom.js';
 import { app, cancelTransitions, definePage, navigate, onLeave, renderView, routeFromUrl, runLeaveHooks } from './core/router.js';
 import { applyTheme, openSettings } from './core/theme.js';
-import { blogPages, setCategory, setSearch } from './blog/pages.js';
+import { blogPages, setSearch, setTopic } from './blog/pages.js';
 import { handleGlobalKeydown, handleMainClick, handleSelectionChange, leaveTerminal, terminalPage } from './terminal/page.js';
 import { exhibitPage, lockContent } from './vault/exhibit.js';
 
@@ -22,7 +22,11 @@ document.addEventListener('click', event => {
   if (!target || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
   if (target.dataset.nav) { event.preventDefault(); navigate(target.dataset.nav); }
   if (target.dataset.article) { event.preventDefault(); navigate('article', target.dataset.article); }
-  if (target.dataset.filter) setCategory(target.dataset.filter);
+  if (target.dataset.topic !== undefined) {
+    event.preventDefault();
+    setTopic(target.dataset.topic);
+    if (app.view !== 'blog') navigate('blog');
+  }
   if (target.dataset.themeChoice) applyTheme(target.dataset.themeChoice);
   if (target.dataset.close) $(`#${target.dataset.close}`).close();
   switch (target.dataset.action) {

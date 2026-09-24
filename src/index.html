@@ -7,6 +7,7 @@
   <meta name="theme-color" content="#1a1942">
   <title>Hanskrrr · 技术博客</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="alternate" type="application/rss+xml" title="Hanskrrr" href="/feed.xml">
   <script src="/config.js"></script>
   <script>
     (() => {
@@ -19,7 +20,7 @@
       root.dataset.terminalTheme = ['linux', 'blue', 'light'].includes(terminalTheme) ? terminalTheme : 'blue';
       const query = new URLSearchParams(location.search);
       const terminal = /^\/terminal\/?$/.test(location.pathname) ||
-        (!query.has('view') && !query.has('article') && (read('gallery-default-view') || config.defaultView) === 'terminal');
+        (location.pathname === '/' && !query.has('view') && !query.has('article') && (read('gallery-default-view') || config.defaultView) === 'terminal');
       if (terminal) root.dataset.view = 'terminal';
     })();
   </script>
@@ -32,7 +33,7 @@
   <div class="site-shell">
     <header class="site-header">
       <a class="brand" href="/?view=blog" data-nav="blog" aria-label="Hanskrrr 博客首页"><span class="brand-symbol" aria-hidden="true">H</span><span>Hanskrrr<span class="brand-sub">/ GALLERY</span></span></a>
-      <nav aria-label="主导航"><a href="/?view=blog" data-nav="blog">文章</a><a href="/?view=projects" data-nav="projects">项目</a><a href="/?view=about" data-nav="about">关于</a></nav>
+      <nav aria-label="主导航"><a href="/?view=blog" data-nav="blog">文章</a><a href="/?view=graph" data-nav="graph">图谱</a><a href="/?view=projects" data-nav="projects">项目</a><a href="/?view=about" data-nav="about">关于</a></nav>
       <button class="style-trigger" data-action="settings" aria-haspopup="dialog"><span class="theme-dot" aria-hidden="true"></span><span>切换风格</span></button>
     </header>
     <main id="main" tabindex="-1"><div class="loading" role="status">正在加载…</div></main>
