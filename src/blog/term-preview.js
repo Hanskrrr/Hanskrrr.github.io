@@ -11,7 +11,7 @@ import { loadMathStyles } from './rich.js';
 let card = null;       // { node, link }
 let chip = null;
 let hoverTimer = 0;
-let pressing = false;   // a mouse/touch press focuses the link too; only keyboard focus opens the card
+let pointerInput = false; // Pointer-induced focus is handled by click; only keyboard focus opens the card.
 const behavior = () => reducedMotion.matches ? 'instant' : 'smooth';
 const blockId = link => decodeURIComponent(link.hash.slice(1));
 
@@ -137,12 +137,15 @@ export function attachTermPreviews() {
     if (event.target.closest?.('a.block-link') && event.pointerType === 'mouse') scheduleClose();
   });
   document.addEventListener('focusin', event => {
-    if (!pressing && event.target.matches?.('a.block-link')) openCard(event.target);
+    if (!pointerInput && event.target.matches?.('a.block-link')) openCard(event.target);
   });
-  document.addEventListener('pointerup', () => setTimeout(() => { pressing = false; }));
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') closeTermCard(); });
+  document.addEventListener('keydown', event => {
+    pointerInput = false;
+    if (event.key === 'Escape') closeTermCard();
+  });
   document.addEventListener('pointerdown', event => {
-    pressing = true;
+    // Touch browsers may focus after pointerup, so keep the input mode until a key is used.
+    pointerInput = true;
     if (card && !card.node.contains(event.target) && !card.link.contains(event.target)) closeTermCard();
   });
 }

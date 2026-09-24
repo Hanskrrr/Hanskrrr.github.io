@@ -7,7 +7,7 @@ export const topics = [
 
 export const articles = [
   {"id":"writing-sample","title":"写作示例：公式与图","topic":"math/linear-algebra","date":"2026-09-24","summary":"一篇示例文章，演示公式、流程图、提示框、双向链接和图片在网站上的样子。","minutes":1,"links":["web-crypto"],"math":true,"mermaid":true},
-  {"id":"web-crypto","title":"浏览器中的加密与解密","topic":"web/security","date":"2026-09-23","summary":"从字节、口令和密钥出发，沿 Gallery 的实际代码理解 PBKDF2、AES-GCM、密文封装与浏览器解锁的保护边界。","minutes":30,"links":["event-loop","static-web"],"math":true,"mermaid":true},
+  {"id":"web-crypto","title":"浏览器中的加密与解密","topic":"web/security","date":"2026-09-23","summary":"从二进制和异或出发，逐步理解口令派生、AES、认证标签与浏览器加解密；术语可跳转到文内解释。","minutes":35,"links":[],"math":true,"mermaid":true},
   {"id":"event-loop","title":"理解 JavaScript 事件循环","topic":"languages/javascript","date":"2026-09-23","summary":"点击、定时器和页面更新，为什么不总是按照代码出现的顺序完成？","minutes":1,"links":["motion"]},
   {"id":"motion","title":"让页面切换更流畅","topic":"web/frontend","date":"2026-09-23","summary":"保持布局连续，用少量位移和透明度变化解释界面之间的关系。","minutes":1,"links":["event-loop"]},
   {"id":"static-web","title":"静态网站如何运行","topic":"web/frontend","date":"2026-09-23","summary":"从一次页面请求开始，理解 HTML、CSS、JavaScript 和静态托管之间的关系。","minutes":1,"links":["web-crypto"]},
