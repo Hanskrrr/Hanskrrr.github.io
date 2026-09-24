@@ -57,6 +57,15 @@ function readExhibit(value) {
   if (value.audio !== undefined) {
     exhibit.audio = media(value.audio, ['audio/wav', 'audio/mpeg', 'audio/ogg']);
   }
+  // Optional timeline for the room's wall map: [{ date, title, text? }].
+  if (value.timeline !== undefined) {
+    if (!Array.isArray(value.timeline) || value.timeline.length > 200) throw new Error('Invalid content');
+    exhibit.timeline = value.timeline.map(entry => {
+      const item = { date: text(entry?.date, 40), title: text(entry?.title, 300) };
+      if (entry.text !== undefined) item.text = text(entry.text, 5000);
+      return item;
+    });
+  }
   return exhibit;
 }
 

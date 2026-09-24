@@ -1,11 +1,13 @@
-// Session-only display of decrypted exhibit content. Nothing is stored; leaving the
+// Session-only display of decrypted exhibit content (the creature's room, room.js). Nothing is stored; leaving the
 // page (lockContent) aborts pending unlocks, revokes media URLs and drops the content.
-import { $, el, main } from '../core/dom.js';
+import { $, el, main, reducedMotion } from '../core/dom.js';
 import { renderView, swapPage } from '../core/router.js';
+import { mountRoom } from './room.js';
 
 let unlockController;
 let decrypted = null;
 let mediaUrls = [];
+let disposeRoom = () => {};
 
 /** Abort any earlier attempt and return the controller for a new one. */
 export function startUnlock() {
@@ -19,6 +21,8 @@ export function openExhibit(content) {
   swapPage(() => renderView('exhibit'));
 }
 export function lockContent() {
+  disposeRoom();
+  disposeRoom = () => {};
   unlockController?.abort();
   unlockController = undefined;
   decrypted = null;
@@ -39,37 +43,12 @@ function renderExhibit() {
   const container = el('section','exhibit');
   const heading = el('div','page-intro');
   heading.innerHTML = '<div class="page-topline"><span class="eyebrow">EXHIBIT / UNLOCKED</span><button class="button" data-action="lock">锁定并返回 <span aria-hidden="true">←</span></button></div>';
-  heading.append(el('h1','',decrypted.title),el('p','',decrypted.intro));
+  heading.append(el('h1','',decrypted.title));
   container.append(heading, el('p','exhibit-note','内容已在此浏览器中解密。离开此界面或刷新页面后，需要重新输入口令。'));
-  const grid = el('div','exhibit-grid');
-  const textColumn = el('div','private-media');
-  decrypted.articles.forEach((article,index) => {
-    const card = el('article','private-article');
-    card.append(el('span','eyebrow',`TEXT / ${String(index+1).padStart(2,'0')}`),el('h2','',article.title),el('p','',article.body));
-    textColumn.append(card);
-  });
-  const media = el('div','private-media');
-  decrypted.images.forEach(item => {
-    const figure = el('figure');
-    const img = el('img');
-    img.alt = item.title;
-    img.src = mediaUrl(item);
-    figure.append(img,el('figcaption','',item.title));
-    media.append(figure);
-  });
-  if (decrypted.audio) {
-    const card = el('div','private-audio');
-    const audio = el('audio');
-    audio.controls = true;
-    audio.preload = 'metadata';
-    audio.src = mediaUrl(decrypted.audio);
-    audio.setAttribute('aria-label',decrypted.audio.title);
-    card.append(el('h3','',decrypted.audio.title),audio);
-    media.append(card);
-  }
-  grid.append(textColumn,media);
-  container.append(grid);
+  const room = el('div','room');
+  container.append(room);
   main.replaceChildren(container);
+  disposeRoom = mountRoom(room, decrypted, { mediaUrl, reducedMotion: reducedMotion.matches });
 }
 
 export const exhibitPage = { title: '内容展示', render: renderExhibit };
