@@ -3,6 +3,7 @@ import { $, el, main, reducedMotion } from '../core/dom.js';
 import { articles } from '../content/articles.js';
 import { profile } from '../content/profile.js';
 import { avatarSprite, pixelScene } from './pixel-art.js';
+import { attachReadingProgress } from './progress.js';
 import { animateScene } from './scene.js';
 
 const categoryTone = { Web: 'blue', JavaScript: 'yellow', '安全': 'green', UI: 'purple' };
@@ -58,6 +59,7 @@ function renderArticle(article) {
   article.sections.forEach(([title,body]) => prose.append(el('h2','',title), el('p','',body)));
   container.append(prose, el('div','article-footnote','本文为网站布局与交互的示例内容，可在正式开发时替换。'));
   main.replaceChildren(container);
+  attachReadingProgress(container, { reducedMotion: reducedMotion.matches });
 }
 function intro(kicker,title,description) {
   return `<div class="page-intro"><span class="eyebrow">${kicker}</span><h1>${title}</h1><p>${description}</p></div>`;

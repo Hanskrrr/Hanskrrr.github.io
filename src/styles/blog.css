@@ -475,6 +475,12 @@ main:focus, main:focus-visible { outline: none; }
 
 .loading { padding: 120px 0; color: var(--muted); font-size: 16px; }
 
+/* Reading progress on article pages (blog/progress.js) */
+.read-progress { position: fixed; z-index: 5; top: 0; left: 0; right: 0; height: 22px; pointer-events: none; background: var(--bg); }
+.read-track { position: absolute; left: 0; right: 0; bottom: 2px; height: var(--px); background: linear-gradient(90deg, var(--line-soft) 50%, transparent 0) 0 0 / 12px var(--px) repeat-x; }
+.read-fill { width: 0; height: 100%; background: linear-gradient(90deg, var(--yellow) 50%, transparent 0) 0 0 / 12px var(--px) repeat-x; }
+.read-critter { position: absolute; left: 0; bottom: 5px; width: 18px; height: 15px; }
+
 /* 404 page (src/404.html) */
 .lost-page { min-height: 100svh; display: grid; place-content: center; justify-items: center; gap: 0; padding: 48px 16px; text-align: center; }
 .lost-page h1 { font-family: var(--pixel); font-weight: 400; font-size: 48px; line-height: 48px; margin: 20px 0 16px; text-shadow: 3px 3px 0 var(--purple); }
