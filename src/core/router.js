@@ -52,9 +52,9 @@ export function swapPage(update, { animated = true, focus = true } = {}) {
     transition.finished.catch(() => {});
   } else apply();
 }
-export function navigate(nextView, articleId, { push = true, animated = true, focus = true, fromTerminal = false } = {}) {
+export function navigate(nextView, articleId, { push = true, animated = true, focus = true, fromTerminal = false, hash = '' } = {}) {
   runLeaveHooks();
-  if (push) history.pushState({}, '', routeUrl(nextView, articleId) + (fromTerminal && nextView === 'article' ? '?from=terminal' : ''));
+  if (push) history.pushState({}, '', routeUrl(nextView, articleId) + (fromTerminal && nextView === 'article' ? '?from=terminal' : '') + hash);
   const article = articles.find(item => item.id === articleId);
   swapPage(() => renderView(nextView, article), { animated, focus });
 }

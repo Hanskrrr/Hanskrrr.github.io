@@ -46,9 +46,14 @@ async function drawDiagrams(nodes) {
   await window.mermaid.run({ nodes, suppressErrors: true });
 }
 
-/** Load what `container`'s rendered markdown needs. Safe to call more than once. */
+/**
+ * Load what `container`'s rendered markdown needs. Safe to call more than once.
+ * Resolves when math styles, fonts and diagrams have settled (layout is final).
+ */
 export function enhance(container) {
-  if (container.querySelector('.katex')) loadMathStyles().catch(() => {});
+  const work = [];
+  if (container.querySelector('.katex')) work.push(loadMathStyles().catch(() => {}));
   const diagrams = [...container.querySelectorAll('pre.mermaid:not([data-processed])')];
-  if (diagrams.length) drawDiagrams(diagrams).catch(() => diagrams.forEach(node => node.classList.add('mermaid-failed')));
+  if (diagrams.length) work.push(drawDiagrams(diagrams).catch(() => diagrams.forEach(node => node.classList.add('mermaid-failed'))));
+  return Promise.all(work).then(() => document.fonts.ready);
 }

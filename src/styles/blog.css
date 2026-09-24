@@ -595,6 +595,30 @@ dialog::backdrop { background: color-mix(in srgb, var(--bg-deep) 80%, transparen
 .prose pre.mermaid:not([data-processed]) { color: var(--faint); white-space: pre-wrap; }
 .prose pre.mermaid svg { max-width: 100%; height: auto; }
 
+/* ---------- Table of contents ---------- */
+.article-main { position: relative; }
+.article-toc { margin: 0 0 32px; font-family: var(--pixel); -webkit-font-smoothing: none; }
+.article-toc details { padding: 12px 16px; background: var(--surface); }
+.article-toc summary { cursor: pointer; list-style: none; font-size: 16px; line-height: 24px; color: var(--accent); }
+.article-toc summary::-webkit-details-marker { display: none; }
+.article-toc summary::before { content: "▸ "; color: var(--green-ink); }
+.article-toc details[open] summary::before { content: "▾ "; }
+.article-toc ol { list-style: none; margin: 8px 0 4px; padding: 0; }
+.article-toc a { position: relative; display: block; padding: 4px 0 4px 20px; font-size: 16px; line-height: 20px; color: var(--muted); transition: color .12s steps(2); }
+.article-toc .toc-h3 a { padding-left: 40px; color: var(--faint); }
+.article-toc a:hover { color: var(--ink); }
+.article-toc a[aria-current] { color: var(--accent); }
+.article-toc a[aria-current]::before { content: "■"; position: absolute; left: 0; color: var(--green); }
+.article-toc .toc-h3 a[aria-current]::before { left: 20px; }
+:root[data-theme="paper"] .article-toc a[aria-current]::before { color: var(--accent); }
+/* Wide screens: a sticky outline in the margin to the right of the text column. */
+@media (min-width: 1240px) {
+  .article-toc { position: absolute; top: 0; bottom: 0; left: calc(100% + 48px); width: 216px; margin: 0; }
+  .article-toc details { position: sticky; top: 32px; max-height: calc(100svh - 64px); overflow-y: auto; padding: 0 0 0 16px; background: none; box-shadow: inset var(--px) 0 0 var(--line-soft); }
+  .article-toc summary { pointer-events: none; color: var(--faint); }
+  .article-toc summary::before { content: none; }
+}
+
 /* ---------- Topics ---------- */
 .topic-filters { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .sub-filters .filter { font-size: 16px; padding: 4px 8px; }

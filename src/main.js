@@ -20,8 +20,19 @@ onLeave(lockContent);
 document.addEventListener('click', event => {
   const target = event.target.closest('a,button');
   if (!target || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+  // In-page #links scroll without a history entry, so Back still leaves the page.
+  const href = target.getAttribute('href');
+  if (href?.length > 1 && href.startsWith('#')) {
+    const node = document.getElementById(decodeURIComponent(href.slice(1)));
+    if (node) {
+      event.preventDefault();
+      node.scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth' });
+      history.replaceState(history.state, '', href);
+      if (node === main) main.focus({ preventScroll: true });
+    }
+  }
   if (target.dataset.nav) { event.preventDefault(); navigate(target.dataset.nav); }
-  if (target.dataset.article) { event.preventDefault(); navigate('article', target.dataset.article); }
+  if (target.dataset.article) { event.preventDefault(); navigate('article', target.dataset.article, { hash: target.hash }); }
   if (target.dataset.topic !== undefined) {
     event.preventDefault();
     setTopic(target.dataset.topic);

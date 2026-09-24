@@ -16,6 +16,8 @@ let topic = '';
 let search = '';
 let stopScene = () => {};
 const bodies = new Map();
+let stopToc = () => {};
+const wideToc = matchMedia('(min-width: 1240px)');
 
 export function setTopic(value) {
   topic = topics.some(genre => genre.id === value.split('/')[0]) ? value : '';
@@ -101,7 +103,44 @@ function linksSection(article) {
   attachHighlight(section.querySelector('svg'));
   return section;
 }
+/** Outline of ## and ### headings: a sticky sidebar on wide screens, a folded 目录 otherwise. */
+function tableOfContents(prose) {
+  const headings = [...prose.querySelectorAll('h2[id], h3[id]')];
+  if (headings.length < 3) return null;
+  const label = heading => {
+    const copy = heading.cloneNode(true);
+    copy.querySelectorAll('.katex-mathml').forEach(node => node.remove());
+    return copy.textContent.trim();
+  };
+  const nav = el('nav', 'article-toc');
+  nav.setAttribute('aria-label', '目录');
+  nav.innerHTML = `<details><summary>目录</summary><ol>${headings.map(heading => `<li class="toc-${heading.localName}"><a href="#${encodeURIComponent(heading.id)}">${escapeHtml(label(heading))}</a></li>`).join('')}</ol></details>`;
+  const details = nav.querySelector('details');
+  const links = [...nav.querySelectorAll('a')];
+  const sync = () => { details.open = wideToc.matches; };
+  sync();
+  wideToc.addEventListener('change', sync);
+  nav.addEventListener('click', event => { if (event.target.closest('a') && !wideToc.matches) details.open = false; });
+  // The current section is the last heading in the top 15% of the screen or above it.
+  const update = () => {
+    if (!prose.isConnected) return stopToc();
+    let current = 0;
+    headings.forEach((heading, index) => { if (heading.getBoundingClientRect().top < innerHeight * 0.15) current = index; });
+    links.forEach((link, index) => index === current ? link.setAttribute('aria-current', 'location') : link.removeAttribute('aria-current'));
+    // Keep the current entry visible in a long sidebar.
+    const active = links[current];
+    if (wideToc.matches && (active.offsetTop < details.scrollTop || active.offsetTop + active.offsetHeight > details.scrollTop + details.clientHeight)) {
+      details.scrollTop = active.offsetTop - details.clientHeight / 3;
+    }
+  };
+  const observer = new IntersectionObserver(update, { rootMargin: '0px 0px -85% 0px' });
+  headings.forEach(heading => observer.observe(heading));
+  stopToc = () => { observer.disconnect(); wideToc.removeEventListener('change', sync); };
+  update();
+  return nav;
+}
 function renderArticle(article) {
+  stopToc();
   const fromTerminal = new URLSearchParams(location.search).get('from') === 'terminal';
   const { genre, sub } = topicOf(article);
   const container = el('article', 'article-page');
@@ -110,7 +149,9 @@ function renderArticle(article) {
   prose.dataset.article = article.id;
   prose.setAttribute('aria-busy', 'true');
   const body = articleBody(article);
-  container.append(prose);
+  const column = el('div', 'article-main');
+  column.append(prose);
+  container.append(column);
   const links = linksSection(article);
   if (links) container.append(links);
   main.replaceChildren(container);
@@ -119,7 +160,15 @@ function renderArticle(article) {
     if (!prose.isConnected) return;
     prose.innerHTML = html;
     prose.removeAttribute('aria-busy');
-    enhance(prose);
+    const settled = enhance(prose);
+    const toc = tableOfContents(prose);
+    if (toc) column.prepend(toc);
+    // A #section link: jump now, and again once math fonts and diagrams have changed the layout.
+    const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (target) {
+      target.scrollIntoView({ behavior: 'instant' });
+      settled.then(() => { if (target.isConnected) target.scrollIntoView({ behavior: 'instant' }); });
+    }
   }, () => {
     if (prose.isConnected) prose.replaceChildren(el('p', 'empty-state', '文章加载失败，请检查网络后刷新页面。'));
   });
