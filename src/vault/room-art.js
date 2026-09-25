@@ -20,6 +20,7 @@ export const HOTSPOTS = {
   films: [94, 2, 30, 19],
   music: [106, 22, 18, 24],
   creature: [72, 40, 12, 12],
+  lamp: [24, 25, 8, 9],
 };
 export const CREATURE_AT = [71, 38];
 export const CREATURE_KEYS = {

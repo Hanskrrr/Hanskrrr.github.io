@@ -471,7 +471,23 @@ main:focus, main:focus-visible { outline: none; }
 .exhibit { padding: 0 0 88px; max-width: 960px; margin: auto; }
 .exhibit .page-intro { padding-bottom: 24px; }
 .exhibit-note { background: var(--bg-deep); padding: 16px 20px; margin-bottom: 32px; font-size: 14px; color: var(--muted); line-height: 1.8; --d: 0px; --fc: var(--line-soft); }
-.room-stage { position: relative; line-height: 0; --d: 10px; }
+.room-stage { position: relative; line-height: 0; --d: 10px; overflow: hidden; }
+/* The room fills the width of the window (up to a limit) instead of sitting in a card. */
+body:has(.exhibit) { overflow-x: clip; }
+.exhibit .room-stage { width: min(100vw, 1600px); margin-left: 50%; transform: translateX(-50%); box-shadow: none; }
+.room-stage::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 45% 55%, transparent 55%, rgb(8 6 30 / .35) 100%); transition: background-color .4s steps(4); }
+:root[data-theme="paper"] .room-stage::after { background: radial-gradient(ellipse at 45% 55%, transparent 60%, rgb(43 37 112 / .18) 100%); }
+.room-stage.lights-off::after { background-color: rgb(8 6 30 / .4); }
+.room-lamplight { fill: var(--window); opacity: .16; }
+.room-moonlight { fill: var(--moon); opacity: .08; }
+.room-sunlight { fill: var(--window); opacity: .14; }
+.room-beam { fill: var(--room-paper); opacity: .07; }
+.room-screen-glow { fill: var(--window); }
+.px-day-sky { fill: #8fb8ff; } .px-day-sky2 { fill: #bcd6ff; }
+.px-dusk-sky { fill: #6a4fb5; } .px-dusk-sky2 { fill: #e89a6e; }
+.px-sun { fill: #ffe37a; }
+.room-bubble { position: absolute; z-index: 2; margin: 0; padding: 6px 10px; transform: translate(-50%, -100%); white-space: nowrap; pointer-events: none; font: 16px/16px var(--pixel); color: var(--ink); background: var(--surface-2); box-shadow: 0 0 0 var(--px) var(--line), 4px 4px 0 var(--drop); }
+.room-bubble::after { content: ""; position: absolute; left: 50%; bottom: -9px; width: 6px; height: 6px; background: var(--line); box-shadow: 3px 3px 0 var(--line); }
 .room-scene { width: 100%; height: auto; aspect-ratio: 128 / 60; }
 .room-hotspot { position: absolute; padding: 0; cursor: pointer; background: transparent; outline-offset: 2px; }
 .room-hotspot:hover, .room-hotspot.active { box-shadow: 0 0 0 var(--px) var(--yellow); }

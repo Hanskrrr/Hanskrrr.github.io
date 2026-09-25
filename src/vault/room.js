@@ -5,12 +5,13 @@
 // (markdown-it with raw HTML off), which is authenticated by the cipher. Media is
 // decrypted lazily into blob URLs (revoked on lock); third-party players load only
 // when asked, and only from the hosts in embeds.js.
-import { gridToPaths, svg } from '../blog/pixel-art.js';
+import { svg } from '../blog/pixel-art.js';
 import { enhance } from '../blog/rich.js';
 import { embedSize, isAllowedEmbed } from './embeds.js';
-import { creatureGrid, CREATURE_AT, HOTSPOTS, ROOM_HEIGHT, ROOM_WIDTH, roomGrid } from './room-art.js';
+import { HOTSPOTS, ROOM_HEIGHT, ROOM_WIDTH, roomGrid } from './room-art.js';
+import { animateRoom } from './room-life.js';
 
-const LABELS = { intro: '窗外', journal: '日记', serials: '手稿', books: '书架', photos: '照片', thoughts: '便签', timeline: '时间线', films: '放映机', music: '点唱机', creature: '小生物' };
+const LABELS = { lamp: '台灯', intro: '窗外', journal: '日记', serials: '手稿', books: '书架', photos: '照片', thoughts: '便签', timeline: '时间线', films: '放映机', music: '点唱机', creature: '小生物' };
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -44,20 +45,12 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     films: content.films.length > 0,
     music: content.music.length > 0,
     creature: true,
+    lamp: true,
   };
   const stage = el('div', 'room-stage');
   stage.innerHTML = svg(roomGrid(available), { className: 'pixel-art room-scene' });
   const art = stage.querySelector('svg');
-  const ns = 'http://www.w3.org/2000/svg';
-  const creature = document.createElementNS(ns, 'g');
-  const heart = document.createElementNS(ns, 'g');
-  creature.setAttribute('transform', `translate(${CREATURE_AT[0]} ${CREATURE_AT[1]})`);
-  heart.innerHTML = gridToPaths([['px-heart', '', 'px-heart'], ['px-heart', 'px-heart', 'px-heart'], ['', 'px-heart', '']]);
-  heart.setAttribute('transform', `translate(${CREATURE_AT[0] + 12} ${CREATURE_AT[1] + 1})`);
-  heart.style.display = 'none';
-  art.append(creature, heart);
-  const pose = name => { creature.innerHTML = gridToPaths(creatureGrid(name)); };
-  pose('idle');
+  const life = animateRoom({ stage, art, reducedMotion });
 
   const legend = el('div', 'room-legend');
   legend.setAttribute('role', 'toolbar');
@@ -75,7 +68,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     Object.assign(hotspot.style, { left: `${(x / ROOM_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / ROOM_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
     hotspot.append(el('span', 'room-tip', LABELS[name]));
     stage.append(hotspot);
-    if (name !== 'creature') {
+    if (name !== 'creature' && name !== 'lamp') {
       const button = el('button', 'room-choice', LABELS[name]);
       button.type = 'button';
       button.dataset.object = name;
@@ -102,7 +95,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     return blank;
   }
   /** A third-party player that loads only when asked. */
-  function player(url) {
+  function player(url, onLoad) {
     if (!url || !isAllowedEmbed(url)) return null;
     const box = el('div', 'room-embed');
     const size = embedSize(url);
@@ -119,6 +112,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
       frame.setAttribute('allowfullscreen', '');
       frame.referrerPolicy = 'strict-origin-when-cross-origin';
       box.replaceChildren(frame);
+      onLoad?.();
     });
     box.append(load);
     return box;
@@ -151,6 +145,8 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     node.preload = 'metadata';
     node.setAttribute('aria-label', title);
     urlFor(ref).then(url => { node.src = url; }, () => node.replaceWith(el('p', 'room-text', '音频无法解密或加载。')));
+    node.addEventListener('play', () => life.setMusic(true));
+    for (const type of ['pause', 'ended']) node.addEventListener(type, () => life.setMusic(false));
     return node;
   }
   // --- the inner lock ------------------------------------------------------------
@@ -282,7 +278,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
           list.append(button);
         });
         return list;
-      }, (film, back) => film.locked ? unlockForm('films', film.hint, back) : detail(film, byline(film.kind, film.director, film.year), back, [player(film.embed)]), 'films');
+      }, (film, back) => film.locked ? unlockForm('films', film.hint, back) : detail(film, byline(film.kind, film.director, film.year), back, [player(film.embed, () => life.setTheater(true))]), 'films');
     },
     music() {
       return collection('点唱机', content.music, open => {
@@ -298,7 +294,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
           list.append(item);
         });
         return list;
-      }, (track, back) => track.locked ? unlockForm('music', track.hint, back) : detail(track, byline(track.artist, track.album, track.year), back, [track.audio && audio(track.audio, track.title), player(track.embed)]), 'music');
+      }, (track, back) => track.locked ? unlockForm('music', track.hint, back) : detail(track, byline(track.artist, track.album, track.year), back, [track.audio && audio(track.audio, track.title), player(track.embed, () => life.setMusic(true))]), 'music');
     },
     serials() {
       const wrap = el('div');
@@ -389,18 +385,12 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     },
   };
 
-  let timers = [];
-  const later = (ms, fn) => timers.push(setTimeout(fn, ms));
-  function pet() {
-    timers.forEach(clearTimeout);
-    timers = [];
-    heart.style.display = '';
-    if (reducedMotion) pose('happy');
-    else ['crouch', 'jump', 'jump-high', 'jump', 'crouch', 'happy'].forEach((name, i) => later(i * 90, () => pose(name)));
-    later(1600, () => { heart.style.display = 'none'; pose('idle'); });
-  }
-  function open(name) {
-    if (name === 'creature') return pet();
+  function open(name, { walk = true } = {}) {
+    if (name === 'creature') return life.pet();
+    if (name === 'lamp') return life.toggleLamp();
+    if (walk) life.goTo(name);
+    life.setFilm(name === 'films');
+    life.setMusic(false);
     panel.replaceChildren(...panels[name]());
     Object.entries(buttons).forEach(([key, button]) => button.setAttribute('aria-pressed', String(key === name)));
     stage.querySelectorAll('.room-hotspot').forEach(hotspot => hotspot.classList.toggle('active', hotspot.dataset.object === name));
@@ -419,19 +409,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   stage.addEventListener('click', onClick);
   legend.addEventListener('click', onClick);
 
-  // Blink now and then while the room is open.
-  let blink;
-  const scheduleBlink = () => {
-    if (reducedMotion) return;
-    blink = setTimeout(() => {
-      if (!stage.isConnected) return;
-      if (heart.style.display === 'none') { pose('blink'); setTimeout(() => stage.isConnected && heart.style.display === 'none' && pose('idle'), 150); }
-      scheduleBlink();
-    }, 2500 + Math.random() * 3500);
-  };
-  scheduleBlink();
-
   container.append(stage, legend, panel);
-  open(available[start] ? start : 'intro');
-  return () => { clearTimeout(blink); timers.forEach(clearTimeout); };
+  open(available[start] ? start : 'intro', { walk: false });
+  return () => life.dispose();
 }
