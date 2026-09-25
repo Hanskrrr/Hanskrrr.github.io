@@ -201,7 +201,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     place(screen, view.place(SCREEN));
     place(record, view.place(RECORD_WINDOW));
     syncAll();
-    if (closeup) stage.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'instant' : 'smooth' });
+    if (closeup) stage.scrollIntoView({ block: 'center', behavior: reducedMotion ? 'instant' : 'smooth' });
   }
 
   // The projector.
@@ -222,7 +222,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     stage.classList.add('projecting');
     life.setFilm(true);
     life.setTheater(true);
-    syncAll();
+    if (closeup && closeup !== 'screen') zoom('screen'); else syncAll();
   }
   function powerOff() {
     screen.replaceChildren();
@@ -288,9 +288,10 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     if (track.cover) urlFor(track.cover).then(url => { if (content.music[deck.index] === track) disc.style.setProperty('--cover', `url("${url}")`); }, () => {});
   }
   /** Put a song on: your own file plays at once; a link song opens its page below. */
-  function playTrack(index, { reveal = true } = {}) {
+  function playTrack(index, { reveal = true, follow = true } = {}) {
     const track = content.music[index];
     if (!playable(index)) return;
+    if (follow && closeup && closeup !== 'jukebox') zoom('jukebox');
     deck.index = index;
     deck.link = !track.audio;
     showDisc(track);
@@ -318,7 +319,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     const count = content.music.length;
     for (let i = 1; i <= count; i++) {
       const index = (deck.index + direction * i + count * count) % count;
-      if (playable(index) && (!ownFiles || content.music[index].audio)) return playTrack(index, { reveal: !ownFiles });
+      if (playable(index) && (!ownFiles || content.music[index].audio)) return playTrack(index, { reveal: !ownFiles, follow: !ownFiles });
     }
   }
   function renderStrips() {
