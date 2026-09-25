@@ -33,12 +33,13 @@ export function graphData() {
     }
   }
   const seen = new Set();
-  for (const article of articles) {
+  // Chapters are left out; their series stands for them.
+  for (const article of articles.filter(item => !item.series)) {
     nodes.push({ id: article.id, kind: 'article', label: article.title, genre: article.topic.split('/')[0] });
     edges.push({ a: `s:${article.topic}`, b: article.id, kind: 'tree' });
     for (const target of article.links) {
       const key = [article.id, target].sort().join('|');
-      if (seen.has(key) || !articles.some(item => item.id === target)) continue;
+      if (seen.has(key) || !articles.some(item => item.id === target && !item.series)) continue;
       seen.add(key);
       edges.push({ a: article.id, b: target, kind: 'link' });
     }

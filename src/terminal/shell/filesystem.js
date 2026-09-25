@@ -2,13 +2,13 @@ import { audioTracks } from '../../content/audio.js';
 import { photoCatalog } from '../../content/photos.js';
 
 /** ~/articles/<genre>/<sub>/<id>.md, mirroring the blog's topics. */
-export const articlePath = (home, article) => `${home}/articles/${article.topic ? `${article.topic}/` : ''}${article.id}.md`;
+export const articlePath = (home, article) => `${home}/articles/${article.topic ? `${article.topic}/` : ''}${article.series ? `${article.series}/` : ''}${article.id}.md`;
 
 /**
  * A read-only catalog for the public terminal. This is an in-memory filesystem,
  * not access to the visitor's computer or a server shell.
  */
-export function createFilesystem(articles = []) {
+export function createFilesystem(articles = [], { photos = photoCatalog, tracks = audioTracks, thoughts = '' } = {}) {
   const home = '/home/guest';
   const nodes = new Map();
   const children = new Map();
@@ -29,9 +29,9 @@ export function createFilesystem(articles = []) {
     return node;
   }
 
-  for (const path of ['/', '/home', home, `${home}/articles`, `${home}/photos`, `${home}/audio`, `${home}/projects`]) {
-    add(path, 'directory');
-  }
+  for (const path of ['/', '/home', home, `${home}/articles`]) add(path, 'directory');
+  if (photos.length) add(`${home}/photos`, 'directory');
+  if (tracks.length) add(`${home}/audio`, 'directory');
   add(`${home}/README.txt`, 'file', {
     content: [
       'Gallery terminal',
@@ -49,10 +49,11 @@ export function createFilesystem(articles = []) {
     ].join('\n'),
   });
   add(`${home}/about.txt`, 'file', {
-    content: 'Hanskrrr Gallery\n\n技术博客、公开图片、音频与个人项目。\n当前页面为功能演示，文章和媒体均为示例。\n终端在浏览器内运行，只提供本站公开内容的只读目录。',
+    content: 'Hanskrrr\n\n文章、随想和一些像素小实验。\n终端在浏览器内运行，只提供本站公开内容的只读目录。',
     action: { type: 'about' },
   });
 
+  if (thoughts) add(`${home}/thoughts.md`, 'file', { content: `# 随想\n\n${thoughts}`, action: { type: 'thoughts' } });
   for (const article of articles) {
     if (!article || typeof article.id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(article.id)) {
       throw new TypeError('Public article IDs must contain only letters, digits, underscores or hyphens.');
@@ -65,18 +66,14 @@ export function createFilesystem(articles = []) {
     missing.forEach(dir => add(dir, 'directory'));
     add(path, 'file', { content, action: { type: 'article', id: article.id } });
   }
-  for (const [index,photo] of photoCatalog.entries()) {
+  for (const [index,photo] of photos.entries()) {
     add(`${home}/photos/${photo.file}`, 'file', {
       content: null, media: true, action: { type: 'photo', id: photo.id, index },
     });
   }
-  for (const track of audioTracks) {
+  for (const track of tracks) {
     add(`${home}/audio/${track.file}`, 'file', { content: null, media: true, action: { type: 'audio', id: track.id } });
   }
-  add(`${home}/projects/gallery.md`, 'file', {
-    content: '# Gallery\n\n一个使用 HTML、CSS 和 JavaScript 实现的静态个人网站演示。\n\n包含博客阅读、终端交互、公开图片与音频展示。终端目录与博客使用同一份公开文章数据。',
-    action: { type: 'projects' },
-  });
   for (const entries of children.values()) entries.sort(sortByName);
 
   function expand(path, cwd) {

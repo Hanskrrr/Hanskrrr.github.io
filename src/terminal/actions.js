@@ -38,8 +38,8 @@ export async function runAction(action, { log, pet }) {
   const handlers = {
     clear: () => clearOutput(),
     blog: () => navigate('blog'),
-    projects: () => navigate('projects'),
     about: () => navigate('about'),
+    thoughts: () => navigate('thoughts'),
     article: ({ id }) => navigate('article', id, { fromTerminal: true }),
     theme: ({ name }) => theme(name, log),
     photo: ({ index }) => showPhoto(index),

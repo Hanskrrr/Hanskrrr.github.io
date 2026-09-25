@@ -2,6 +2,8 @@
 // partial input. It only reads the public content map and never runs OS commands.
 import { aliases, commands } from './commands.js';
 import { createContext } from './context.js';
+import { audioTracks } from '../../content/audio.js';
+import { photoCatalog } from '../../content/photos.js';
 import { createFilesystem } from './filesystem.js';
 import { commandHelp, terminalThemeNames } from './manual.js';
 import { parseCommand } from './parse.js';
@@ -18,8 +20,10 @@ const errorText = {
   EMEDIA: '这是媒体文件；使用 gallery 或 player。',
 };
 
-export function createShell(articles) {
-  const ctx = createContext(createFilesystem(articles), articles);
+/** media: { photos, tracks } (defaults to the site's public catalogs). */
+export function createShell(articles, media = {}) {
+  const fs = createFilesystem(articles, media);
+  const ctx = createContext(fs, articles, { photos: media.photos ?? photoCatalog, tracks: media.tracks ?? audioTracks });
   const named = name => publicNames.includes(name);
 
   function execute(raw) {

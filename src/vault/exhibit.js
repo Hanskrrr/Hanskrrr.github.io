@@ -2,11 +2,13 @@
 // page (lockContent) aborts pending unlocks, revokes media URLs and drops the content.
 import { $, el, main, reducedMotion } from '../core/dom.js';
 import { renderView, swapPage } from '../core/router.js';
+import { decryptMedia } from './crypto.js';
 import { mountRoom } from './room.js';
 
 let unlockController;
 let decrypted = null;
 let mediaUrls = [];
+let mediaController = new AbortController();
 let disposeRoom = () => {};
 
 /** Abort any earlier attempt and return the controller for a new one. */
@@ -27,14 +29,19 @@ export function lockContent() {
   unlockController = undefined;
   decrypted = null;
   document.querySelectorAll('audio').forEach(audio => { audio.pause(); audio.removeAttribute('src'); audio.load(); });
+  mediaController.abort();
+  mediaController = new AbortController();
   mediaUrls.forEach(url => URL.revokeObjectURL(url));
   mediaUrls = [];
   $('#photo-dialog').close();
   $('#photo-detail').replaceChildren();
 }
-function mediaUrl(item) {
-  const bytes = Uint8Array.from(atob(item.data),character => character.charCodeAt(0));
-  const url = URL.createObjectURL(new Blob([bytes],{type:item.mime}));
+/** Inline media is decoded; separately encrypted files are fetched and decrypted. */
+async function mediaUrl(ref) {
+  const { signal } = mediaController;
+  const bytes = ref.data !== undefined ? Uint8Array.from(atob(ref.data), character => character.charCodeAt(0)) : await decryptMedia(ref, { signal });
+  if (signal.aborted) throw new DOMException('Locked', 'AbortError');
+  const url = URL.createObjectURL(new Blob([bytes], { type: ref.mime }));
   mediaUrls.push(url);
   return url;
 }

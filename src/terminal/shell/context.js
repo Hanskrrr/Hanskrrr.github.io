@@ -2,7 +2,7 @@
 // listings and result builders. Everything here returns plain data (no DOM).
 import { commandHelp } from './manual.js';
 
-export function createContext(fs, articles) {
+export function createContext(fs, articles, { photos = [], tracks = [] } = {}) {
   const state = { cwd: fs.home, previous: fs.home };
   const displayPath = path => path === fs.home ? '~' : path.startsWith(`${fs.home}/`) ? `~${path.slice(fs.home.length)}` : path;
   const quote = text => /^[\w./~+-]+$/.test(text) ? text : JSON.stringify(text);
@@ -12,6 +12,8 @@ export function createContext(fs, articles) {
   const ctx = {
     fs,
     articles,
+    photos,
+    tracks,
     state,
     displayPath,
     quote,

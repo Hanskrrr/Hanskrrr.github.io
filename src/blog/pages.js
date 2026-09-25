@@ -1,9 +1,10 @@
-// Blog pages: home (hero + article list by topic), article, knowledge graph, projects and about.
+// Blog pages: home (hero + article list by topic), article, thoughts, knowledge graph and about.
 // Articles come from the vault via scripts/publish.mjs: metadata in content/articles.js,
 // bodies as pre-rendered HTML in /data/articles/<slug>.html.
 import { $, el, main, reducedMotion } from '../core/dom.js';
 import { app } from '../core/router.js';
 import { articles, topics } from '../content/articles.js';
+import { thoughts } from '../content/thoughts.js';
 import { profile } from '../content/profile.js';
 import { attachHighlight, globalGraph, localGraph, neighbours, toneOf, topicOf } from './graph.js';
 import { avatarSprite, pixelScene } from './pixel-art.js';
@@ -64,20 +65,24 @@ function articleRow(article) {
   link.href = `/articles/${article.id}/`;
   link.dataset.article = article.id;
   const { genre } = topicOf(article);
-  link.innerHTML = `<div class="article-meta"><span class="tag tag-${toneOf(genre?.id)}">${escapeHtml(topicOf(article).sub?.name || '')}</span>${date(article.date)}<span>${article.minutes} 分钟</span></div><h3>${escapeHtml(article.title)}</h3><p>${escapeHtml(article.summary)}</p>`;
+  const length = article.type === 'series' ? `${article.chapters.length} 章` : `${article.minutes} 分钟`;
+  link.innerHTML = `<div class="article-meta"><span class="tag tag-${toneOf(genre?.id)}">${escapeHtml(topicOf(article).sub?.name || '')}</span>${date(article.updated || article.date)}<span>${length}</span></div><h3>${escapeHtml(article.title)}</h3><p>${escapeHtml(article.summary)}</p>`;
   return link;
 }
+// Chapters are reached through their series, not listed on their own.
+const listed = () => articles.filter(article => !article.series)
+  .sort((a, b) => (b.updated || b.date).localeCompare(a.updated || a.date));
 function renderArticleList() {
   if (!$('#article-list')) return;
   renderFilters();
   const query = search.trim().toLowerCase();
-  const filtered = articles.filter(article => {
+  const filtered = listed().filter(article => {
     if (topic && article.topic !== topic && !article.topic.startsWith(`${topic}/`)) return false;
     const { genre, sub } = topicOf(article);
     return `${article.title} ${article.summary} ${genre?.name} ${sub?.name}`.toLowerCase().includes(query);
   });
   $('#article-list').replaceChildren(...filtered.map(articleRow));
-  if (!filtered.length) $('#article-list').append(el('p', 'empty-state', articles.length ? '没有匹配的文章。可以更换关键词或分类。' : '还没有公开的文章。'));
+  if (!filtered.length) $('#article-list').append(el('p', 'empty-state', listed().length ? '没有匹配的文章。可以更换关键词或分类。' : '还没有公开的文章。'));
   $('.section-heading .count').textContent = String(filtered.length).padStart(2, '0');
 }
 
@@ -139,12 +144,36 @@ function tableOfContents(prose) {
   update();
   return nav;
 }
+const byId = id => articles.find(item => item.id === id);
+const articleLink = (item, text = item.title) => `<a href="/articles/${item.id}/" data-article="${item.id}">${escapeHtml(text)}</a>`;
+
+/** A series page lists its chapters; a chapter links back and to its neighbours. */
+function seriesSection(article) {
+  if (article.type === 'series') {
+    const section = el('section', 'series-chapters');
+    section.setAttribute('aria-labelledby', 'chapters-title');
+    const chapters = article.chapters.map(byId).filter(Boolean);
+    section.innerHTML = `<h2 id="chapters-title">目录</h2>${chapters.length ? `<ol>${chapters.map(item => `<li><span class="chapter-no">${String(item.chapter).padStart(2, '0')}</span>${articleLink(item)}${date(item.date)}</li>`).join('')}</ol>` : '<p class="empty-state">还没有公开的章节。</p>'}`;
+    return section;
+  }
+  const series = byId(article.series);
+  if (!series) return null;
+  const at = series.chapters.indexOf(article.id);
+  const [previous, next] = [byId(series.chapters[at - 1]), byId(series.chapters[at + 1])];
+  const nav = el('nav', 'chapter-nav');
+  nav.setAttribute('aria-label', '章节');
+  nav.innerHTML = `${previous ? articleLink(previous, `← ${previous.title}`) : '<span></span>'}${articleLink(series, '目录')}${next ? articleLink(next, `${next.title} →`) : '<span></span>'}`;
+  return nav;
+}
 function renderArticle(article) {
   stopToc();
   const fromTerminal = new URLSearchParams(location.search).get('from') === 'terminal';
   const { genre, sub } = topicOf(article);
+  const series = article.series && byId(article.series);
   const container = el('article', 'article-page');
-  container.innerHTML = `<a class="back-link" href="${fromTerminal ? '/terminal/' : '/?view=blog'}" data-nav="${fromTerminal ? 'terminal' : 'blog'}">← 返回${fromTerminal ? '终端' : '文章列表'}</a><div class="article-meta">${tag(article)}<span>${escapeHtml(genre?.name || '')} / ${escapeHtml(sub?.name || '')}</span>${date(article.date)}<span>${article.minutes} 分钟</span></div><h1>${escapeHtml(article.title)}</h1><p class="article-lead muted">${escapeHtml(article.summary)}</p>`;
+  const length = article.type === 'series' ? `${article.chapters.length} 章` : `${article.minutes} 分钟`;
+  const kicker = series ? `<p class="series-kicker">${articleLink(series, `《${series.title}》`)} · 第 ${article.chapter} 章</p>` : '';
+  container.innerHTML = `<a class="back-link" href="${fromTerminal ? '/terminal/' : '/?view=blog'}" data-nav="${fromTerminal ? 'terminal' : 'blog'}">← 返回${fromTerminal ? '终端' : '文章列表'}</a><div class="article-meta">${tag(article)}<span>${escapeHtml(genre?.name || '')} / ${escapeHtml(sub?.name || '')}</span>${date(article.date)}<span>${length}</span></div>${kicker}<h1>${escapeHtml(article.title)}</h1>${article.summary ? `<p class="article-lead muted">${escapeHtml(article.summary)}</p>` : ''}`;
   const prose = el('div', 'prose');
   prose.dataset.article = article.id;
   prose.setAttribute('aria-busy', 'true');
@@ -152,6 +181,8 @@ function renderArticle(article) {
   const column = el('div', 'article-main');
   column.append(prose);
   container.append(column);
+  const chapters = (article.type === 'series' || series) && seriesSection(article);
+  if (chapters) container.append(chapters);
   const links = linksSection(article);
   if (links) container.append(links);
   main.replaceChildren(container);
@@ -173,6 +204,20 @@ function renderArticle(article) {
     if (prose.isConnected) prose.replaceChildren(el('p', 'empty-state', '文章加载失败，请检查网络后刷新页面。'));
   });
 }
+function renderThoughts() {
+  main.innerHTML = `${intro(`THOUGHTS / ${String(thoughts.length).padStart(2, '0')}`, '随想', '随手记下的句子和段落。')}<div class="thought-list"></div>`;
+  const list = $('.thought-list');
+  if (!thoughts.length) { list.append(el('p', 'empty-state', '还没有公开的随想。')); return; }
+  for (const thought of thoughts) {
+    const item = el('article', 'thought');
+    item.id = `t-${thought.id}`;
+    item.innerHTML = `<a class="thought-date" href="#t-${thought.id}"><time datetime="${thought.date.replace(' ', 'T')}">${thought.date.replaceAll('-', '.')}</time></a><div class="prose">${thought.html}</div>`;
+    list.append(item);
+    enhance(item);
+  }
+  const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  target?.scrollIntoView({ behavior: 'instant' });
+}
 function renderGraph() {
   // Square on phones, so labels stay readable without sideways scrolling.
   const size = main.clientWidth < 600 ? { width: 440, height: 440 } : { width: 800, height: 560 };
@@ -182,9 +227,6 @@ function renderGraph() {
 function intro(kicker,title,description) {
   return `<div class="page-intro"><span class="eyebrow">${kicker}</span><h1>${title}</h1><p>${description}</p></div>`;
 }
-function renderProjects() {
-  main.innerHTML = `${intro('PROJECTS / 03','项目','当前演示中的三个组成部分。')}<div class="project-grid"><article class="project-card"><span>01 / BLOG</span><h2>技术博客</h2><p>文章分类、关键词搜索和独立阅读界面。</p><a class="small-link" href="/?view=blog" data-nav="blog">查看文章 <span aria-hidden="true">→</span></a></article><article class="project-card"><span>02 / TERMINAL</span><h2>交互终端</h2><p>通过指令浏览公开内容，支持历史记录和自动补全。</p><a class="small-link" href="/terminal/" data-nav="terminal">打开终端 <span aria-hidden="true">→</span></a></article><article class="project-card"><span>03 / APPEARANCE</span><h2>两种像素配色</h2><p>点右上角的方块，在夜空与纸页之间切换。</p><button class="small-link" data-action="toggle-theme">切换配色 <span aria-hidden="true">→</span></button></article></div>`;
-}
 function renderAbout() {
   main.innerHTML = `${intro('ABOUT / THIS SITE','关于本站','Hanskrrr的个人网站')}<div class="about-body"><p>一个普通的知识/技术记录博客。</p><div class="about-list"><div><strong>我是谁</strong><span>尝试把知识拼凑成完整故事的人</span></div><div><strong>会看到什么</strong><span>对知识的反刍，一些想法，还有可能存在的角落</span></div></div></div>`;
 }
@@ -193,6 +235,6 @@ export const blogPages = {
   blog: { title: '技术博客', render: renderBlog },
   article: { render: article => article && renderArticle(article) },
   graph: { title: '知识图谱', render: renderGraph },
-  projects: { title: '项目', render: renderProjects },
+  thoughts: { title: '随想', render: renderThoughts },
   about: { title: '关于', render: renderAbout },
 };

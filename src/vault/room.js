@@ -1,14 +1,16 @@
 // The unlocked exhibit as the creature's room. Each object opens one part of the
 // decrypted content in the panel below; a row of text buttons offers the same
 // choices for keyboards and small screens. Decrypted text is inserted with
-// textContent, except private vault notes, whose html was rendered at publish time
-// (markdown-it with raw HTML off) and is authenticated by the cipher. Media URLs are
-// created lazily and revoked on lock.
+// textContent, except html rendered at publish time from the owner's vault
+// (markdown-it with raw HTML off), which is authenticated by the cipher. Media is
+// decrypted lazily into blob URLs (revoked on lock); third-party players load only
+// when asked, and only from the hosts in embeds.js.
 import { gridToPaths, svg } from '../blog/pixel-art.js';
 import { enhance } from '../blog/rich.js';
+import { embedSize, isAllowedEmbed } from './embeds.js';
 import { creatureGrid, CREATURE_AT, HOTSPOTS, ROOM_HEIGHT, ROOM_WIDTH, roomGrid } from './room-art.js';
 
-const LABELS = { intro: '窗外', journal: '日记', photos: '照片', timeline: '时间线', music: '音乐', creature: '小生物' };
+const LABELS = { intro: '窗外', journal: '日记', books: '书架', photos: '照片', timeline: '时间线', films: '放映机', music: '点唱机', creature: '小生物' };
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -16,23 +18,32 @@ function el(tag, className, text) {
   if (text !== undefined) node.textContent = text;
   return node;
 }
+function prose(html) {
+  const node = el('div', 'prose room-prose');
+  node.innerHTML = html;
+  enhance(node);
+  return node;
+}
+const byline = (...parts) => parts.filter(Boolean).join(' · ');
 
 /**
- * Render the room into `container`. content: decrypted exhibit.
- * mediaUrl(item) → blob URL (tracked by the caller for revocation).
+ * Render the room into `container`. content: decrypted exhibit (crypto.js readExhibit).
+ * mediaUrl(ref) → Promise<blob URL> (tracked by the caller for revocation).
  * Returns dispose().
  */
 export function mountRoom(container, content, { mediaUrl, reducedMotion = false }) {
   const available = {
     intro: true,
     journal: content.articles.length > 0,
-    photos: content.images.length > 0,
+    books: content.books.length > 0,
+    photos: content.photos.length > 0,
     timeline: Boolean(content.timeline?.length),
-    music: Boolean(content.audio),
+    films: content.films.length > 0,
+    music: content.music.length > 0,
     creature: true,
   };
   const stage = el('div', 'room-stage');
-  stage.innerHTML = svg(roomGrid({ journal: available.journal, photos: available.photos, timeline: available.timeline, music: available.music }), { className: 'pixel-art room-scene' });
+  stage.innerHTML = svg(roomGrid(available), { className: 'pixel-art room-scene' });
   const art = stage.querySelector('svg');
   const ns = 'http://www.w3.org/2000/svg';
   const creature = document.createElementNS(ns, 'g');
@@ -70,12 +81,87 @@ export function mountRoom(container, content, { mediaUrl, reducedMotion = false 
     }
   }
 
-  // --- panels ---------------------------------------------------------------
-  const media = new Map();
-  const urlFor = item => { if (!media.has(item)) media.set(item, mediaUrl(item)); return media.get(item); };
+  // --- media ------------------------------------------------------------------
+  const urls = new Map();
+  const urlFor = ref => { if (!urls.has(ref)) urls.set(ref, mediaUrl(ref)); return urls.get(ref); };
+  /** An <img> whose source is decrypted in the background. */
+  function image(ref, alt, className) {
+    const img = el('img', className);
+    img.alt = alt;
+    img.decoding = 'async';
+    urlFor(ref).then(url => { img.src = url; }, () => img.classList.add('room-media-failed'));
+    return img;
+  }
+  function cover(item, className = 'shelf-cover') {
+    if (item.cover) return image(item.cover, item.title, className);
+    const blank = el('div', `${className} shelf-blank`);
+    blank.append(el('span', '', item.title));
+    return blank;
+  }
+  /** A third-party player that loads only when asked. */
+  function player(url) {
+    if (!url || !isAllowedEmbed(url)) return null;
+    const box = el('div', 'room-embed');
+    const size = embedSize(url);
+    if (size.aspect) box.style.aspectRatio = size.aspect;
+    else box.style.height = `${size.height}px`;
+    const load = el('button', 'room-choice room-embed-load', `▶ 加载播放器（${new URL(url).hostname}）`);
+    load.type = 'button';
+    load.addEventListener('click', () => {
+      const frame = el('iframe');
+      frame.src = url;
+      frame.title = '播放器';
+      frame.loading = 'lazy';
+      frame.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
+      frame.setAttribute('allowfullscreen', '');
+      frame.referrerPolicy = 'strict-origin-when-cross-origin';
+      box.replaceChildren(frame);
+    });
+    box.append(load);
+    return box;
+  }
+  /** Detail view shared by the bookshelf, projector and jukebox. */
+  function detail(item, meta, back, extras = []) {
+    const view = el('article', 'shelf-detail');
+    const header = el('div', 'shelf-detail-head');
+    const info = el('div');
+    info.append(el('h3', '', item.title));
+    if (meta) info.append(el('p', 'room-text shelf-meta', meta));
+    if (item.link) {
+      const link = el('a', 'small-link', '打开链接 ↗');
+      link.href = item.link;
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      info.append(link);
+    }
+    header.append(cover(item, 'shelf-detail-cover'), info);
+    const backButton = el('button', 'room-choice', '← 返回');
+    backButton.type = 'button';
+    backButton.addEventListener('click', back);
+    view.append(backButton, header, ...extras.filter(Boolean));
+    if (item.html) view.append(prose(item.html));
+    return view;
+  }
+  function audio(ref, title) {
+    const node = el('audio');
+    node.controls = true;
+    node.preload = 'metadata';
+    node.setAttribute('aria-label', title);
+    urlFor(ref).then(url => { node.src = url; }, () => node.replaceWith(el('p', 'room-text', '音频无法解密或加载。')));
+    return node;
+  }
+  /** A list panel whose items open a detail view in place. */
+  function collection(title, items, renderList, renderDetail) {
+    const wrap = el('div');
+    const showList = () => wrap.replaceChildren(el('h2', '', title), renderList(index => wrap.replaceChildren(renderDetail(items[index], showList))));
+    showList();
+    return [wrap];
+  }
+
+  // --- panels -------------------------------------------------------------------
   const panels = {
     intro() {
-      return [el('h2', '', content.title), el('p', 'room-text', content.intro)];
+      return [el('h2', '', content.title), content.introHtml ? prose(content.introHtml) : el('p', 'room-text', content.intro)];
     },
     journal() {
       const list = el('div', 'room-tabs');
@@ -83,13 +169,7 @@ export function mountRoom(container, content, { mediaUrl, reducedMotion = false 
       const show = index => {
         const article = content.articles[index];
         body.replaceChildren(el('h3', '', article.title));
-        if (article.html) {
-          // Rendered by scripts/publish.mjs from the owner's vault; authenticated by AES-GCM.
-          const prose = el('div', 'prose room-prose');
-          prose.innerHTML = article.html;
-          body.append(prose);
-          enhance(prose);
-        } else body.append(el('p', 'room-text', article.body));
+        body.append(article.html ? prose(article.html) : el('p', 'room-text', article.body));
         list.querySelectorAll('button').forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));
       };
       content.articles.forEach((article, index) => {
@@ -101,25 +181,64 @@ export function mountRoom(container, content, { mediaUrl, reducedMotion = false 
       show(0);
       return [el('h2', '', '日记'), list, body];
     },
+    books() {
+      return collection('书架', content.books, open => {
+        const shelves = el('div', 'bookshelf');
+        const groups = Map.groupBy ? Map.groupBy(content.books.map((book, index) => ({ book, index })), entry => entry.book.shelf || '')
+          : content.books.reduce((map, book, index) => map.set(book.shelf || '', [...(map.get(book.shelf || '') || []), { book, index }]), new Map());
+        for (const [name, entries] of groups) {
+          const row = el('section', 'shelf-row');
+          if (name) row.append(el('h3', '', name));
+          const list = el('div', 'shelf-items');
+          for (const { book, index } of entries) {
+            const button = el('button', 'shelf-item');
+            button.type = 'button';
+            button.append(cover(book), el('span', 'shelf-title', book.title), el('span', 'shelf-sub', byline(book.author, book.year)));
+            button.addEventListener('click', () => open(index));
+            list.append(button);
+          }
+          row.append(list);
+          shelves.append(row);
+        }
+        return shelves;
+      }, (book, back) => detail(book, byline(book.author, book.year, book.shelf), back));
+    },
+    films() {
+      return collection('放映机', content.films, open => {
+        const list = el('div', 'shelf-items film-items');
+        content.films.forEach((film, index) => {
+          const button = el('button', 'shelf-item');
+          button.type = 'button';
+          button.append(cover(film), el('span', 'shelf-title', film.title), el('span', 'shelf-sub', byline(film.kind, film.director, film.year)));
+          button.addEventListener('click', () => open(index));
+          list.append(button);
+        });
+        return list;
+      }, (film, back) => detail(film, byline(film.kind, film.director, film.year), back, [player(film.embed)]));
+    },
+    music() {
+      return collection('点唱机', content.music, open => {
+        const list = el('ol', 'track-list');
+        content.music.forEach((track, index) => {
+          const item = el('li');
+          const button = el('button', 'track');
+          button.type = 'button';
+          button.append(cover(track, 'track-cover'), el('span', 'shelf-title', track.title), el('span', 'shelf-sub', byline(track.artist, track.album, track.year)));
+          button.addEventListener('click', () => open(index));
+          item.append(button);
+          list.append(item);
+        });
+        return list;
+      }, (track, back) => detail(track, byline(track.artist, track.album, track.year), back, [track.audio && audio(track.audio, track.title), player(track.embed)]));
+    },
     photos() {
       const grid = el('div', 'room-photos');
-      content.images.forEach(item => {
+      content.photos.forEach(item => {
         const figure = el('figure');
-        const img = el('img');
-        img.alt = item.title;
-        img.src = urlFor(item);
-        figure.append(img, el('figcaption', '', item.title));
+        figure.append(image(item.media, item.title), el('figcaption', '', item.title));
         grid.append(figure);
       });
       return [el('h2', '', '照片'), grid];
-    },
-    music() {
-      const audio = el('audio');
-      audio.controls = true;
-      audio.preload = 'metadata';
-      audio.src = urlFor(content.audio);
-      audio.setAttribute('aria-label', content.audio.title);
-      return [el('h2', '', '音乐'), el('p', 'room-text', content.audio.title), audio];
     },
     timeline() {
       const list = el('ol', 'trail');

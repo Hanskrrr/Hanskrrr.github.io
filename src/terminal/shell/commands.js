@@ -1,8 +1,6 @@
 // One handler per public command. Each receives (args, { ctx, result, name }) and
 // returns a result: { recognized, echo, remember, lines, action? }. Handlers never
 // touch the DOM; the terminal page turns `action` into an effect (see ../actions.js).
-import { audioTracks } from '../../content/audio.js';
-import { photoCatalog } from '../../content/photos.js';
 import { commandHelp, manuals, terminalThemeNames } from './manual.js';
 import { articlePath } from './filesystem.js';
 import { matchesGlob } from './parse.js';
@@ -48,7 +46,9 @@ function catOrOpen(args, { ctx, result, name }) {
 
 export const commands = {
   help: noArgs((args, { ctx, result }) => {
-    result.lines = commandHelp.map(([usage]) => ctx.line(usage, 'help'));
+    // Media programs are listed only when the site has public photos or audio.
+    const hidden = [...(ctx.photos.length ? [] : ['gallery']), ...(ctx.tracks.length ? [] : ['player'])];
+    result.lines = commandHelp.filter(([usage]) => !hidden.includes(usage.split(' ')[0])).map(([usage]) => ctx.line(usage, 'help'));
     return result;
   }),
   pwd: noArgs((args, { ctx, result }) => {
@@ -150,7 +150,7 @@ export const commands = {
     const node = ctx.nodeFor(args[0] ?? `${ctx.fs.home}/audio`);
     const nodes = node.type === 'directory' ? ctx.fs.list(node.path) : [node];
     const ids = new Set(nodes.filter(item => item.action?.type === 'audio').map(item => item.action.id));
-    const tracks = audioTracks.filter(track => ids.has(track.id));
+    const tracks = ctx.tracks.filter(track => ids.has(track.id));
     if (!tracks.length) return ctx.errorResult(name, '没有可播放的音频。使用 player ~/audio/。');
     result.action = { type: 'player', tracks };
     return result;
@@ -165,7 +165,7 @@ export const commands = {
     const nodes = node.type === 'directory' ? ctx.fs.list(node.path) : [node];
     const photos = nodes.flatMap(item => {
       if (item.action?.type !== 'photo') return [];
-      const photo = photoCatalog.find(entry => entry.id === item.action.id) || photoCatalog[item.action.index];
+      const photo = ctx.photos.find(entry => entry.id === item.action.id) || ctx.photos[item.action.index];
       return photo ? [photo] : [];
     });
     if (!photos.length) return ctx.errorResult(name, '没有可显示的图片。使用 gallery ~/photos/。');
@@ -183,15 +183,9 @@ export const commands = {
  */
 export const aliases = {
   articles: (args, ctx) => args.length ? null : { lines: ctx.directoryListing(ctx.nodeFor(`${ctx.fs.home}/articles`)) },
-  photos: (args, ctx) => args.length ? null : { lines: ctx.directoryListing(ctx.nodeFor(`${ctx.fs.home}/photos`)) },
-  audio: (args, ctx) => args.length ? null : { lines: ctx.directoryListing(ctx.nodeFor(`${ctx.fs.home}/audio`)) },
-  projects: (args, ctx) => args.length ? null : { lines: ctx.directoryListing(ctx.nodeFor(`${ctx.fs.home}/projects`)) },
   about: (args, ctx) => args.length ? null : { lines: [ctx.line(ctx.nodeFor(`${ctx.fs.home}/about.txt`).content)] },
   read: (args, ctx) => {
     const article = args.length === 1 && ctx.articles.find(item => item.id === args[0]);
     return article ? { name: 'cat', args: [articlePath(ctx.fs.home, article)] } : null;
   },
-  photo: (args, ctx) => args.length === 1 && /^[1-3]$/.test(args[0])
-    ? { name: 'open', args: [`${ctx.fs.home}/photos/0${args[0]}.svg`] } : null,
-  play: (args, ctx) => args.length ? null : { name: 'open', args: [`${ctx.fs.home}/audio/sample.wav`] },
 };

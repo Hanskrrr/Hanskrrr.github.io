@@ -1,3 +1,5 @@
+import { isAllowedEmbed } from './embeds.js';
+
 const ENVELOPE_VERSION = 1;
 const ITERATIONS = 600_000;
 const AAD = new TextEncoder().encode('gallery-exhibit:v1');
@@ -30,21 +32,44 @@ function readEnvelope(envelope) {
   return { salt, iv, ciphertext };
 }
 
-/** Validate decrypted content; unknown fields are dropped. */
+const IMAGE_TYPES = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'];
+const AUDIO_TYPES = ['audio/wav', 'audio/mpeg', 'audio/ogg', 'audio/mp4', 'audio/aac', 'audio/flac', 'audio/webm'];
+const MEDIA_AAD = new TextEncoder().encode('gallery-media:v1');
+
+/**
+ * Validate decrypted content; unknown fields are dropped. Shape:
+ * { version, title, intro, introHtml?, articles, photos, books, films, music, timeline? }
+ * Media is either inline { mime, data } or a separately encrypted file
+ * { mime, file: 'room/<hex>.bin', key, iv, sha256? } (see decryptMedia).
+ * The older { images, audio } fields are read as photos and one music item.
+ */
 export function readExhibit(value) {
-  const text = (input, maximum) => {
-    if (typeof input !== 'string' || input.length > maximum) throw new Error('Invalid content');
-    return input;
+  const fail = () => { throw new Error('Invalid content'); };
+  const text = (input, maximum) => (typeof input === 'string' && input.length <= maximum ? input : fail());
+  const optional = (item, key, maximum, target) => { if (item[key] !== undefined) target[key] = text(item[key], maximum); };
+  const list = (input, maximum = 500) => (input === undefined ? [] : Array.isArray(input) && input.length <= maximum ? input : fail());
+  const url = input => (/^https?:\/\/[^\s"'<>]+$/.test(text(input, 2000)) ? input : fail());
+  const media = (item, types) => {
+    if (!item || !types.includes(item.mime)) fail();
+    if (item.data !== undefined) { decodeBase64(item.data); return { mime: item.mime, data: item.data }; }
+    if (!/^room\/[0-9a-f]{32}\.bin$/.test(item.file) || decodeBase64(item.key, 32).length !== 32 || decodeBase64(item.iv, 12).length !== 12) fail();
+    const ref = { mime: item.mime, file: item.file, key: item.key, iv: item.iv };
+    if (item.sha256 !== undefined) ref.sha256 = /^[0-9a-f]{64}$/.test(item.sha256) ? item.sha256 : fail();
+    return ref;
   };
-  if (!value || value.version !== 1 || !Array.isArray(value.articles) ||
-      !Array.isArray(value.images) || value.articles.length > 100 || value.images.length > 100) {
-    throw new Error('Invalid content');
-  }
-  const media = (item, allowedTypes) => {
-    if (!item || !allowedTypes.includes(item.mime)) throw new Error('Invalid content');
-    decodeBase64(item.data);
-    return { title: text(item.title, 300), mime: item.mime, data: item.data };
+  /** Shared fields of shelf items (books, films, music): text, links, a cover and a comment. */
+  const shelfItem = (item, fields) => {
+    if (!item || typeof item !== 'object') fail();
+    const out = { title: text(item.title, 300) };
+    for (const key of fields) optional(item, key, 300, out);
+    if (item.link !== undefined) out.link = url(item.link);
+    if (item.embed !== undefined) out.embed = isAllowedEmbed(item.embed) ? item.embed : fail();
+    if (item.cover !== undefined) out.cover = media(item.cover, IMAGE_TYPES);
+    if (item.audio !== undefined) out.audio = media(item.audio, AUDIO_TYPES);
+    optional(item, 'html', 4_000_000, out);
+    return out;
   };
+  if (!value || value.version !== 1 || !Array.isArray(value.articles) || value.articles.length > 500) fail();
   const exhibit = {
     version: 1,
     title: text(value.title, 300),
@@ -52,25 +77,42 @@ export function readExhibit(value) {
     // Private vault notes also carry pre-rendered html (from scripts/publish.mjs) and a date.
     articles: value.articles.map(article => {
       const item = { title: text(article?.title, 300), body: text(article?.body, 500_000) };
-      if (article.html !== undefined) item.html = text(article.html, 4_000_000);
-      if (article.date !== undefined) item.date = text(article.date, 40);
+      optional(article, 'html', 4_000_000, item);
+      optional(article, 'date', 40, item);
       return item;
     }),
-    images: value.images.map(item => media(item, ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp'])),
+    photos: [
+      ...list(value.images, 200).map(item => ({ title: text(item?.title, 300), media: media(item, IMAGE_TYPES) })),
+      ...list(value.photos, 500).map(item => ({ title: text(item?.title, 300), media: media(item?.media, IMAGE_TYPES) })),
+    ],
+    books: list(value.books).map(item => shelfItem(item, ['author', 'year', 'shelf'])),
+    films: list(value.films).map(item => shelfItem(item, ['director', 'year', 'kind'])),
+    music: [
+      ...(value.audio !== undefined ? [{ title: text(value.audio.title, 300), audio: media(value.audio, AUDIO_TYPES) }] : []),
+      ...list(value.music).map(item => shelfItem(item, ['artist', 'album', 'year'])),
+    ],
   };
-  if (value.audio !== undefined) {
-    exhibit.audio = media(value.audio, ['audio/wav', 'audio/mpeg', 'audio/ogg']);
-  }
+  optional(value, 'introHtml', 1_000_000, exhibit);
   // Optional timeline for the room's wall map: [{ date, title, text? }].
   if (value.timeline !== undefined) {
-    if (!Array.isArray(value.timeline) || value.timeline.length > 200) throw new Error('Invalid content');
-    exhibit.timeline = value.timeline.map(entry => {
+    exhibit.timeline = list(value.timeline, 500).map(entry => {
       const item = { date: text(entry?.date, 40), title: text(entry?.title, 300) };
-      if (entry.text !== undefined) item.text = text(entry.text, 5000);
+      optional(entry, 'text', 5000, item);
       return item;
     });
   }
   return exhibit;
+}
+
+/** Fetch and decrypt one separately encrypted media file; returns its bytes. */
+export async function decryptMedia(ref, { signal } = {}) {
+  const response = await fetch(new URL(`../data/${ref.file}`, import.meta.url), { signal, credentials: 'omit' });
+  if (!response.ok) throw new Error('Media unavailable');
+  const key = await crypto.subtle.importKey('raw', decodeBase64(ref.key, 32), 'AES-GCM', false, ['decrypt']);
+  return new Uint8Array(await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: decodeBase64(ref.iv, 12), additionalData: MEDIA_AAD, tagLength: 128 },
+    key, await response.arrayBuffer(),
+  ));
 }
 
 /** Decrypt and validate one authenticated envelope. No password or key is retained. */
