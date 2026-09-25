@@ -109,7 +109,10 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     load.type = 'button';
     load.addEventListener('click', () => {
       const frame = el('iframe');
-      frame.src = url;
+      // You asked for it, so NetEase's player may start at once.
+      const source = new URL(url);
+      if (source.hostname === 'music.163.com') source.searchParams.set('auto', '1');
+      frame.src = source.href;
       frame.title = '播放器';
       frame.loading = 'lazy';
       frame.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';

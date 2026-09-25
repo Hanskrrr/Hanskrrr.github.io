@@ -35,13 +35,25 @@ export function toScreen(link) {
   return parsed.href;
 }
 
-/** A page link (bilibili, YouTube, NetEase Cloud Music, Spotify, Apple Music) → embed URL, or null. */
+/**
+ * Whatever a site hands you → its embed URL, or null: a page link (bilibili, YouTube, NetEase
+ * Cloud Music, Spotify, Apple Music), NetEase's 外链 page (#/outchain/2/<id>), the <iframe> code
+ * the sites give out, or share text with a link in it.
+ */
 export function toEmbed(link) {
+  const text = String(link ?? '').trim();
+  const frameSource = /<iframe\b[^>]*\bsrc=["']?([^"'\s>]+)/i.exec(text)?.[1];
+  const found = frameSource ? frameSource.replace(/^\/\//, 'https://') : /https?:\/\/[^\s"'<>（）()]+/.exec(text)?.[0] ?? text;
   let url;
-  try { url = new URL(link); } catch { return null; }
+  try { url = new URL(found.replaceAll('&amp;', '&')); } catch { return null; }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
-  if (isAllowedEmbed(url.href.replace(/^http:/, 'https:'))) return url.href.replace(/^http:/, 'https:');
-  const host = url.hostname.replace(/^(www|m)\./, '');
+  if (isAllowedEmbed(url.href.replace(/^http:/, 'https:'))) {
+    const embed = new URL(url.href.replace(/^http:/, 'https:'));
+    // Players start only when the visitor loads them (room.js turns autoplay on then).
+    if (embed.hostname === 'music.163.com') embed.searchParams.set('auto', '0');
+    return embed.href;
+  }
+  const host = url.hostname.replace(/^(www|m|y)\./, '');
   if (host === 'bilibili.com' || host === 'b23.tv') {
     const bv = /\/video\/(BV[0-9A-Za-z]+)/.exec(url.pathname)?.[1];
     const av = /\/video\/av(\d+)/.exec(url.pathname)?.[1];
@@ -55,8 +67,11 @@ export function toEmbed(link) {
   if (host === 'music.163.com') {
     // Links look like https://music.163.com/#/song?id=123 (the id sits in the hash).
     const route = url.hash.startsWith('#/') ? new URL(url.hash.slice(1), 'https://music.163.com') : url;
-    const id = route.searchParams.get('id');
-    const type = { '/song': 2, '/album': 1, '/playlist': 0 }[route.pathname];
+    // The 外链 (outchain) page: #/outchain/<type>/<id>, type 2 = song, 1 = album, 0 = playlist.
+    const outchain = /^\/outchain\/([012])\/(\d+)/.exec(route.pathname);
+    const id = outchain?.[2] ?? route.searchParams.get('id');
+    // Mobile share links look like y.music.163.com/m/song?id=…
+    const type = outchain ? Number(outchain[1]) : { '/song': 2, '/album': 1, '/playlist': 0 }[route.pathname.replace(/^\/m\//, '/')];
     if (id && /^\d+$/.test(id) && type !== undefined) return `https://music.163.com/outchain/player?type=${type}&id=${id}&auto=0&height=${type === 2 ? 66 : 430}`;
   }
   if (host === 'open.spotify.com') {
