@@ -1,7 +1,7 @@
 // Session-only display of decrypted exhibit content (the creature's room, room.js). Nothing is stored; leaving the
 // page (lockContent) aborts pending unlocks, revokes media URLs and drops the content. The one exception is
-// the creature's secret path (core/portal.js): while it visits the homepage picture the content stays in
-// memory so it can walk back; any other navigation locks as usual.
+// the creature's secret path (core/portal.js): while it visits the homepage picture or the pixel world
+// beyond it (world.js), the content stays in memory so it can walk back; any other navigation locks as usual.
 import { $, el, main, reducedMotion } from '../core/dom.js';
 import { portal } from '../core/portal.js';
 import { navigate, renderView, runLeaveHooks, swapPage } from '../core/router.js';
@@ -16,21 +16,35 @@ let disposeRoom = () => {};
 let traveling = false;   // the next lockContent only closes the room, keeping the content
 let arrival = null;      // 'left' when the creature walks back in from the picture
 
-/** The creature walked out through the room's left wall: into the homepage picture. */
+/** Leave the current scene without locking, and draw the next one. */
+function travel(render) {
+  traveling = true;
+  runLeaveHooks();
+  swapPage(render);
+}
+/** The creature walked out through the room's left wall: into the homepage picture, from its right. */
 function walkOut() {
   traveling = true;
-  portal.visitor = true;
-  portal.back = walkBack;
+  Object.assign(portal, { visitor: 'right', back: walkBack, world: toWorld });
   navigate('blog');
 }
-/** It walked out of the picture's right edge: back into the room, in through the left wall. */
+/** Off the picture's right edge: back into the room, in through the left wall. */
 function walkBack() {
   if (!decrypted) return;
-  traveling = true;
+  portal.visitor = null;
   arrival = 'left';
-  portal.visitor = false;
-  runLeaveHooks();
-  swapPage(() => renderView('exhibit'));
+  travel(() => renderView('exhibit'));
+}
+/** Off the picture's left edge: into the pixel world. */
+function toWorld() {
+  if (!decrypted) return;
+  portal.visitor = null;
+  travel(() => renderView('world'));
+}
+/** Off the world's right end: back into the picture, from its left. */
+function toPicture() {
+  portal.visitor = 'left';
+  travel(() => renderView('blog'));
 }
 
 /** Abort any earlier attempt and return the controller for a new one. */
@@ -49,8 +63,7 @@ export function lockContent() {
   disposeRoom = () => {};
   document.querySelectorAll('audio').forEach(audio => { audio.pause(); });
   if (traveling) { traveling = false; return; }
-  portal.visitor = false;
-  portal.back = null;
+  Object.assign(portal, { visitor: null, back: null, world: null });
   unlockController?.abort();
   unlockController = undefined;
   decrypted = null;
@@ -105,3 +118,20 @@ function renderExhibit(start) {
 }
 
 export const exhibitPage = { title: '内容展示', render: renderExhibit };
+
+/** The pixel world west of the homepage picture, with the letter at its far end. */
+function renderWorld() {
+  if (!decrypted) { renderView('blog'); return; }
+  const container = el('section', 'world-page');
+  const stage = el('div', 'world-stage');
+  const leave = el('div', 'exhibit-leave');
+  leave.innerHTML = '<button class="button" data-action="lock">锁定并返回 <span aria-hidden="true">←</span></button>';
+  container.append(el('h1', 'sr-only', '像素世界'), stage, leave);
+  main.replaceChildren(container);
+  const content = decrypted;
+  import('./world.js').then(({ mountWorld }) => {
+    if (decrypted !== content || !stage.isConnected) return;
+    disposeRoom = mountWorld(stage, { letter: content.letter, onLeave: toPicture });
+  });
+}
+export const worldPage = { title: '像素世界', render: renderWorld };

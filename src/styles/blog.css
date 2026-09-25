@@ -471,6 +471,24 @@ main:focus, main:focus-visible { outline: none; }
 /* The room replaces the site layout: no header or footer, the scene starts at the very top. */
 :root[data-view="exhibit"] .site-header, :root[data-view="exhibit"] .site-footer { display: none; }
 .exhibit-leave { display: flex; justify-content: center; margin-top: 40px; }
+/* The pixel world (vault/world.js): like the room, a scene of its own across the window. */
+:root[data-view="world"] .site-header, :root[data-view="world"] .site-footer { display: none; }
+body:has(.world-page) { overflow-x: clip; }
+.world-stage { position: relative; width: min(100vw, 1600px); margin-left: 50%; transform: translateX(-50%); overflow: hidden; line-height: 0; }
+.world-scene { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; }
+.world-say { font-size: 3.6px; }
+.world-land .px-window.world-light { filter: drop-shadow(0 0 1px var(--window)); }
+.world-pad { display: none; }
+@media (pointer: coarse) {
+  .world-pad { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px 0; line-height: normal; }
+  .world-pad .button { min-width: 64px; min-height: 52px; justify-content: center; font-size: 22px; touch-action: none; user-select: none; -webkit-user-select: none; }
+}
+.world-letter { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: rgb(8 6 30 / .55); }
+.world-letter[hidden] { display: none; }
+.world-letter-paper { width: min(560px, 100%); max-height: calc(100dvh - 32px); overflow: auto; padding: 28px 30px 24px; color: var(--ink); background: var(--surface); box-shadow: 0 0 0 var(--px) var(--line), 6px 6px 0 var(--drop); line-height: 1.9; }
+.world-letter-paper h2 { margin: 0 0 16px; font-size: 22px; line-height: 1.4; }  /* private text: not in the pixel font subset */
+.world-letter-end { margin: 24px 0 16px; text-align: center; font-family: var(--pixel); color: var(--muted); }
+.world-letter-paper .button { display: flex; margin: 0 auto; }
 .room-stage { position: relative; line-height: 0; --d: 10px; overflow: hidden; }
 /* The room fills the width of the window (up to a limit) instead of sitting in a card. */
 body:has(.exhibit) { overflow-x: clip; }

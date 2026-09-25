@@ -11,11 +11,12 @@ import { blogPages, setSearch, setTopic } from './blog/pages.js';
 import { attachTorch } from './blog/uv-light.js';
 import { attachTermPreviews, closeReturnChip, closeTermCard, handleTermClick } from './blog/term-preview.js';
 import { handleGlobalKeydown, handleMainClick, handleSelectionChange, leaveTerminal, terminalPage } from './terminal/page.js';
-import { exhibitPage, lockContent } from './vault/exhibit.js';
+import { exhibitPage, lockContent, worldPage } from './vault/exhibit.js';
 
 for (const [name, page] of Object.entries(blogPages)) definePage(name, page);
 definePage('terminal', terminalPage);
 definePage('exhibit', exhibitPage);
+definePage('world', worldPage);
 onLeave(leaveTerminal);
 onLeave(lockContent);
 onLeave(closeTermCard);
@@ -71,7 +72,7 @@ addEventListener('pagehide', () => {
   cancelTransitions();
   runLeaveHooks();
   // Clear pending and unsubmitted input before a browser history snapshot is retained.
-  if (app.view === 'exhibit' || app.view === 'terminal') renderView('terminal');
+  if (['exhibit', 'world', 'terminal'].includes(app.view)) renderView('terminal');
 });
 
 // Konami code (↑ ↑ ↓ ↓ ← → ← → B A): the homepage critter dances. Ignored while typing.

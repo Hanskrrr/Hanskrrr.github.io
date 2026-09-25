@@ -2,7 +2,7 @@
 // to theme colours, so the same art follows the blog theme without new images.
 
 /** Small deterministic PRNG so the scene is identical on every load. */
-function random(seed) {
+export function random(seed) {
   let state = seed >>> 0;
   return () => {
     state = (state + 0x6d2b79f5) >>> 0;

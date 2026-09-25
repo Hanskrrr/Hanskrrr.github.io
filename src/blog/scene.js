@@ -6,7 +6,8 @@
 // hold up a tiny terminal board: clicking the board opens the (otherwise unlinked) terminal.
 // Seasons add falling leaves (autumn), petals (spring) or snow (winter).
 // The room's creature can visit too (core/portal.js): it walks in from the right edge, is steered
-// with ←/→ (↑ or space hops) or by clicking, and walks back into the room off the right edge.
+// with ←/→ (↑ or space jumps) or by clicking; off the right edge it goes back into the room, off
+// the left edge on into the pixel world (vault/world.js), from which it comes back on the left.
 // Everything pauses while the picture is off-screen or the tab is hidden, and
 // stays still with reduced motion.
 import { portal } from '../core/portal.js';
@@ -31,6 +32,7 @@ const critterFrames = {
   left2: ['.g..g.', '.oooo.', 'obebbo', 'obbbbo', '..oo..'],
 };
 export const CRITTER = Object.fromEntries(Object.entries(critterFrames).map(([name, rows]) => [name, sprite(rows, CRITTER_KEYS)]));
+const LEAP = [0, 2, 4, 5, 5, 4, 2];   // the visitor's jump, by ticks left
 const HEART = sprite(['h.h', 'hhh', '.h.'], { h: 'px-heart' });
 // A terminal app icon (title bar with three dots, a prompt and a blinking cursor),
 // labelled "terminal/" like an icon on a desktop.
@@ -118,7 +120,7 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
   critter.sprite.hide();
   critter.heartSprite.hide();
   critter.boardSprite.hide();
-  if (portal.visitor && portal.back) Object.assign(critter, { state: 'visit', x: SCENE_WIDTH - 1, target: SCENE_WIDTH - 16 });
+  if (portal.visitor) Object.assign(critter, { state: 'visit', leap: 0 }, portal.visitor === 'left' ? { x: -6, target: 10 } : { x: SCENE_WIDTH - 1, target: SCENE_WIDTH - 16 });
   let held = 0;                          // -1/1 while ←/→ is held (visitor only)
   let boardAt = null;
   const label = document.createElementNS(NS, 'text');
@@ -205,7 +207,7 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
   }
 
   function drawCritter(frame) {
-    const y = surface(critter.x + 3) - 5 - (critter.hop ? [0, 1, 2, 1][critter.hop % 4] : 0);
+    const y = surface(critter.x + 3) - 5 - (critter.leap ? LEAP[critter.leap] : critter.hop ? [0, 1, 2, 1][critter.hop % 4] : 0);
     critter.sprite.draw(CRITTER[frame], critter.x, y);
     // After the dance, the board goes up (and the heart gives way to it).
     if (critter.board && critter.hop === 0) {
@@ -231,6 +233,7 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
   function updateCritter() {
     if (critter.heart > 0) critter.heart -= 1;
     if (critter.hop > 0) critter.hop -= 1;
+    if (critter.leap > 0) critter.leap -= 1;
     switch (critter.state) {
       case 'home':
         critter.sprite.hide();
@@ -257,7 +260,7 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
       case 'visit': {
         const dir = held || Math.sign(critter.target - critter.x);
         if (dir) {
-          critter.x = Math.max(0, Math.min(SCENE_WIDTH - 1, critter.x + dir));
+          critter.x = Math.max(-6, Math.min(SCENE_WIDTH - 1, critter.x + dir));
           critter.step += 1;
           if (held) critter.target = critter.x;
           critter.face = dir > 0 ? 'right' : 'left';
@@ -267,6 +270,13 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
           critter.sprite.hide();
           critter.heartSprite.hide();
           portal.back?.();
+          return;
+        }
+        if (dir < 0 && critter.x === -6) {                // off the left edge: on into the pixel world
+          critter.state = 'away';
+          critter.sprite.hide();
+          critter.heartSprite.hide();
+          portal.world?.();
           return;
         }
         drawCritter(dir ? (critter.step % 2 ? `${critter.face}2` : critter.face) : tick % 17 === 0 ? 'blink' : 'front');
@@ -291,7 +301,7 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
       const box = svg.getBoundingClientRect();
       const x = Math.round(((event.clientX - box.left) / box.width) * SCENE_WIDTH) - 3;
       held = 0;
-      critter.target = x > SCENE_WIDTH - 8 ? SCENE_WIDTH - 1 : Math.max(0, x);
+      critter.target = x > SCENE_WIDTH - 8 ? SCENE_WIDTH - 1 : x < 0 ? -6 : x;
       return;
     }
     if (critter.state === 'home') comeOut();
@@ -311,7 +321,7 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
     if (critter.state !== 'visit' || !visible || event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]')) return;
     if (KEY_DIR[event.key]) held = KEY_DIR[event.key];
-    else if (['ArrowUp', 'w', 'W', ' '].includes(event.key)) { if (!critter.hop) critter.hop = 4; }
+    else if (['ArrowUp', 'w', 'W', ' '].includes(event.key)) { if (!critter.leap) critter.leap = LEAP.length - 1; }
     else return;
     event.preventDefault();
   }

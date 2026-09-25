@@ -40,7 +40,7 @@ const MEDIA_AAD = new TextEncoder().encode('gallery-media:v1');
 
 /**
  * Validate decrypted content; unknown fields are dropped. Shape:
- * { version, title, intro, introHtml?, articles, photos, books, films, music, timeline? }
+ * { version, title, intro, introHtml?, articles, photos, books, films, music, timeline?, letter? }
  * Media is either inline { mime, data } or a separately encrypted file
  * { mime, file: 'room/<hex>.bin', key, iv, sha256? } (see decryptMedia).
  * The older { images, audio } fields are read as photos and one music item.
@@ -144,6 +144,8 @@ export function readExhibit(value) {
       return item;
     });
   }
+  // Optional letter at the far end of the pixel world (world.js): { title, html }.
+  if (value.letter !== undefined) exhibit.letter = { title: text(value.letter?.title, 300), html: text(value.letter?.html, 1_000_000) };
   return exhibit;
 }
 
