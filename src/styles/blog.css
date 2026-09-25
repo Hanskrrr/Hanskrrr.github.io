@@ -510,6 +510,8 @@ body:has(.exhibit) { overflow-x: clip; }
 .room-scene { width: 100%; height: auto; aspect-ratio: 128 / 60; }
 .room-hotspot { position: absolute; padding: 0; cursor: pointer; background: transparent; outline-offset: 2px; transform: translate(var(--mid-x, 0px), var(--mid-y, 0px)); }
 .room-hotspot[data-depth="far"] { transform: translate(var(--far-x, 0px), var(--far-y, 0px)); }
+/* The wall switch is tiny in the art; keep it easy to hit on a phone. */
+.room-switch { min-width: 28px; min-height: 36px; }
 /* Drag to look around; vertical swipes still scroll the page. */
 .room-stage { touch-action: pan-y; cursor: grab; }
 .room-stage.looking, .room-stage.looking .room-hotspot { cursor: grabbing; }

@@ -24,6 +24,8 @@ export const HOTSPOTS = {
 };
 /** The projector screen on the wall: where videos play. */
 export const SCREEN = [95, 3, 28, 16];
+/** The wall switch that changes the colour style (not an object with a panel). */
+export const SWITCH = [32, 16, 5, 9];
 export const CREATURE_AT = [71, 38];
 export const CREATURE_KEYS = {
   o: 'px-critter-edge', b: 'px-critter-body', s: 'px-critter-shade', l: 'px-critter-light',
@@ -83,6 +85,11 @@ export function roomLayers({ journal = true, serials = true, photos = true, thou
   rect(17, 5, 2, 20, 'px-room-frame');
   rect(6, 14, 24, 1, 'px-room-frame');
   rect(4, 26, 28, 1, 'px-room-wood');
+
+  // A light switch on the wall beside the window: it changes the site's colours.
+  rect(33, 18, 3, 5, 'px-room-frame');
+  rect(33, 22, 3, 1, 'px-room-edge');
+  rect(34, 19, 1, 2, 'px-window');
 
   // Desk with a lamp, and the journal when there are private notes.
   into('mid');

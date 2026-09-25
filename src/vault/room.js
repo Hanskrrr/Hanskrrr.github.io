@@ -8,7 +8,7 @@
 import { gridToPaths } from '../blog/pixel-art.js';
 import { enhance } from '../blog/rich.js';
 import { embedSize, isAllowedEmbed, toScreen } from './embeds.js';
-import { HOTSPOT_DEPTH, HOTSPOTS, ROOM_HEIGHT, ROOM_WIDTH, roomLayers, SCREEN } from './room-art.js';
+import { HOTSPOT_DEPTH, HOTSPOTS, ROOM_HEIGHT, ROOM_WIDTH, roomLayers, SCREEN, SWITCH } from './room-art.js';
 import { attachDepth } from './room-depth.js';
 import { audience, closeUp, curtains, DUST, RECORD_WINDOW } from './room-closeups.js';
 import { animateRoom } from './room-life.js';
@@ -89,6 +89,22 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
       legend.append(button);
       buttons[name] = button;
     }
+  }
+  // The wall switch and a legend button change the colour style; main.js handles the action.
+  {
+    const [x, y, w, h] = SWITCH;
+    const light = el('button', 'room-hotspot room-switch');
+    light.type = 'button';
+    light.dataset.action = 'toggle-theme';
+    light.dataset.depth = 'far';
+    light.setAttribute('aria-label', '切换配色');
+    Object.assign(light.style, { left: `${(x / ROOM_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / ROOM_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
+    light.append(el('span', 'room-tip', '配色'));
+    viewLayer.append(light);
+    const button = el('button', 'room-choice', '配色');
+    button.type = 'button';
+    button.dataset.action = 'toggle-theme';
+    legend.append(button);
   }
 
   // --- media ------------------------------------------------------------------
