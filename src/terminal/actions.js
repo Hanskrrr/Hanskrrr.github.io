@@ -1,7 +1,8 @@
 // Turn a shell result's `action` into an effect on the page.
 import { $, el, storage } from '../core/dom.js';
 import { navigate } from '../core/router.js';
-import { terminalThemes, updateBrowserColor } from '../core/theme.js';
+import { terminalThemes, unlockUv, updateBrowserColor } from '../core/theme.js';
+import { said } from '../core/uv.js';
 import { audioTracks } from '../content/audio.js';
 import { photoCatalog } from '../content/photos.js';
 import { playTrain, startProgram } from './programs/runtime.js';
@@ -41,6 +42,7 @@ export async function runAction(action, { log, pet }) {
     about: () => navigate('about'),
     article: ({ id }) => navigate('article', id, { fromTerminal: true }),
     theme: ({ name }) => theme(name, log),
+    uv: () => { unlockUv(); log(said('unlock', 'uv')); },
     photo: ({ index }) => showPhoto(index),
     audio: ({ id }) => startProgram('player', { tracks: audioTracks, startIndex: Math.max(0, audioTracks.findIndex(track => track.id === id)) }),
     player: ({ tracks }) => startProgram('player', { tracks }),

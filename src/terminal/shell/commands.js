@@ -61,6 +61,8 @@ export const commands = {
   })])),
 
   theme(args, { ctx, result, name }) {
+    // Not listed anywhere: `theme uv` changes the blog outside, not the terminal.
+    if (args.length === 1 && args[0] === 'uv') return Object.assign(result, { action: { type: 'uv' } });
     if (args.length > 1 || (args.length && !terminalThemeNames.includes(args[0]))) return ctx.errorResult(name, '可选名称：linux、blue、light。');
     result.action = { type: 'theme', name: args[0] };
     return result;

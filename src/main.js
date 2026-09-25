@@ -8,6 +8,7 @@ import { $, announce, main, reducedMotion, storage } from './core/dom.js';
 import { app, cancelTransitions, definePage, navigate, onLeave, renderView, routeFromUrl, runLeaveHooks } from './core/router.js';
 import { labelThemeButton, toggleTheme } from './core/theme.js';
 import { blogPages, setSearch, setTopic } from './blog/pages.js';
+import { attachTorch } from './blog/uv-light.js';
 import { attachTermPreviews, closeReturnChip, closeTermCard, handleTermClick } from './blog/term-preview.js';
 import { handleGlobalKeydown, handleMainClick, handleSelectionChange, leaveTerminal, terminalPage } from './terminal/page.js';
 import { exhibitPage, lockContent } from './vault/exhibit.js';
@@ -20,6 +21,7 @@ onLeave(lockContent);
 onLeave(closeTermCard);
 onLeave(closeReturnChip);
 attachTermPreviews();
+attachTorch();
 
 document.addEventListener('click', event => {
   const target = event.target.closest('a,button');

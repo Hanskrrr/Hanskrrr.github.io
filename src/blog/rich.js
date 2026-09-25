@@ -1,6 +1,8 @@
 // What rendered article HTML needs in the browser, loaded only when a page uses it:
 // KaTeX's stylesheet and fonts for math (the math itself is rendered at publish time),
 // and Mermaid for ```mermaid diagrams (drawn here, coloured from the site theme).
+import { layInk } from './uv-light.js';
+
 const loaded = new Map();
 
 function once(key, create) {
@@ -51,6 +53,7 @@ async function drawDiagrams(nodes) {
  * Resolves when math styles, fonts and diagrams have settled (layout is final).
  */
 export function enhance(container) {
+  layInk(container);
   const work = [];
   if (container.querySelector('.katex')) work.push(loadMathStyles().catch(() => {}));
   const diagrams = [...container.querySelectorAll('pre.mermaid:not([data-processed])')];

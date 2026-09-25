@@ -6,6 +6,7 @@
 // One stepped timer (8 fps) drives everything; it stops while the room is off screen or the tab
 // is hidden, and with reduced motion only the still state is drawn.
 import { gridToPaths } from '../blog/pixel-art.js';
+import { said } from '../core/uv.js';
 import { CREATURE_AT, creatureGrid, HOTSPOTS } from './room-art.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -219,7 +220,7 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
     },
     pet() {
       if (state.mode === 'sleep') { wake(); say('……嗯？你来啦。'); }
-      else say(LINES[Math.floor(Math.random() * LINES.length)]);
+      else { const lines = said('creature', LINES); say(lines[Math.floor(Math.random() * lines.length)]); }
       state.heart = 12;
       state.pose = 'happy';
       state.until = state.frame + 8;

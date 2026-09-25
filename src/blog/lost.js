@@ -1,6 +1,7 @@
 // The 404 page: a quiet night sea. Wait about ten seconds and a whale leaps out of the
 // water; catch it (click it while it is in the air) and you land in the terminal.
 // With reduced motion the whale just surfaces for a few seconds instead of leaping.
+import { applyUvText } from '../core/uv.js';
 import { gridToPaths, svg, sprite } from './pixel-art.js';
 
 const W = 48;
@@ -73,4 +74,5 @@ function mount(target) {
   }, TICK);
 }
 
+applyUvText();
 mount(document.querySelector('.lost-art'));

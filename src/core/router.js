@@ -2,6 +2,7 @@
 // by main.js, so this module does not depend on any page implementation.
 import { announce, main, reducedMotion } from './dom.js';
 import { updateBrowserColor } from './theme.js';
+import { applyUvText } from './uv.js';
 import { articles } from '../content/articles.js';
 
 export const app = { view: 'blog' };
@@ -70,5 +71,6 @@ export function renderView(nextView, article) {
   const title = page?.title || article?.title;
   document.title = `Hanskrrr · ${title}`;
   page?.render(article);
+  applyUvText();
   announce(`已打开${title}`);
 }

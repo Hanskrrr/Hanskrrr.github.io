@@ -10,10 +10,11 @@
   <script src="/config.js"></script>
   <script>
     (() => {
-      let theme = null;
-      try { theme = localStorage.getItem('gallery-theme'); } catch {}
-      theme = theme || window.GALLERY_CONFIG.theme;
-      if (['night', 'paper'].includes(theme)) document.documentElement.dataset.theme = theme;
+      const read = key => { try { return localStorage.getItem(key); } catch { return null; } };
+      const root = document.documentElement;
+      const theme = read('gallery-theme') || window.GALLERY_CONFIG.theme;
+      if (['night', 'paper'].includes(theme) || (theme === 'uv' && read('gallery-uv'))) root.dataset.theme = theme;
+      root.dataset.mood = window.GALLERY_CONFIG.mood || 'cyber';
     })();
   </script>
   <link rel="stylesheet" href="/styles/blog.css">
@@ -22,11 +23,11 @@
 <body>
   <main class="lost-page">
     <div class="lost-art" aria-hidden="true"></div>
-    <p class="eyebrow">404</p>
-    <h1>页面不存在</h1>
-    <p class="muted">这个地址没有内容，可能已经移动或删除。</p>
+    <p class="eyebrow" data-uv="lostEyebrow">404</p>
+    <h1 data-uv="lostTitle">页面不存在</h1>
+    <p class="muted" data-uv="lostText">这个地址没有内容，可能已经移动或删除。</p>
     <div class="hero-actions">
-      <a class="button button-primary" href="/">返回首页 <span aria-hidden="true">→</span></a>
+      <a class="button button-primary" href="/"><span data-uv="lostButton">返回首页</span> <span aria-hidden="true">→</span></a>
     </div>
   </main>
 </body>

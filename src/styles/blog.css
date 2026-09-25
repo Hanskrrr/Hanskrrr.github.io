@@ -704,6 +704,7 @@ dialog::backdrop { background: color-mix(in srgb, var(--bg-deep) 80%, transparen
 .topic-filters { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .sub-filters .filter { font-size: 16px; padding: 4px 8px; }
 .sub-filters::before { content: "└"; color: var(--line); font-family: var(--pixel); padding: 4px 0; }
+.sub-filters[hidden] { display: none; }
 a.tag { text-decoration: none; }
 a.tag:hover { filter: brightness(1.08); }
 
@@ -793,4 +794,132 @@ a.tag:hover { filter: brightness(1.08); }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
   ::view-transition-old(content), ::view-transition-new(content), ::view-transition-group(content) { animation: none !important; }
+}
+
+/* ---------- UV: the hidden third style ----------
+   Unlocked in the terminal with `theme uv` (see core/theme.js); config.js picks the mood.
+   cyber is live; creepy and mirror are there to try. Words: content/uv-text.js. */
+:root[data-theme="uv"] {
+  color-scheme: dark;
+  --bg: #0b0916;
+  --bg-deep: #06050d;
+  --surface: #151129;
+  --surface-2: #1e1840;
+  --ink: #f1ecff;
+  --muted: #bdb0ec;
+  --faint: #8d80c9;
+  --line: #8a4dff;
+  --line-soft: #2b2156;
+  --drop: #000000;
+  --accent: #c8ff4d;
+  --solid: #8a4dff;
+  --on-solid: #06050d;
+  --blue: #6fb4ff;
+  --purple: #b77bff;
+  --yellow: #c8ff4d;
+  --green: #5dffb4;
+  --green-ink: #5dffb4;
+  --tag-ink: #06050d;
+  --glow: rgb(177 77 255 / .65);
+  --uv-ink: #d9ff5c;
+  --uv-ink-glow: rgb(217 255 92 / .55);
+  --stars: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' shape-rendering='crispEdges'%3E%3Cg fill='%23c8ff4d' fill-opacity='.2'%3E%3Crect x='12' y='18' width='3' height='3'/%3E%3Crect x='70' y='60' width='3' height='3'/%3E%3C/g%3E%3Cg fill='%23b77bff' fill-opacity='.25'%3E%3Crect x='48' y='6' width='3' height='3'/%3E%3Crect x='27' y='75' width='3' height='3'/%3E%3Crect x='87' y='36' width='3' height='3'/%3E%3C/g%3E%3C/svg%3E");
+
+  --sky0: #07061a; --sky1: #0e0a26; --sky2: #171038; --sky3: #2a1257;
+  --star: #c8ff4d; --star-dim: #7d5cff;
+  --moon: #e4d4ff; --moon-shade: #a57cff;
+  --far: #2a1a5c; --far-light: #5b2fc0;
+  --near: #1b1446; --near-light: #3f2aa0;
+  --grass: #1f6b52; --grass-light: #5dffb4; --grass-dark: #0f3d33;
+  --flower: #ff5fd2; --flower-alt: #c8ff4d;
+  --roof: #b14dff; --wall: #2b2156; --window: #c8ff4d; --door: #140f33;
+  --av-hair: #5b2fc0; --av-skin: #f0d4ff; --av-eye: #06050d; --av-phones: #5dffb4; --av-shirt: #8a4dff; --av-collar: #c8ff4d;
+  --cloud: #1e1840; --twinkle: #ffffff; --smoke: #7d5cff; --smoke-thin: #2b2156;
+  --firefly: #c8ff4d; --meteor: #ff5fd2; --meteor-tail: #8a4dff;
+  --critter-edge: #b14dff; --critter-body: #e0c8ff; --critter-eye: #06050d; --heart: #ff5fd2;
+  --room-wall: #120e2a; --room-wall-dot: #1e1840; --room-edge: #06050d; --room-floor: #1a1238; --room-floor-line: #110b28;
+  --room-frame: #8a4dff; --room-wood: #4e2d86; --room-wood-dark: #2d1a55; --room-paper: #efe6ff; --room-line: #b14dff;
+  --room-rug: #3b1f7a; --room-rug-edge: #c8ff4d; --room-rug-dot: #ff5fd2; --critter-shade: #b89cf0; --critter-light: #f6eeff;
+  --snow: #e8e0ff; --trunk: #2d1a55; --leaf: #1f6b52; --leaf-light: #5dffb4;
+  --leaf-autumn: #ff5fd2; --leaf-autumn-light: #c8ff4d; --blossom: #b77bff; --blossom-light: #efe6ff; --window-off: #1e1840;
+}
+:root[data-theme="uv"] .hero h1, :root[data-theme="uv"] .page-intro h1, :root[data-theme="uv"] .article-page h1,
+:root[data-theme="uv"] .lost-page h1, :root[data-theme="uv"] .brand {
+  text-shadow: 3px 3px 0 #2b0f66, 0 0 12px var(--glow);
+}
+:root[data-theme="uv"] .hero h1 span { color: var(--accent); }
+:root[data-theme="uv"] .theme-dot { background: var(--purple); box-shadow: 3px 3px 0 var(--green); }
+/* Scanlines over everything but the terminal. */
+:root[data-theme="uv"]:not([data-view="terminal"]) body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  background: repeating-linear-gradient(transparent 0 2px, rgb(0 0 0 / .16) 2px 3px);
+}
+
+/* creepy: sickly, faded, and the lights flicker now and then. */
+:root[data-theme="uv"][data-mood="creepy"] {
+  --bg: #0e100d; --bg-deep: #080907; --surface: #161913; --surface-2: #1d211a;
+  --ink: #d4d8c8; --muted: #9aa08e; --faint: #6e7464; --line: #4d5a45; --line-soft: #262b22;
+  --accent: #c2cc6a; --solid: #6b7a5c; --on-solid: #0e100d; --blue: #8a9aa0; --purple: #8e7f96;
+  --yellow: #c2cc6a; --green: #8fae7e; --green-ink: #8fae7e; --glow: rgb(194 204 106 / .35);
+  --stars: none;
+  --sky0: #0b0d0a; --sky1: #121510; --sky2: #1a1e17; --sky3: #2a2e22;
+  --star: #c2cc6a; --star-dim: #4d5a45; --moon: #d8d2b0; --moon-shade: #a39d7a;
+  --far: #252a20; --far-light: #3d4535; --near: #1a1f18; --near-light: #2e3629;
+  --grass: #2f3d2a; --grass-light: #6f8a5f; --grass-dark: #1c2419; --flower: #7a1a1a; --flower-alt: #9aa08e;
+  --roof: #4d5a45; --wall: #262b22; --window: #c2cc6a; --door: #0e100d;
+  --cloud: #1d211a; --smoke: #4d5a45; --smoke-thin: #262b22; --firefly: #c2cc6a; --meteor: transparent; --meteor-tail: transparent;
+  --critter-edge: #4d5a45; --critter-body: #b8bca8; --critter-eye: #7a1a1a; --heart: #7a1a1a;
+  --room-wall: #161913; --room-wall-dot: #1d211a; --room-floor: #1a1d16; --room-floor-line: #111310; --room-frame: #4d5a45;
+  --room-wood: #3a3a2c; --room-wood-dark: #24241b; --room-paper: #c9c6b0; --room-line: #4d5a45;
+  --room-rug: #2f2a26; --room-rug-edge: #7a1a1a; --room-rug-dot: #4d5a45; --critter-shade: #9aa08e; --critter-light: #d4d8c8;
+}
+@keyframes uv-flicker { 0%, 95%, 100% { opacity: 1; } 96% { opacity: .5; } 97% { opacity: 1; } 98% { opacity: .7; } }
+:root[data-theme="uv"][data-mood="creepy"]:not([data-view="terminal"]) .site-shell,
+:root[data-theme="uv"][data-mood="creepy"] .lost-page { animation: uv-flicker 9s steps(1) infinite; }
+
+/* mirror: cold silver, and the pictures face the other way. */
+:root[data-theme="uv"][data-mood="mirror"] {
+  --bg: #0c0f16; --bg-deep: #070910; --surface: #141a24; --surface-2: #1c2432;
+  --ink: #eef4ff; --muted: #b4c2d8; --faint: #8394ae; --line: #9fb4d4; --line-soft: #26324a;
+  --accent: #bfe8ff; --solid: #6d8fc2; --on-solid: #070910; --purple: #a9b8ff; --yellow: #e6f2ff;
+  --green: #9fe6d8; --green-ink: #9fe6d8; --glow: rgb(191 232 255 / .45);
+  --moon: #f2f6ff; --moon-shade: #b4c2d8; --critter-edge: #6d8fc2; --critter-body: #dfe8ff; --heart: #bfe8ff;
+}
+:root[data-theme="uv"][data-mood="mirror"] .hero-art svg,
+:root[data-theme="uv"][data-mood="mirror"] .lost-art svg,
+:root[data-theme="uv"][data-mood="mirror"] .brand-symbol { transform: scaleX(-1); }
+
+/* Hidden ink: stacked on the block before it; invisible unless the uv light is on it. */
+.uv-layer { display: grid; }
+.uv-layer > * { grid-area: 1 / 1; min-width: 0; }
+.uv-ink { visibility: hidden; pointer-events: none; }
+.uv-torch { display: none; }
+:root[data-theme="uv"] .uv-ink {
+  visibility: visible;
+  -webkit-mask-image: radial-gradient(circle at var(--uv-x, -1000px) var(--uv-y, -1000px), #000 0 54px, transparent 78px);
+  mask-image: radial-gradient(circle at var(--uv-x, -1000px) var(--uv-y, -1000px), #000 0 54px, transparent 78px);
+}
+:root[data-theme="uv"] .uv-ink * { color: var(--uv-ink) !important; text-shadow: 0 0 6px var(--uv-ink-glow); }
+:root[data-theme="uv"] .uv-layer > :not(.uv-ink) {
+  -webkit-mask-image: radial-gradient(circle at var(--uv-x, -1000px) var(--uv-y, -1000px), rgb(0 0 0 / .08) 0 54px, #000 78px);
+  mask-image: radial-gradient(circle at var(--uv-x, -1000px) var(--uv-y, -1000px), rgb(0 0 0 / .08) 0 54px, #000 78px);
+}
+:root[data-theme="uv"]:not([data-view="terminal"]) .uv-torch {
+  display: block;
+  position: fixed;
+  left: -90px;
+  top: -90px;
+  z-index: 30;
+  width: 180px;
+  height: 180px;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(circle closest-side, rgb(177 90 255 / .22) 0 60%, rgb(140 70 255 / .1) 60% 84%, rgb(120 60 255 / .04) 84% 100%, transparent 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="uv"] .site-shell, :root[data-theme="uv"] .lost-page { animation: none !important; }
 }
