@@ -22,6 +22,8 @@ export const HOTSPOTS = {
   creature: [72, 40, 12, 12],
   lamp: [24, 25, 8, 9],
 };
+/** The projector screen on the wall: where videos play. */
+export const SCREEN = [95, 3, 28, 16];
 export const CREATURE_AT = [71, 38];
 export const CREATURE_KEYS = {
   o: 'px-critter-edge', b: 'px-critter-body', s: 'px-critter-shade', l: 'px-critter-light',

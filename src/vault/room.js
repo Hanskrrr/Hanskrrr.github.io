@@ -7,8 +7,8 @@
 // when asked, and only from the hosts in embeds.js.
 import { svg } from '../blog/pixel-art.js';
 import { enhance } from '../blog/rich.js';
-import { embedSize, isAllowedEmbed } from './embeds.js';
-import { HOTSPOTS, ROOM_HEIGHT, ROOM_WIDTH, roomGrid } from './room-art.js';
+import { embedSize, isAllowedEmbed, toScreen } from './embeds.js';
+import { HOTSPOTS, ROOM_HEIGHT, ROOM_WIDTH, roomGrid, SCREEN } from './room-art.js';
 import { animateRoom } from './room-life.js';
 
 const LABELS = { lamp: '台灯', intro: '窗外', journal: '日记', serials: '手稿', books: '书架', photos: '照片', thoughts: '便签', timeline: '时间线', films: '放映机', music: '点唱机', creature: '小生物' };
@@ -48,8 +48,11 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     lamp: true,
   };
   const stage = el('div', 'room-stage');
-  stage.innerHTML = svg(roomGrid(available), { className: 'pixel-art room-scene' });
-  const art = stage.querySelector('svg');
+  // The scene and its hotspots sit in one view, so "walk up to the screen" can zoom it.
+  const view = el('div', 'room-view');
+  view.innerHTML = svg(roomGrid(available), { className: 'pixel-art room-scene' });
+  stage.append(view);
+  const art = view.querySelector('svg');
   const life = animateRoom({ stage, art, reducedMotion });
 
   const legend = el('div', 'room-legend');
@@ -67,7 +70,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     hotspot.setAttribute('aria-label', LABELS[name]);
     Object.assign(hotspot.style, { left: `${(x / ROOM_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / ROOM_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
     hotspot.append(el('span', 'room-tip', LABELS[name]));
-    stage.append(hotspot);
+    view.append(hotspot);
     if (name !== 'creature' && name !== 'lamp') {
       const button = el('button', 'room-choice', LABELS[name]);
       button.type = 'button';
@@ -149,6 +152,94 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     for (const type of ['pause', 'ended']) node.addEventListener(type, () => life.setMusic(false));
     return node;
   }
+  // --- the projector ---------------------------------------------------------------
+  // Videos play on the wall screen itself: an embed player laid over the screen's pixels.
+  // Nothing loads until something is played; power off removes the player.
+  const screen = el('div', 'room-screen');
+  const [sx, sy, sw, sh] = SCREEN;
+  Object.entries({ x: sx / ROOM_WIDTH, y: sy / ROOM_HEIGHT, w: sw / ROOM_WIDTH, h: sh / ROOM_HEIGHT }).forEach(([key, value]) => screen.style.setProperty(`--${key}`, `${value * 100}%`));
+  const screenControls = el('div', 'room-screen-controls');
+  stage.append(screen, screenControls);
+  const projector = { url: null, title: '', zoomed: false, remotes: new Set() };
+  const control = (label, action) => {
+    const button = el('button', 'room-choice', label);
+    button.type = 'button';
+    button.addEventListener('click', action);
+    return button;
+  };
+  function project(url, title) {
+    const frame = el('iframe');
+    frame.src = url;
+    frame.title = title || '放映机';
+    frame.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
+    frame.setAttribute('allowfullscreen', '');
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    screen.replaceChildren(frame);
+    Object.assign(projector, { url, title });
+    stage.classList.add('projecting');
+    life.setFilm(true);
+    life.setTheater(true);
+    syncProjector();
+  }
+  function powerOff() {
+    screen.replaceChildren();
+    Object.assign(projector, { url: null, title: '' });
+    stage.classList.remove('projecting');
+    zoom(false);
+    life.setTheater(false);
+    life.setFilm(panel.dataset.open === 'films');
+    syncProjector();
+  }
+  function zoom(on) {
+    projector.zoomed = on && Boolean(projector.url);
+    stage.classList.toggle('zoomed', projector.zoomed);
+    syncProjector();
+    if (projector.zoomed) stage.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'instant' : 'smooth' });
+  }
+  function syncProjector() {
+    screenControls.replaceChildren(...(projector.zoomed ? [control('← 退后', () => zoom(false)), control('⏻ 关机', powerOff)] : []));
+    for (const sync of projector.remotes) sync();
+  }
+  /** The remote in the projector panel: an address bar, power and zoom. */
+  function remote() {
+    const box = el('div', 'projector-remote');
+    const form = el('form', 'room-unlock-row projector-address');
+    const address = el('input');
+    address.type = 'url';
+    address.placeholder = '粘贴 YouTube 或 bilibili 视频链接';
+    address.setAttribute('aria-label', '视频链接');
+    address.autocomplete = 'off';
+    const go = el('button', 'room-choice', '▶ 放映');
+    go.type = 'submit';
+    form.append(address, go);
+    const message = el('p', 'room-text projector-status');
+    message.setAttribute('role', 'status');
+    const buttons = el('div', 'projector-buttons');
+    const power = control('⏻ 关机', powerOff);
+    const near = control('', () => zoom(!projector.zoomed));
+    buttons.append(near, power);
+    const sync = () => {
+      // A remote whose panel was replaced stops listening.
+      if (box.isConnected) box.dataset.shown = '1';
+      else if (box.dataset.shown) { projector.remotes.delete(sync); return; }
+      power.disabled = near.disabled = !projector.url;
+      near.textContent = projector.zoomed ? '← 退后' : '⤢ 走近屏幕';
+      message.textContent = projector.url ? `正在放映：${projector.title || new URL(projector.url).hostname}` : '放映机关着。选一部片子，或者粘贴一个视频链接。';
+    };
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const url = toScreen(address.value);
+      if (!url) { message.textContent = '只能放映 YouTube 或 bilibili 的视频页链接（b23.tv 短链请先在浏览器里打开，复制完整地址）。'; return; }
+      address.value = '';
+      project(url, new URL(url).hostname === 'player.bilibili.com' ? 'bilibili' : 'YouTube');
+    });
+    projector.remotes.add(sync);
+    box.append(form, buttons, message);
+    sync();
+    return box;
+  }
+  const playFilm = film => { const url = film.embed && toScreen(film.embed); if (url) project(url, film.title); return Boolean(url); };
+
   // --- the inner lock ------------------------------------------------------------
   /** A form for the inner password; on success the caller re-renders the room at `name`. */
   function unlockForm(name, hint, back) {
@@ -267,18 +358,29 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
       }, (book, back) => book.locked ? unlockForm('books', book.hint, back) : detail(book, byline(book.author, book.year, book.shelf), back), 'books');
     },
     films() {
-      return collection('放映机', content.films, open => {
+      // The remote stays on top; the channels (your films) or one film's page below it.
+      const body = el('div');
+      const showList = () => {
         const list = el('div', 'shelf-items film-items');
         content.films.forEach((film, index) => {
-          if (film.locked) { list.append(lockedCard(film, 'shelf-item', () => open(index))); return; }
+          if (film.locked) { list.append(lockedCard(film, 'shelf-item', () => showItem(index))); return; }
           const button = el('button', 'shelf-item');
           button.type = 'button';
           button.append(cover(film), el('span', 'shelf-title', film.title), el('span', 'shelf-sub', byline(film.kind, film.director, film.year)));
-          button.addEventListener('click', () => open(index));
+          button.addEventListener('click', () => { playFilm(film); showItem(index); });
           list.append(button);
         });
-        return list;
-      }, (film, back) => film.locked ? unlockForm('films', film.hint, back) : detail(film, byline(film.kind, film.director, film.year), back, [player(film.embed, () => life.setTheater(true))]), 'films');
+        body.replaceChildren(overview('films'), list);
+      };
+      const showItem = index => {
+        const film = content.films[index];
+        if (film.locked) { body.replaceChildren(unlockForm('films', film.hint, showList)); return; }
+        const play = film.embed && toScreen(film.embed) ? control('▶ 在幕布上放映', () => playFilm(film)) : null;
+        body.replaceChildren(detail(film, byline(film.kind, film.director, film.year), showList, [play]));
+      };
+      openers.films = id => { const index = content.films.findIndex(item => item.id === id); if (index >= 0) showItem(index); };
+      showList();
+      return [el('h2', '', '放映机'), remote(), body];
     },
     music() {
       return collection('点唱机', content.music, open => {
@@ -389,8 +491,11 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     if (name === 'creature') return life.pet();
     if (name === 'lamp') return life.toggleLamp();
     if (walk) life.goTo(name);
-    life.setFilm(name === 'films');
+    // A film keeps playing while you look at other things in the room.
+    life.setFilm(name === 'films' || Boolean(projector.url));
+    if (projector.url) life.setTheater(true);
     life.setMusic(false);
+    panel.dataset.open = name;
     panel.replaceChildren(...panels[name]());
     Object.entries(buttons).forEach(([key, button]) => button.setAttribute('aria-pressed', String(key === name)));
     stage.querySelectorAll('.room-hotspot').forEach(hotspot => hotspot.classList.toggle('active', hotspot.dataset.object === name));
@@ -409,7 +514,14 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   stage.addEventListener('click', onClick);
   legend.addEventListener('click', onClick);
 
+  const onKey = event => { if (event.key === 'Escape' && projector.zoomed) zoom(false); };
+  document.addEventListener('keydown', onKey);
+
   container.append(stage, legend, panel);
   open(available[start] ? start : 'intro', { walk: false });
-  return () => life.dispose();
+  return () => {
+    document.removeEventListener('keydown', onKey);
+    screen.replaceChildren();
+    life.dispose();
+  };
 }

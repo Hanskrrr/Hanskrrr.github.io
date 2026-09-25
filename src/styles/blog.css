@@ -564,6 +564,33 @@ button.note-card { display: flex; flex-direction: column; gap: 4px; cursor: poin
 .room-unlock-row { display: flex; gap: 8px; margin: 12px 0 8px; }
 .room-unlock-row input { flex: 1; min-width: 0; padding: 8px 10px; font: 16px/16px var(--pixel); color: var(--ink); background: var(--bg-deep); border: 0; box-shadow: inset 0 0 0 var(--px) var(--line); }
 .room-unlock-row input:focus { outline: none; box-shadow: inset 0 0 0 var(--px) var(--yellow); }
+
+/* The projector: videos play on the wall screen (room.js); "walk up" zooms the scene so the
+   screen fills the stage. The view scales by --zoom with the screen's centre moved to the middle;
+   the player itself is resized (never scaled), so the video stays sharp. */
+.room-view { position: relative; transform-origin: 0 0; transition: transform .45s steps(9); }
+.room-screen {
+  position: absolute; z-index: 3; display: none;
+  left: var(--x); top: var(--y); width: var(--w); height: var(--h);
+  background: #000; line-height: 0;
+  transition: left .45s steps(9), top .45s steps(9), width .45s steps(9), height .45s steps(9);
+}
+.room-screen iframe { width: 100%; height: 100%; border: 0; }
+.room-stage.projecting .room-screen { display: block; }
+/* Screen centre (95 + 14, 3 + 8) of 128 × 60 → the middle of the stage, at 3.4×. */
+.room-stage.zoomed .room-view { transform: translate(-239.53%, -12.33%) scale(3.4); }
+.room-stage.zoomed .room-screen { left: 12.81%; top: 4.67%; width: 74.38%; height: 90.67%; }
+.room-stage.zoomed .room-hotspot, .room-stage.zoomed .room-bubble { visibility: hidden; }
+/* Beside the zoomed screen, in the margin; on narrow screens the remote below the room does this. */
+.room-screen-controls { position: absolute; z-index: 4; right: 12px; bottom: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; line-height: normal; }
+@media (max-width: 800px) { .room-screen-controls { display: none; } }
+.room-screen-controls .room-choice { background: var(--surface); box-shadow: 0 0 0 var(--px) var(--line); }
+.projector-remote { margin: 0 0 24px; padding: 12px 16px 4px; background: var(--bg-deep); box-shadow: inset var(--px) 0 0 var(--line); }
+.projector-address { margin-top: 4px; }
+.projector-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.projector-buttons .room-choice:disabled { opacity: .35; cursor: default; }
+.projector-status { margin: 8px 0; font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .room-view, .room-screen { transition: none; } }
 .room-unlock-message { min-height: 1.5em; margin: 0; }
 @media (max-width: 520px) { .shelf-detail-head { grid-template-columns: 96px 1fr; gap: 16px; } }
 .trail { list-style: none; margin: 0; padding: 0; }

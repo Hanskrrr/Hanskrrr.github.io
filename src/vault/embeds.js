@@ -26,6 +26,15 @@ export function embedSize(url) {
   return aspect ? { aspect } : { height };
 }
 
+/** For the projector: a bilibili or YouTube video link → its embed URL, set to play at once; else null. */
+export function toScreen(link) {
+  const url = toEmbed(String(link).trim());
+  if (!url || !embedSize(url).aspect) return null;
+  const parsed = new URL(url);
+  parsed.searchParams.set('autoplay', '1');
+  return parsed.href;
+}
+
 /** A page link (bilibili, YouTube, NetEase Cloud Music, Spotify, Apple Music) → embed URL, or null. */
 export function toEmbed(link) {
   let url;
