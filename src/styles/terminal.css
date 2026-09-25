@@ -333,6 +333,9 @@
   appearance: none;
 }
 
+/* su's password prompt: nothing typed is shown, not even as a selection. */
+[data-view="terminal"] .tty-form.tty-secret textarea::selection { background: transparent; }
+
 [data-view="terminal"] .tty-form textarea:disabled {
   opacity: 1;
   -webkit-text-fill-color: transparent;

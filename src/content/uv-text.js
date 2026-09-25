@@ -1,10 +1,10 @@
 // The page's words under the uv style (unlocked in the terminal with `theme uv`).
-// Edit freely. A missing key keeps the normal text. `mood` in config.js picks the set;
+// Edit freely. A missing key keeps the normal text. `unlock` is printed in the terminal. `mood` in config.js picks the set;
 // only `cyber` is live, `creepy` and `mirror` are there to try out.
 // `reverse: true` reads every normal line backwards, unless the key is given here.
 export const uvText = {
   cyber: {
-    unlock: 'UV ON。回到博客，把光照在字上。',
+    unlock: 'UV on. Go back to the blog and shine it on the words.',
     brand: 'Z3SP3J0',
     brandSub: '/ UV://',
     navBlog: '表层',
@@ -21,7 +21,7 @@ export const uvText = {
     creature: ['你身上有紫色的光。', '墙上的字……以前就在那里吗？', '别关灯。', '我好像能看见你了。'],
   },
   creepy: {
-    unlock: '……灯坏了。回去看看吧。',
+    unlock: 'the light is broken. go back and look.',
     brand: 'Zespejo?',
     navAbout: '关于谁',
     handle: 'ZESPEJ0',
@@ -36,7 +36,7 @@ export const uvText = {
   },
   mirror: {
     reverse: true,
-    unlock: '。子镜看看去回',
+    unlock: '.rorrim eht ni kool dna kcab oG',
     creature: ['。你是我', '？边一哪在你', '。的反是都字的里这'],
   },
 };

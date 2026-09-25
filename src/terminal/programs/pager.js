@@ -65,7 +65,7 @@ export function mountPager(container,{signal,onExit,announce = () => {},title = 
   let layout = {text:'',rows:[]}, matchIndex = -1;
   const input = container.ownerDocument.createElement('input');
   input.type = 'text'; input.className = 'sr-only'; input.autocomplete = 'off';
-  input.setAttribute('aria-label','页内搜索');
+  input.setAttribute('aria-label','Search');
   // A native text input supplies IME composition, while its visible contents are
   // drawn as the terminal's / prompt, never as a graphical input field.
   container.append(input);
@@ -81,7 +81,7 @@ export function mountPager(container,{signal,onExit,announce = () => {},title = 
     screen.render([
       [{text:clipCells(title,screen.columns),fg:'accent'}],...body,
       [{text:`${clipCells(progress,Math.max(0,screen.columns-8))}  q:quit`,fg:'muted'}],
-      searching ? `/${input.value}█` : [{text:message || (query ? `/${query}  ${matchIndex+1}/${matches.length} 处匹配` : 'Space:page /:find n/N:next/prev'),fg:message ? 'error' : 'user'}],
+      searching ? `/${input.value}█` : [{text:message || (query ? `/${query}  match ${matchIndex+1}/${matches.length}` : 'Space:page /:find n/N:next/prev'),fg:message ? 'error' : 'user'}],
     ]);
   }
   function resize() {
@@ -94,7 +94,7 @@ export function mountPager(container,{signal,onExit,announce = () => {},title = 
     draw();
   }
   function search(next = true) {
-    if (!matches.length) { message = '没有匹配。'; draw(); return; }
+    if (!matches.length) { message = 'Pattern not found'; draw(); return; }
     matchIndex = advanceMatchIndex(matchIndex,matches.length,next);
     top = matches[matchIndex].row; message = ''; draw();
   }
@@ -106,7 +106,7 @@ export function mountPager(container,{signal,onExit,announce = () => {},title = 
         event.preventDefault(); searching = false; input.value = ''; screen.focus(); draw();
       } else if (event.key === 'Enter') {
         event.preventDefault(); query = input.value; searching = false; input.value = '';
-        matches = findTextMatches(layout,query); message = matches.length ? '' : '没有匹配。';
+        matches = findTextMatches(layout,query); message = matches.length ? '' : 'Pattern not found';
         matchIndex = matches.findIndex(match => match.row>=top);
         if (matches.length) {
           if (matchIndex < 0) matchIndex = 0;
@@ -140,7 +140,7 @@ export function mountPager(container,{signal,onExit,announce = () => {},title = 
     query = ''; matches = []; layout = {text:'',rows:[]}; matchIndex = -1;
   }
   signal?.addEventListener('abort',dispose,{once:true});
-  resize(); screen.focus(); announce(`已打开 ${title}。空格翻页，斜杠搜索，q 退出。`);
+  resize(); screen.focus(); announce(`Opened ${title}. Space pages, slash searches, q quits.`);
   if (signal?.aborted) dispose();
   return dispose;
 }

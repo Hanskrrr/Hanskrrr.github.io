@@ -23,6 +23,8 @@ import { appendBlock, clearOutput, logLine, makePrompt, output, promptText } fro
 const shell = createShell(articles.map(article => ({ ...article, text: articleText[article.id] })));
 const history = { entries: [], index: 0 };
 let snapshot;
+// While true (after `su`), the next line is a password: never echoed or kept.
+let askingPassword = false;
 let pet;
 
 const log = (text, kind) => logLine(text, kind, shell.displayCwd);
@@ -33,8 +35,15 @@ function revealPrompt() {
   });
 }
 function updatePrompt() {
-  $('#terminal-form .tty-prompt')?.replaceWith(makePrompt(shell.displayCwd));
-  $('#terminal-form')?.style.setProperty('--prompt-width', `${promptText(shell.displayCwd).length}ch`);
+  const path = askingPassword ? null : shell.displayCwd;
+  $('#terminal-form .tty-prompt')?.replaceWith(makePrompt(path));
+  $('#terminal-form')?.style.setProperty('--prompt-width', `${askingPassword ? 10 : promptText(path).length}ch`);
+  $('#terminal-form')?.classList.toggle('tty-secret', askingPassword);
+}
+function askPassword(on) {
+  askingPassword = on;
+  setInput('');
+  updatePrompt();
 }
 
 function mountPet(pre) {
@@ -61,7 +70,8 @@ configureRuntime({
 });
 
 function renderTerminal() {
-  main.innerHTML = `<section class="tty" aria-label="终端"><h1 class="sr-only">终端</h1><div class="tty-output" id="terminal-output" role="log" aria-label="终端输出" aria-live="polite"></div><form class="tty-form" id="terminal-form"><label class="sr-only" for="terminal-input">终端指令</label><div class="tty-edit-render" aria-hidden="true"><span class="tty-prompt"></span><span id="tty-before"></span><span id="tty-cursor" class="tty-cursor"> </span><span id="tty-after"></span></div><textarea id="terminal-input" rows="1" aria-label="终端指令" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="1024" enterkeyhint="send"></textarea><button class="sr-only" type="submit" aria-label="执行指令">执行指令</button></form></section>`;
+  askingPassword = false;
+  main.innerHTML = `<section class="tty" aria-label="Terminal"><h1 class="sr-only">Terminal</h1><div class="tty-output" id="terminal-output" role="log" aria-label="Terminal output" aria-live="polite"></div><form class="tty-form" id="terminal-form"><label class="sr-only" for="terminal-input">Command</label><div class="tty-edit-render" aria-hidden="true"><span class="tty-prompt"></span><span id="tty-before"></span><span id="tty-cursor" class="tty-cursor"> </span><span id="tty-after"></span></div><textarea id="terminal-input" rows="1" aria-label="Command" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="1024" enterkeyhint="send"></textarea><button class="sr-only" type="submit" aria-label="Run">Run</button></form></section>`;
   if (snapshot) output().replaceWith(snapshot.cloneNode(true));
   else {
     output().append(
@@ -78,7 +88,10 @@ function renderTerminal() {
     complete: value => shell.complete(value),
     onSubmit: submit,
     onClearScreen: () => { clearOutput(); revealPrompt(); },
-    onInterrupt: () => { log('^C'); revealPrompt(); },
+    onInterrupt: () => {
+      if (askingPassword) { logLine('^C', 'password'); askPassword(false); } else log('^C');
+      revealPrompt();
+    },
     onListCompletions: matches => { log(matches.join('  ')); revealPrompt(); },
     onTyping: () => { revealPrompt(); petReact('typing'); },
   });
@@ -91,36 +104,44 @@ async function submit() {
   if (!field || field.disabled || activeProgram()) return;
   let candidate = field.value;
   setInput('');
+  if (askingPassword) {
+    logLine('', 'password');
+    askPassword(false);
+    await trySu(candidate);
+    candidate = '';
+    return;
+  }
   if (!candidate.trim()) return;
   const previousPath = shell.displayCwd;
   const result = shell.execute(candidate);
-  if (result.recognized) {
-    candidate = '';
-    if (result.remember) {
-      history.entries.push(result.echo);
-      if (history.entries.length > 40) history.entries.shift();
-    }
-    history.index = history.entries.length;
-    logLine(result.echo, 'command', previousPath);
-    result.lines?.forEach(({ text, kind }) => log(text, kind));
-    updatePrompt();
-    const failed = result.lines?.some(line => line.kind === 'error');
-    if (result.action?.type !== 'pet') petReact(failed ? 'error' : 'command');
-    if (result.action) await runAction(result.action, { log, pet: summonPet });
-    revealPrompt();
-    return;
-  }
-  await tryUnlock(candidate);
   candidate = '';
+  if (result.remember) {
+    history.entries.push(result.echo);
+    if (history.entries.length > 40) history.entries.shift();
+  }
+  history.index = history.entries.length;
+  logLine(result.echo, 'command', previousPath);
+  result.lines?.forEach(({ text, kind }) => log(text, kind));
+  updatePrompt();
+  const failed = result.lines?.some(line => line.kind === 'error');
+  if (result.action?.type !== 'pet') petReact(failed ? 'error' : 'command');
+  if (result.action) await runAction(result.action, {
+    log,
+    pet: summonPet,
+    su: () => askPassword(true),
+    history: () => history.entries.forEach((entry, index) => log(`${String(index + 1).padStart(5)}  ${entry}`)),
+  });
+  revealPrompt();
 }
 
-// Unknown input is tried as a key. It is never echoed, persisted or added to history.
-async function tryUnlock(candidate) {
+// The password typed after `su`: the room password opens the room, the inner password
+// opens everything. It is never echoed, persisted or added to history.
+async function trySu(candidate) {
   const field = input();
   const controller = startUnlock();
   field.disabled = true;
   $('#terminal-form button').disabled = true;
-  const pending = el('p', 'tty-line feedback tty-pending', '正在检查输入…');
+  const pending = el('p', 'tty-line tty-pending', '');
   appendBlock(pending);
   revealPrompt();
   let opened = false;
@@ -133,8 +154,8 @@ async function tryUnlock(candidate) {
     openExhibit(content);
   } catch (error) {
     if (error.name !== 'AbortError' && app.view === 'terminal') {
-      pending.textContent = '未识别的指令。';
-      pending.classList.remove('tty-pending');
+      pending.textContent = 'su: Authentication failure';
+      pending.className = 'tty-line error';
       petReact('error');
     }
   } finally {
@@ -178,7 +199,7 @@ export function handleSelectionChange() {
 }
 
 export const terminalPage = {
-  title: '终端',
+  title: 'terminal',
   render: renderTerminal,
   focus() {
     input()?.focus({ preventScroll: true });

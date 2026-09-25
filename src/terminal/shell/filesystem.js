@@ -1,5 +1,6 @@
 import { audioTracks } from '../../content/audio.js';
 import { photoCatalog } from '../../content/photos.js';
+import { terminalFiles } from '../../content/terminal-files.js';
 
 /** ~/articles/<genre>/<sub>/<id>.md, mirroring the blog's topics. */
 export const articlePath = (home, article) => `${home}/articles/${article.topic ? `${article.topic}/` : ''}${article.id}.md`;
@@ -8,7 +9,7 @@ export const articlePath = (home, article) => `${home}/articles/${article.topic 
  * A read-only catalog for the public terminal. This is an in-memory filesystem,
  * not access to the visitor's computer or a server shell.
  */
-export function createFilesystem(articles = [], { photos = photoCatalog, tracks = audioTracks } = {}) {
+export function createFilesystem(articles = [], { photos = photoCatalog, tracks = audioTracks, files = terminalFiles } = {}) {
   const home = '/home/guest';
   const nodes = new Map();
   const children = new Map();
@@ -32,26 +33,10 @@ export function createFilesystem(articles = [], { photos = photoCatalog, tracks 
   for (const path of ['/', '/home', home, `${home}/articles`]) add(path, 'directory');
   if (photos.length) add(`${home}/photos`, 'directory');
   if (tracks.length) add(`${home}/audio`, 'directory');
-  add(`${home}/README.txt`, 'file', {
-    content: [
-      'Gallery terminal',
-      '',
-      '这是公开网站内容的只读目录。',
-      '使用 ls 查看目录，cd 切换目录，cat 阅读文字，open 打开网页或媒体。',
-      '',
-      'tree articles',
-      'cd articles/<分类>/<子分类>',
-      'less <文章>.md',
-      'open <文章>.md',
-      'cd ~',
-      '',
-      '输入 help 查看可用命令。',
-    ].join('\n'),
-  });
-  add(`${home}/about.txt`, 'file', {
-    content: 'Hanskrrr\n\n文章和一些像素小实验。\n终端在浏览器内运行，只提供本站公开内容的只读目录。',
-    action: { type: 'about' },
-  });
+  // Files in ~ (content/terminal-files.js). about.txt opens the About page.
+  for (const [name, content] of Object.entries(files)) {
+    add(`${home}/${name}`, 'file', { content, ...(name === 'about.txt' && { action: { type: 'about' } }) });
+  }
 
   for (const article of articles) {
     if (!article || typeof article.id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(article.id)) {
@@ -63,7 +48,7 @@ export function createFilesystem(articles = [], { photos = photoCatalog, tracks 
     const missing = [];
     for (let dir = path.slice(0, path.lastIndexOf('/')); !nodes.has(dir); dir = dir.slice(0, dir.lastIndexOf('/'))) missing.unshift(dir);
     missing.forEach(dir => add(dir, 'directory'));
-    add(path, 'file', { content, action: { type: 'article', id: article.id } });
+    add(path, 'file', { content, ...(article.date && { date: article.date }), action: { type: 'article', id: article.id } });
   }
   for (const [index,photo] of photos.entries()) {
     add(`${home}/photos/${photo.file}`, 'file', {
@@ -131,6 +116,7 @@ export function createFilesystem(articles = [], { photos = photoCatalog, tracks 
       const entries = list(leading || '.', cwd);
       return entries
         .filter(node => (!directoriesOnly || node.type === 'directory') && node.name.startsWith(partialName))
+        .filter(node => partialName.startsWith('.') || !node.name.startsWith('.'))
         .map(node => `${leading}${node.name}${node.type === 'directory' ? '/' : ''}`);
     } catch {
       return [];

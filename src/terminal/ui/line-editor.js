@@ -16,8 +16,10 @@ export function syncInput() {
     field.value = field.value.replace(/[\r\n]/g, '');
     field.setSelectionRange(caret - removed, caret - removed);
   }
-  const at = field.selectionStart ?? field.value.length;
-  const rest = field.value.slice(at);
+  // A password prompt (su) shows nothing of what is typed, like a real terminal.
+  const secret = $('#terminal-form').classList.contains('tty-secret');
+  const at = secret ? 0 : field.selectionStart ?? field.value.length;
+  const rest = secret ? '' : field.value.slice(at);
   const character = rest ? (graphemes ? graphemes.segment(rest)[Symbol.iterator]().next().value.segment : Array.from(rest)[0]) : ' ';
   const parts = [[$('#tty-before'), field.value.slice(0, at)], [$('#tty-cursor'), character], [$('#tty-after'), rest.slice(rest ? character.length : 0)]];
   parts.forEach(([node, text]) => { if (node.textContent !== text) node.textContent = text; });
@@ -65,6 +67,7 @@ export function attachLineEditor({ history, complete, onSubmit, onClearScreen, o
     else if (key === 'Escape') { event.preventDefault(); setInput(''); }
     else if (ctrl && (key === 'l' || key === 'L')) { event.preventDefault(); onClearScreen(); }
     else if (ctrl && (key === 'c' || key === 'C')) { event.preventDefault(); setInput(''); onInterrupt(); }
+    else if (form.classList.contains('tty-secret') && ['ArrowUp', 'ArrowDown', 'Tab'].includes(key)) event.preventDefault();
     else if (key === 'ArrowUp' || key === 'ArrowDown') {
       event.preventDefault();
       history.index = Math.max(0, Math.min(history.entries.length, history.index + (key === 'ArrowUp' ? -1 : 1)));

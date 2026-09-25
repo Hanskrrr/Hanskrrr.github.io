@@ -113,7 +113,7 @@ export function mountPlayer(container, { signal, onExit = () => {}, announce = (
   const session = createPlaybackSession(audio, {
     onState: value => { status = value; render(); },
     onError: error => {
-      message = error?.name === 'NotAllowedError' ? '请按 Space 开始播放。' : '无法播放，请切换音轨或重试。';
+      message = error?.name === 'NotAllowedError' ? 'Press Space to play.' : 'Cannot play this track; switch tracks or retry.';
       render();
       announce(message);
     },
@@ -129,7 +129,7 @@ export function mountPlayer(container, { signal, onExit = () => {}, announce = (
     // Keep the selected track visible if a small terminal cannot show the list.
     const listRows = Math.max(1, Math.min(tracks.length, height - 17));
     const first = Math.max(0, Math.min(selected - listRows + 1, tracks.length - listRows));
-    if (!tracks.length) lines.push('没有可播放的音轨。');
+    if (!tracks.length) lines.push('No tracks to play.');
     for (let index = first; index < Math.min(tracks.length, first + listRows); index++) {
       const track = tracks[index];
       const marker = index === selected ? '>' : ' ';
@@ -303,7 +303,7 @@ export function mountPlayer(container, { signal, onExit = () => {}, announce = (
   listen(audio, 'ended', () => switchTrack(current + 1, true));
   listen(audio, 'error', () => {
     session.pause();
-    message = '音频加载失败，请切换音轨或重试。';
+    message = 'Could not load the audio; switch tracks or retry.';
     render();
     announce(message);
   });
@@ -312,11 +312,11 @@ export function mountPlayer(container, { signal, onExit = () => {}, announce = (
     if (reducedMotion) stopSpectrum(); else scheduleSpectrum();
     render();
   });
-  screen = createTextScreen(container, { signal, title: '终端音频播放器', onKey: keys, onResize: render });
+  screen = createTextScreen(container, { signal, title: 'audio player', onKey: keys, onResize: render });
   signal?.addEventListener('abort', dispose, { once: true });
   if (tracks.length) switchTrack(current, true);
   else render();
   screen.focus();
-  announce('音频播放器已打开。上下选择，Enter 播放，空格暂停，左右跳转，加减调整音量，Q 退出。');
+  announce('Audio player open. Up and Down choose, Enter plays, Space pauses, Left and Right skip, plus and minus change the volume, Q quits.');
   return dispose;
 }

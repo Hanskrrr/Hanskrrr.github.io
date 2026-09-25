@@ -10,9 +10,9 @@ import { mountPlayer } from './player.js';
 import { runTrain } from './train.js';
 
 const programs = {
-  player: { mount: mountPlayer, label: '终端播放器' },
-  gallery: { mount: mountGallery, label: '字符相册' },
-  pager: { mount: mountPager, label: '终端阅读器' },
+  player: { mount: mountPlayer, label: 'audio player' },
+  gallery: { mount: mountGallery, label: 'character gallery' },
+  pager: { mount: mountPager, label: 'pager' },
   '2048': { mount: mount2048, label: '2048' },
 };
 
@@ -38,10 +38,10 @@ export function closeProgram({ restore = true } = {}) {
   const input = $('#terminal-input');
   if (input) input.disabled = false;
   if (restore && app.view === 'terminal') {
-    document.title = 'Hanskrrr · 终端';
+    document.title = 'Hanskrrr · terminal';
     input?.focus({ preventScroll: true });
     hooks.onReturn();
-    announce('已返回终端。');
+    announce('Back in the terminal.');
   }
 }
 
@@ -74,7 +74,7 @@ export function startProgram(name, options = {}) {
     program.focusTarget = document.activeElement;
   } catch {
     closeProgram();
-    hooks.onError('无法启动程序，请重试。');
+    hooks.onError('Could not start the program. Try again.');
   }
 }
 
@@ -89,7 +89,7 @@ export async function playTrain() {
   const output = $('#terminal-output');
   form.hidden = true;
   field.disabled = true;
-  announce('火车动画开始，按 Esc 或 Ctrl+C 停止。');
+  announce('Train started. Esc or Ctrl+C stops it.');
   const animation = runTrain(output, { signal: controller.signal, reducedMotion: reducedMotion.matches });
   output.lastElementChild?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
   try { await animation; }
@@ -100,7 +100,7 @@ export async function playTrain() {
         form.hidden = false;
         field.disabled = false;
         field.focus({ preventScroll: true });
-        announce(controller.signal.aborted ? '火车动画已停止。' : '火车动画结束。');
+        announce(controller.signal.aborted ? 'Train stopped.' : 'Train finished.');
         hooks.onReturn();
       }
     }

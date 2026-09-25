@@ -24,7 +24,7 @@ function theme(name, log) {
   if (!name) {
     const current = document.documentElement.dataset.terminalTheme;
     Object.entries(terminalThemes).forEach(([key, value]) => log(`${key === current ? '*' : ' '} ${key.padEnd(7)} ${value.label}`));
-    log('使用 theme <名称> 切换，例如 theme blue。');
+    log('Use theme <name> to switch, e.g. theme blue.');
     return;
   }
   if (!Object.hasOwn(terminalThemes, name)) return;
@@ -34,8 +34,8 @@ function theme(name, log) {
   log(`theme: ${name}`);
 }
 
-/** env: { log(text, kind), pet() } */
-export async function runAction(action, { log, pet }) {
+/** env: { log(text, kind), pet(), su(), history() } */
+export async function runAction(action, { log, pet, su, history }) {
   const handlers = {
     clear: () => clearOutput(),
     blog: () => navigate('blog'),
@@ -49,7 +49,9 @@ export async function runAction(action, { log, pet }) {
     gallery: ({ photos, mode }) => startProgram('gallery', { photos, mode }),
     pager: ({ title, text }) => startProgram('pager', { title, text }),
     '2048': () => startProgram('2048'),
-    stop: () => log('当前没有播放的音频。'),
+    stop: () => log('stop: nothing is playing'),
+    su: () => su(),
+    history: () => history(),
     sl: () => playTrain(),
     pet: () => pet(),
   };

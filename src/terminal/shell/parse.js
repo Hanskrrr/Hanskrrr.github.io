@@ -11,12 +11,12 @@ export function parseCommand(line) {
       continue;
     }
     if (character === '"' || character === "'") { quote = character; started = true; continue; }
-    if (';|&<>`'.includes(character)) return { tokens, error: '暂不支持管道、重定向或组合命令。' };
+    if (';|&<>`'.includes(character)) return { tokens, error: 'pipes, redirection and command lists are not supported' };
     if (/\s/.test(character)) {
       if (started) { tokens.push(token); token = ''; started = false; }
     } else { token += character; started = true; }
   }
-  if (quote || escaped) return { tokens, error: '引号或转义未结束。' };
+  if (quote || escaped) return { tokens, error: 'unexpected EOF while looking for matching quote' };
   if (started) tokens.push(token);
   return { tokens };
 }

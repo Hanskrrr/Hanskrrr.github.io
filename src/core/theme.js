@@ -6,9 +6,9 @@ import { applyUvText } from './uv.js';
 const themeColors = { night: '#1a1942', paper: '#fcf6dc', uv: '#0a0814' };
 const themes = () => storage.get('gallery-uv') ? ['night', 'paper', 'uv'] : ['night', 'paper'];
 export const terminalThemes = {
-  linux: { label: '黑底灰白', background: '#080808' },
-  blue: { label: '深靛蓝底浅蓝', background: '#10102a' },
-  light: { label: '浅底深灰', background: '#f4f4f2' },
+  linux: { label: 'grey on black', background: '#080808' },
+  blue: { label: 'light blue on deep indigo', background: '#10102a' },
+  light: { label: 'dark grey on light', background: '#f4f4f2' },
 };
 export function updateBrowserColor() {
   $('meta[name="theme-color"]').content = document.documentElement.dataset.view === 'terminal'

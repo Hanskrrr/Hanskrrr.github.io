@@ -45,7 +45,7 @@ export function clipRuns(runs, columns) {
 const palette = {ink:'--ink',muted:'--faint',accent:'--tty-directory',user:'--tty-user',host:'--tty-host',error:'--tty-error',bg:'--bg'};
 const color = value => /^#[\da-f]{6}$/i.test(value || '') ? value : palette[value] ? `var(${palette[value]})` : '';
 
-export function createTextScreen(container,{signal,title = '终端程序',onKey = () => {},onResize = () => {}} = {}) {
+export function createTextScreen(container,{signal,title = 'terminal program',onKey = () => {},onResize = () => {}} = {}) {
   const doc = container.ownerDocument;
   const win = doc.defaultView;
   const pre = doc.createElement('pre');

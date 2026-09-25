@@ -50,10 +50,10 @@ export function mount2048(container, { signal, onExit = () => {}, announce = () 
     lines.push('');
     if (!canMove(board)) {
       lines.push([{ text: 'GAME OVER  [R] restart', fg: 'error' }]);
-      if (!endedAnnounced) { announce(`2048 游戏结束，分数 ${score}。按 R 重开。`); endedAnnounced = true; }
+      if (!endedAnnounced) { announce(`Game over, score ${score}. Press R to restart.`); endedAnnounced = true; }
     } else if (hasWon(board)) {
       lines.push([{ text: '2048 reached. Keep going.', fg: 'user' }]);
-      if (!wonAnnounced) { announce('已达到 2048，可以继续游戏。'); wonAnnounced = true; }
+      if (!wonAnnounced) { announce('You reached 2048. Keep going if you like.'); wonAnnounced = true; }
     } else lines.push(lastGain ? `MERGED +${lastGain}` : 'Merge equal numbers to reach 2048.');
     const footer = ['Arrows / WASD move', 'R restart  Q / Esc exit'];
     while (lines.length < screen.rows - footer.length - 1) lines.push('');
@@ -84,7 +84,7 @@ export function mount2048(container, { signal, onExit = () => {}, announce = () 
     wonAnnounced = false;
     endedAnnounced = false;
     render();
-    announce('2048 已重新开始。');
+    announce('2048 restarted.');
   }
 
   function onKey(event) {
@@ -112,10 +112,10 @@ export function mount2048(container, { signal, onExit = () => {}, announce = () 
     onExit();
   }
 
-  screen = createTextScreen(container, { signal, title: '2048 字符游戏', onKey, onResize: render });
+  screen = createTextScreen(container, { signal, title: '2048', onKey, onResize: render });
   signal?.addEventListener('abort', dispose, { once: true });
   render();
   screen.focus();
-  announce('2048 已开始。使用方向键或 WASD 移动，R 重开，Q 退出。');
+  announce('2048 started. Arrow keys or WASD move, R restarts, Q quits.');
   return dispose;
 }

@@ -38,8 +38,8 @@ function catOrOpen(args, { ctx, result, name }) {
   if (args.length !== 1) return ctx.usage(name);
   const node = ctx.nodeFor(args[0]);
   if (name === 'open') return Object.assign(result, ctx.openNode(node));
-  if (node.type === 'directory') return ctx.errorResult(name, '这是目录；使用 ls 查看。');
-  if (node.media) return ctx.errorResult(name, '这是媒体文件；使用 gallery 或 player。');
+  if (node.type === 'directory') return ctx.errorResult(name, `${args[0]}: Is a directory`);
+  if (node.media) return ctx.errorResult(name, `${args[0]}: media file; use gallery or player`);
   result.lines = [ctx.line(node.content || '')];
   return result;
 }
@@ -63,7 +63,7 @@ export const commands = {
   theme(args, { ctx, result, name }) {
     // Not listed anywhere: `theme uv` changes the blog outside, not the terminal.
     if (args.length === 1 && args[0] === 'uv') return Object.assign(result, { action: { type: 'uv' } });
-    if (args.length > 1 || (args.length && !terminalThemeNames.includes(args[0]))) return ctx.errorResult(name, '可选名称：linux、blue、light。');
+    if (args.length > 1 || (args.length && !terminalThemeNames.includes(args[0]))) return ctx.errorResult(name, 'themes: linux, blue, light');
     result.action = { type: 'theme', name: args[0] };
     return result;
   },
@@ -72,7 +72,7 @@ export const commands = {
     if (args.length > 1) return ctx.usage(name);
     const { state } = ctx;
     const node = ctx.nodeFor(args[0] === '-' ? state.previous : args[0] ?? ctx.fs.home);
-    if (node.type !== 'directory') return ctx.errorResult(name, '不是目录。');
+    if (node.type !== 'directory') return ctx.errorResult(name, `${args[0]}: Not a directory`);
     state.previous = state.cwd;
     state.cwd = node.path;
     if (args[0] === '-') result.lines = [ctx.line(state.cwd)];
@@ -80,10 +80,11 @@ export const commands = {
   },
 
   ls(args, { ctx, result, name }) {
-    const flags = args.filter(value => value.startsWith('-'));
-    const paths = args.filter(value => !value.startsWith('-'));
-    if (flags.some(value => !['-a', '-1'].includes(value)) || paths.length > 1) return ctx.usage(name);
-    result.lines = ctx.directoryListing(ctx.nodeFor(paths[0] ?? '.'), flags.includes('-a'));
+    const flags = args.filter(value => value.startsWith('-') && value !== '-').join('').replaceAll('-', '');
+    const paths = args.filter(value => !value.startsWith('-') || value === '-');
+    if (/[^al1Ah]/.test(flags) || paths.length > 1) return ctx.usage(name);
+    // -A (almost all) is treated like -a; -h is accepted and changes nothing.
+    result.lines = ctx.directoryListing(ctx.nodeFor(paths[0] ?? '.'), /[aA]/.test(flags), flags.includes('l'));
     return result;
   },
 
@@ -96,10 +97,10 @@ export const commands = {
   man(args, { ctx, result, name }) {
     if (args.length > 1 || (args.length && !Object.hasOwn(manuals, args[0]))) return ctx.usage(name);
     const command = args[0];
-    const title = command ? `man ${command}` : '命令手册';
+    const title = command ? `man ${command}` : 'manual';
     const body = command
       ? [commandHelp.find(([usage]) => usage.split(' ')[0] === command)[0], '', ...manuals[command]].join('\n\n')
-      : ['Gallery terminal 命令手册', '', ...commandHelp.map(([usage, description]) => `${usage}\n  ${description}`), '', '输入 man <command> 阅读详细说明。'].join('\n');
+      : ['Gallery terminal manual', '', ...commandHelp.map(([usage, description]) => `${usage}\n  ${description}`), '', 'Type man <command> for details.'].join('\n');
     result.action = { type: 'pager', title, text: body };
     return result;
   },
@@ -121,7 +122,7 @@ export const commands = {
     if (args.length !== 2) return ctx.usage(name);
     const [pattern, path] = args;
     const root = ctx.nodeFor(path);
-    if (root.media) return ctx.errorResult(name, '这是媒体文件；只能查找文本。');
+    if (root.media) return ctx.errorResult(name, `${path}: media file; grep searches text only`);
     // Search terms may contain a mistyped passphrase. Never echo or retain them.
     result.echo = `grep [pattern] ${ctx.quote(root.path)}`;
     result.remember = false;
@@ -153,7 +154,7 @@ export const commands = {
     const nodes = node.type === 'directory' ? ctx.fs.list(node.path) : [node];
     const ids = new Set(nodes.filter(item => item.action?.type === 'audio').map(item => item.action.id));
     const tracks = ctx.tracks.filter(track => ids.has(track.id));
-    if (!tracks.length) return ctx.errorResult(name, '没有可播放的音频。使用 player ~/audio/。');
+    if (!tracks.length) return ctx.errorResult(name, 'nothing to play; try player ~/audio/');
     result.action = { type: 'player', tracks };
     return result;
   },
@@ -170,8 +171,34 @@ export const commands = {
       const photo = ctx.photos.find(entry => entry.id === item.action.id) || ctx.photos[item.action.index];
       return photo ? [photo] : [];
     });
-    if (!photos.length) return ctx.errorResult(name, '没有可显示的图片。使用 gallery ~/photos/。');
+    if (!photos.length) return ctx.errorResult(name, 'no images here; try gallery ~/photos/');
     result.action = { type: 'gallery', photos, mode };
+    return result;
+  },
+
+  echo(args, { ctx, result }) {
+    const env = { USER: 'guest', HOME: ctx.fs.home, PWD: ctx.state.cwd, SHELL: '/bin/bash', HOSTNAME: 'gallery' };
+    result.lines = [ctx.line(args.join(' ').replace(/\$\{?([A-Z]+)\}?/g, (match, key) => env[key] ?? ''))];
+    return result;
+  },
+  whoami: noArgs((args, { ctx, result }) => { result.lines = [ctx.line('guest')]; return result; }),
+  hostname: noArgs((args, { ctx, result }) => { result.lines = [ctx.line('gallery')]; return result; }),
+  date: noArgs((args, { ctx, result }) => { result.lines = [ctx.line(unixDate(new Date()))]; return result; }),
+  uname(args, { ctx, result, name }) {
+    if (args.length > 1 || (args.length && args[0] !== '-a')) return ctx.usage(name);
+    result.lines = [ctx.line(args.length ? 'Linux gallery 6.6.6-zespejo #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux' : 'Linux')];
+    return result;
+  },
+  history: noArgs((args, { result }) => Object.assign(result, { action: { type: 'history' } })),
+  exit: noArgs((args, { ctx, result }) => Object.assign(result, { lines: [ctx.line('logout')], action: { type: 'blog' } })),
+  // Unlisted: su asks for a password (the room's) on a hidden prompt; the page handles it.
+  su(args, { ctx, result, name }) {
+    if (args.length > 1 || (args.length && !['-', 'root', 'zespejo'].includes(args[0]))) return ctx.errorResult(name, `user ${args.at(-1)} does not exist or the user entry does not contain all the required fields`);
+    return Object.assign(result, { action: { type: 'su' } });
+  },
+  sudo(args, { ctx, result, name }) {
+    if (!args.length) return ctx.usage(name);
+    result.lines = [ctx.line('guest is not in the sudoers file.  This incident will be reported.', 'error')];
     return result;
   },
 
@@ -179,11 +206,29 @@ export const commands = {
   open: catOrOpen,
 };
 
+/** `date` output: Fri Sep 25 17:04:12 GMT+8 2026 */
+function unixDate(now) {
+  const pad = value => String(value).padStart(2, '0');
+  const zone = new Intl.DateTimeFormat('en', { timeZoneName: 'short' }).formatToParts(now).find(part => part.type === 'timeZoneName')?.value || 'UTC';
+  const [weekday, month] = [now.toLocaleString('en', { weekday: 'short' }), now.toLocaleString('en', { month: 'short' })];
+  return `${weekday} ${month} ${String(now.getDate()).padStart(2)} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} ${zone} ${now.getFullYear()}`;
+}
+
+/** Unlisted commands that would change files: the whole tree is read-only. */
+export const writeCommands = ['rm', 'rmdir', 'mv', 'cp', 'mkdir', 'touch', 'chmod', 'chown', 'ln', 'vi', 'vim', 'nano', 'emacs'];
+for (const name of writeCommands) {
+  commands[name] = (args, { ctx, result }) => {
+    result.lines = [ctx.line(`${name}: ${args.at(-1) ? `'${args.at(-1)}': ` : ''}Read-only file system`, 'error')];
+    return result;
+  };
+}
+
 /**
  * Earlier demo shortcuts. Each returns { lines } to answer directly, { name, args }
  * to run another command, or null for a usage error.
  */
 export const aliases = {
+  logout: args => ({ name: 'exit', args }),
   articles: (args, ctx) => args.length ? null : { lines: ctx.directoryListing(ctx.nodeFor(`${ctx.fs.home}/articles`)) },
   about: (args, ctx) => args.length ? null : { lines: [ctx.line(ctx.nodeFor(`${ctx.fs.home}/about.txt`).content)] },
   read: (args, ctx) => {

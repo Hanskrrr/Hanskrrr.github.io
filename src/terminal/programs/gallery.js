@@ -29,7 +29,7 @@ export function mountGallery(container, {
   function draw() {
     if (disposed || !screen) return;
     const photo = photos[current];
-    const label = { ascii: '彩色 ASCII', mono: '单色 ASCII', blocks: '彩色半块' }[mode];
+    const label = { ascii: 'colour ASCII', mono: 'mono ASCII', blocks: 'colour blocks' }[mode];
     const lines = [
       [{ text: 'gallery ', fg: 'accent' }, { text: photo ? `${photo.file}  [${current + 1}/${photos.length}]` : '(empty)' }],
       [{ text: label, fg: 'muted' }],
@@ -43,7 +43,7 @@ export function mountGallery(container, {
         lines.push([{ text: padding }, ...row]);
       }
     } else {
-      lines.push([{ text: !photo ? '此目录没有图像。' : failure ? '图像读取失败；N/P 切换。' : '正在读取图像…', fg: failure ? 'error' : 'muted' }]);
+      lines.push([{ text: !photo ? 'No images in this directory.' : failure ? 'Could not load the image; N/P to switch.' : 'Loading image…', fg: failure ? 'error' : 'muted' }]);
     }
     lines.push('', [{ text: '←/→ N/P image  A/M/B style', fg: 'muted' }], [{ text: 'O original  Q/Esc exit', fg: 'muted' }]);
     screen.render(lines);
@@ -95,11 +95,11 @@ export function mountGallery(container, {
       const pixels = await loadImage(photos[current]);
       if (disposed || generation !== request) return;
       imageData = pixels;
-      announce(`${photos[current].title}，${current + 1}/${photos.length}，${mode === 'mono' ? '单色' : '彩色'}字符预览。`);
+      announce(`${photos[current].title}, ${current + 1}/${photos.length}, ${mode === 'mono' ? 'mono' : 'colour'} character preview.`);
     } catch {
       if (disposed || generation !== request) return;
       failure = true;
-      announce('图像读取失败，可按 N 或 P 切换。');
+      announce('Could not load the image. Press N or P to switch.');
     }
     draw();
   }
@@ -148,7 +148,7 @@ export function mountGallery(container, {
     screen?.dispose();
   }
 
-  screen = createTextScreen(container, { signal, title: '字符相册', onKey, onResize: draw });
+  screen = createTextScreen(container, { signal, title: 'character gallery', onKey, onResize: draw });
   signal?.addEventListener('abort', dispose, { once: true });
   draw();
   screen.focus();
