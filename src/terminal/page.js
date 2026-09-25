@@ -9,7 +9,7 @@ import { articleText } from '../content/article-text.js';
 import { articles } from '../content/articles.js';
 import { audioTracks } from '../content/audio.js';
 import { photoCatalog } from '../content/photos.js';
-import { unlockExhibit } from '../vault/crypto.js';
+import { unlockRoom } from '../vault/crypto.js';
 import { openExhibit, startUnlock } from '../vault/exhibit.js';
 import { runAction, showPhoto } from './actions.js';
 import { activeProgram, closeProgram, configureRuntime, handleRuntimeKeydown, refocusProgram, stopTrain } from './programs/runtime.js';
@@ -125,7 +125,7 @@ async function tryUnlock(candidate) {
   revealPrompt();
   let opened = false;
   try {
-    const content = await unlockExhibit(candidate, { signal: controller.signal });
+    const content = await unlockRoom(candidate, { signal: controller.signal });
     candidate = '';
     if (controller.signal.aborted || app.view !== 'terminal') return;
     rememberTerminal();

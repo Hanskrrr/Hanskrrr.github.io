@@ -127,6 +127,8 @@ export function readExhibit(value) {
     ],
   };
   optional(value, 'introHtml', 1_000_000, exhibit);
+  // Only in the inner envelope: the room password, so the inner password alone opens everything.
+  optional(value, 'roomKey', 1024, exhibit);
   // Optional timeline for the room's wall map: [{ date, title, text? }].
   if (value.timeline !== undefined) {
     exhibit.timeline = list(value.timeline, 500).map(entry => {
@@ -218,3 +220,20 @@ export async function unlockExhibit(passphrase, { signal, file = 'exhibit.enc.js
 
 /** The inner lock: a second envelope, opened inside the room with its own password. */
 export const unlockInner = (passphrase, options = {}) => unlockExhibit(passphrase, { ...options, file: 'inner.enc.json', aad: INNER_AAD });
+
+/**
+ * The terminal's password check: the room password opens the room; the inner password
+ * opens the room with every locked item already unlocked (its envelope carries the room
+ * password). Failures look the same either way.
+ */
+export async function unlockRoom(passphrase, { signal } = {}) {
+  try {
+    return await unlockExhibit(passphrase, { signal });
+  } catch (error) {
+    if (error.name === 'AbortError') throw error;
+  }
+  const inner = await unlockInner(passphrase, { signal });
+  if (!inner.roomKey) throw new Error(FAILURE_MESSAGE);
+  const room = await unlockExhibit(inner.roomKey, { signal });
+  return mergeInner(room, inner);
+}
