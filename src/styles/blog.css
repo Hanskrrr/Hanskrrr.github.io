@@ -1020,6 +1020,9 @@ a.tag:hover { filter: brightness(1.08); }
 .uv-layer > * { grid-area: 1 / 1; min-width: 0; }
 .uv-ink { visibility: hidden; pointer-events: none; }
 .uv-torch { display: none; }
+.room-uv-ink { display: none; }
+:root[data-theme="uv"] .room-uv-ink { display: inline; }
+.px-uv-ink { fill: var(--uv-ink); }
 :root[data-theme="uv"] .uv-ink {
   visibility: visible;
   -webkit-mask-image: radial-gradient(circle at var(--uv-x, -1000px) var(--uv-y, -1000px), #000 0 54px, transparent 78px);

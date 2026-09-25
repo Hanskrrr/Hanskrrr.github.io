@@ -1,6 +1,7 @@
 // The uv style's light. Hidden ink (a > [!uv] callout, rendered as .uv-ink) is laid over
 // the block just before it; a violet torch follows the pointer (or a finger) and, only
 // under the uv style, shows the ink inside its circle while the words above it fade.
+// SVG ink (the room's wall) is masked by a lens circle that follows the torch.
 import { el } from '../core/dom.js';
 
 /** Stack each .uv-ink with the block before it, so the ink sits behind that text. */
@@ -36,6 +37,19 @@ export function attachTorch() {
         block.style.setProperty('--uv-y', `${y - own.top}px`);
       }
     }
+    // Ink drawn in SVG (the room's wall): the lens circle in its mask follows the torch, and keeps
+    // following while the scene moves under a still pointer.
+    const marks = document.querySelectorAll('[data-uv-lens]');
+    for (const mark of marks) {
+      const lens = document.getElementById(mark.dataset.uvLens)?.querySelector('.uv-lens');
+      const matrix = mark.getScreenCTM();
+      if (!lens || !matrix) continue;
+      const at = new DOMPoint(x, y).matrixTransform(matrix.inverse());
+      lens.setAttribute('cx', at.x);
+      lens.setAttribute('cy', at.y);
+      lens.setAttribute('r', 70 / Math.hypot(matrix.a, matrix.b));
+    }
+    if (marks.length) frame = requestAnimationFrame(paint);
   }
   const move = (nextX, nextY) => {
     x = nextX;

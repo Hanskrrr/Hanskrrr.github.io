@@ -44,6 +44,28 @@ const STUDY_REACH = 108;   // how far right the creature may walk while the door
 // The door in the doorway, shut until the secret is found (CSS hides it after).
 const DOOR = '<g class="room-door"><rect class="px-room-wood" x="125" y="10" width="6" height="31"/><rect class="px-room-wood-dark" x="127" y="12" width="1" height="27"/><rect class="px-room-wood-dark" x="125" y="25" width="6" height="1"/><rect class="px-window" x="129" y="26" width="1" height="2"/></g>';
 
+// The secret, painted on the study wall in ink only the uv torch shows (blog/uv-light.js moves
+// the lens circle of its mask under the torch): ↑↑↓↓ / ←→←→ / B A.
+const GLYPHS = {
+  up: ['..#..', '.###.', '#.#.#', '..#..', '..#..'],
+  left: ['..#..', '.#...', '#####', '.#...', '..#..'],
+  B: ['##.', '#.#', '##.', '#.#', '##.'],
+  A: ['.#.', '#.#', '###', '#.#', '#.#'],
+};
+GLYPHS.down = [...GLYPHS.up].reverse();
+GLYPHS.right = GLYPHS.left.map(row => [...row].reverse().join(''));
+function konamiInk() {
+  const grid = Array.from({ length: 17 }, () => Array(23).fill(''));
+  const put = (glyph, x, y) => GLYPHS[glyph].forEach((row, dy) => [...row].forEach((c, dx) => { if (c === '#') grid[y + dy][x + dx] = 'px-uv-ink'; }));
+  ['up', 'up', 'down', 'down'].forEach((glyph, i) => put(glyph, i * 6, 0));
+  ['left', 'right', 'left', 'right'].forEach((glyph, i) => put(glyph, i * 6, 6));
+  put('B', 7, 12);
+  put('A', 13, 12);
+  return '<defs><radialGradient id="room-uv-glow"><stop offset="60%" stop-color="#fff"/><stop offset="100%" stop-color="#000"/></radialGradient>'
+    + '<mask id="room-uv-lens" maskUnits="userSpaceOnUse" x="-20" y="-20" width="300" height="100"><circle class="uv-lens" r="0" fill="url(#room-uv-glow)"/></mask></defs>'
+    + `<g class="room-uv-ink" mask="url(#room-uv-lens)" data-uv-lens="room-uv-lens"><g transform="translate(97 8)">${gridToPaths(grid)}</g></g>`;
+}
+
 export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'intro', reducedMotion = false, arrive = null, onWalkOut = null }) {
   container.classList.toggle('explorer', explorer);
   const secret = name => name === 'films' || name === 'music';
@@ -70,7 +92,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   // The view is as wide as both rooms; the camera slides it so the stage shows 128 columns.
   viewLayer.style.width = `${(WORLD_WIDTH / ROOM_WIDTH) * 100}%`;
   viewLayer.innerHTML = `<svg class="pixel-art room-scene" viewBox="0 0 ${WORLD_WIDTH} ${ROOM_HEIGHT}" shape-rendering="crispEdges" aria-hidden="true">`
-    + `<g class="depth-far">${edges('px-room-wall', -6, 54)}${edges('px-room-edge', 41, 1)}<rect class="px-room-wall" x="0" y="-6" width="${WORLD_WIDTH}" height="6"/>${gridToPaths(layers.far)}${DOOR}</g>`
+    + `<g class="depth-far">${edges('px-room-wall', -6, 54)}${edges('px-room-edge', 41, 1)}<rect class="px-room-wall" x="0" y="-6" width="${WORLD_WIDTH}" height="6"/>${gridToPaths(layers.far)}${DOOR}${konamiInk()}</g>`
     + `<g class="depth-floor">${edges('px-room-floor', 42, 24)}${[46, 51, 56].map(y => edges('px-room-floor-line', y, 1)).join('')}<rect class="px-room-floor" x="0" y="${ROOM_HEIGHT}" width="${WORLD_WIDTH}" height="6"/>${gridToPaths(layers.floor)}</g>`
     + `<g class="depth-mid">${gridToPaths(layers.mid)}</g><g class="depth-actor"></g>`
     + `<g class="depth-fore">${gridToPaths(layers.fore)}</g></svg>`;
