@@ -199,12 +199,26 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     return button;
   }
 
+  /** Your overview notes for one object: rankings, scores, one-line comments. */
+  function overview(kind) {
+    const section = el('div', 'room-lists');
+    for (const item of content.lists.filter(entry => entry.kind === kind)) section.append(el('h3', '', item.title), prose(item.html));
+    return section;
+  }
+  /** Links inside notes ([[三体]]) open that item: kind → (id → shows it). */
+  const openers = {};
   /** A list panel whose items open a detail view in place. */
-  function collection(title, items, renderList, renderDetail) {
+  function collection(title, items, renderList, renderDetail, kind) {
     const wrap = el('div');
-    const showList = () => wrap.replaceChildren(el('h2', '', title), renderList(index => wrap.replaceChildren(renderDetail(items[index], showList))));
+    const showList = () => wrap.replaceChildren(el('h2', '', title), overview(kind), renderList(index => showItem(index)));
+    const showItem = index => wrap.replaceChildren(renderDetail(items[index], showList));
+    openers[kind] = id => { const index = items.findIndex(item => item.id === id); if (index >= 0) showItem(index); };
     showList();
     return [wrap];
+  }
+  function openItem(kind, id) {
+    open(kind);
+    openers[kind]?.(id);
   }
 
   // --- panels -------------------------------------------------------------------
@@ -254,7 +268,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
           shelves.append(row);
         }
         return shelves;
-      }, (book, back) => book.locked ? unlockForm('books', book.hint, back) : detail(book, byline(book.author, book.year, book.shelf), back));
+      }, (book, back) => book.locked ? unlockForm('books', book.hint, back) : detail(book, byline(book.author, book.year, book.shelf), back), 'books');
     },
     films() {
       return collection('放映机', content.films, open => {
@@ -268,7 +282,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
           list.append(button);
         });
         return list;
-      }, (film, back) => film.locked ? unlockForm('films', film.hint, back) : detail(film, byline(film.kind, film.director, film.year), back, [player(film.embed)]));
+      }, (film, back) => film.locked ? unlockForm('films', film.hint, back) : detail(film, byline(film.kind, film.director, film.year), back, [player(film.embed)]), 'films');
     },
     music() {
       return collection('点唱机', content.music, open => {
@@ -284,7 +298,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
           list.append(item);
         });
         return list;
-      }, (track, back) => track.locked ? unlockForm('music', track.hint, back) : detail(track, byline(track.artist, track.album, track.year), back, [track.audio && audio(track.audio, track.title), player(track.embed)]));
+      }, (track, back) => track.locked ? unlockForm('music', track.hint, back) : detail(track, byline(track.artist, track.album, track.year), back, [track.audio && audio(track.audio, track.title), player(track.embed)]), 'music');
     },
     serials() {
       const wrap = el('div');
@@ -299,7 +313,12 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
           button.addEventListener('click', () => contents(serial));
           items.append(button);
         });
-        wrap.replaceChildren(el('h2', '', '手稿'), items);
+        wrap.replaceChildren(el('h2', '', '手稿'), overview('serials'), items);
+      };
+      openers.serials = id => {
+        const serial = content.serials.find(item => item.id === id);
+        if (serial?.locked) wrap.replaceChildren(unlockForm('serials', serial.hint, list));
+        else if (serial) contents(serial);
       };
       const contents = serial => {
         const view = el('article', 'serial');
@@ -386,6 +405,13 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     Object.entries(buttons).forEach(([key, button]) => button.setAttribute('aria-pressed', String(key === name)));
     stage.querySelectorAll('.room-hotspot').forEach(hotspot => hotspot.classList.toggle('active', hotspot.dataset.object === name));
   }
+  panel.addEventListener('click', event => {
+    const link = event.target.closest('a[data-room]');
+    if (!link) return;
+    event.preventDefault();
+    const [kind, id] = link.dataset.room.split(':');
+    openItem(kind, id);
+  });
   const onClick = event => {
     const target = event.target.closest('[data-object]');
     if (target) open(target.dataset.object);

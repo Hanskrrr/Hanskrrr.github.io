@@ -65,6 +65,7 @@ export function readExhibit(value) {
   const lockId = input => (/^[0-9a-f]{12}$/.test(input) ? input : fail());
   const placeholder = item => {
     const out = { locked: true, lock: lockId(item.lock) };
+    if (item.id !== undefined) out.id = lockId(item.id);
     optional(item, 'hint', 200, out);
     return out;
   };
@@ -72,6 +73,7 @@ export function readExhibit(value) {
   const lockable = read => item => {
     if (item?.locked === true) return placeholder(item);
     const out = read(item);
+    if (item.id !== undefined) out.id = lockId(item.id);
     if (item.lock !== undefined) out.lock = lockId(item.lock);
     return out;
   };
@@ -126,6 +128,11 @@ export function readExhibit(value) {
       ...list(value.music).map(lockable(item => shelfItem(item, ['artist', 'album', 'year']))),
     ],
   };
+  // Overview notes for the bookshelf, projector, jukebox and drawer: a title and rendered html.
+  exhibit.lists = list(value.lists, 100).map(item => {
+    if (!['books', 'films', 'music', 'serials'].includes(item?.kind)) fail();
+    return { kind: item.kind, title: text(item.title, 300), html: text(item.html, 1_000_000) };
+  });
   optional(value, 'introHtml', 1_000_000, exhibit);
   // Only in the inner envelope: the room password, so the inner password alone opens everything.
   optional(value, 'roomKey', 1024, exhibit);
