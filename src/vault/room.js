@@ -304,11 +304,14 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     deck.link = !track.audio;
     showDisc(track);
     if (track.audio) {
+      // The whole file is fetched and decrypted before it can play: say so meanwhile.
+      deck.loading = true;
       urlFor(track.audio).then(url => {
+        deck.loading = false;
         if (deck.index !== index) return;
         if (deck.audio.src !== url) deck.audio.src = url;
-        deck.audio.play().catch(() => setSpinning(false));
-      }, () => setSpinning(false));
+        deck.audio.play().catch(error => { if (error.name === 'NotSupportedError') deck.failed = index; setSpinning(false); });
+      }, () => { deck.loading = false; deck.failed = index; setSpinning(false); });
     } else {
       deck.audio.pause();
       // A link song counts as playing once its player has been loaded.
@@ -380,7 +383,9 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
       seek.hidden = !track?.audio;
       message.textContent = !track ? '点唱机等着。选一首歌。'
         : deck.link ? `${track.title}：在下方${deck.loaded.has(deck.index) ? '的播放器里控制' : '加载它的播放器'}（链接歌曲）`
-          : `${deck.playing ? '正在播放' : '暂停'}：${track.title}`;
+          : deck.failed === deck.index ? `${track.title}：这个浏览器载入或播放不了这个音频（试试 mp3 或 m4a）。`
+            : deck.loading ? `正在取出唱片：${track.title}…`
+              : `${deck.playing ? '正在播放' : '暂停'}：${track.title}`;
     });
     return box;
   }
@@ -551,7 +556,8 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
         const put = track.audio && deck.index !== index ? control('▶ 放进点唱机', () => playTrack(index, { reveal: false })) : null;
         const embed = player(track.embed, () => { deck.loaded.add(index); deck.audio.pause(); if (deck.index !== index) playTrack(index, { reveal: false }); else setSpinning(true); });
         if (embed) { embed.dataset.index = index; if (deck.index === index || deck.index < 0) deck.embedBox = embed; }
-        body.replaceChildren(detail(track, byline(track.artist, track.album, track.year), showList, [put, track.audio ? null : embed]));
+        const nothing = !track.audio && !embed ? el('p', 'room-text room-embed-note', '这首歌还没有可以放的声音：在笔记里加上 audio:（你自己的音频文件）或 link:（网易云、bilibili 等链接）。') : null;
+        body.replaceChildren(detail(track, byline(track.artist, track.album, track.year), showList, [put, track.audio ? null : embed, nothing]));
       };
       openers.music = id => { const index = content.music.findIndex(item => item.id === id); if (index >= 0) showItem(index); };
       showList();
