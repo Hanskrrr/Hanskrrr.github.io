@@ -44,7 +44,7 @@ const STUDY_REACH = 108;   // how far right the creature may walk while the door
 // The door in the doorway, shut until the secret is found (CSS hides it after).
 const DOOR = '<g class="room-door"><rect class="px-room-wood" x="125" y="10" width="6" height="31"/><rect class="px-room-wood-dark" x="127" y="12" width="1" height="27"/><rect class="px-room-wood-dark" x="125" y="25" width="6" height="1"/><rect class="px-window" x="129" y="26" width="1" height="2"/></g>';
 
-export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'intro', reducedMotion = false }) {
+export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'intro', reducedMotion = false, arrive = null, onWalkOut = null }) {
   container.classList.toggle('explorer', explorer);
   const secret = name => name === 'films' || name === 'music';
   const available = {
@@ -101,7 +101,9 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     }
     cameraFrame = camera === cameraTarget ? 0 : requestAnimationFrame(pan);
   }
-  const life = animateRoom({ stage, view: viewLayer, art, reducedMotion, onMove: follow, reach: explorer ? null : STUDY_REACH });
+  // Walking out through the left wall (only once the secret is found) leads to the homepage.
+  const life = animateRoom({ stage, view: viewLayer, art, reducedMotion, onMove: follow, reach: explorer ? null : STUDY_REACH, onLeaveLeft: () => { if (explorer) onWalkOut?.(); } });
+  if (arrive === 'left') life.enterFromLeft();
   const depth = attachDepth({ stage, art, reducedMotion });
 
   const legend = el('div', 'room-legend');
@@ -762,7 +764,9 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     // Clicking or tapping an empty spot in the room walks the creature there.
     if (explorer && event.currentTarget === stage && !closeup && !event.target.closest('button, a, iframe')) {
       const box = art.getBoundingClientRect();
-      life.walkTo(((event.clientX - box.left) / box.width) * WORLD_WIDTH);
+      const x = ((event.clientX - box.left) / box.width) * WORLD_WIDTH;
+      // A tap right at the left wall walks through it.
+      life.walkTo(x < 6 ? -30 : x);
     }
   };
   stage.addEventListener('click', onClick);

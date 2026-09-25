@@ -108,7 +108,7 @@ export function windowGrid(hour, month, frame = 0, random = Math.random) {
  * { goTo(object), walkTo(x), move(direction), jump(), position(), pet(), toggleLamp(),
  *   setFilm(open), setTheater(on), setMusic(on), dispose() }.
  */
-export function animateRoom({ stage, view = stage, art, reducedMotion = false, now = () => new Date(), onMove = () => {}, reach = null }) {
+export function animateRoom({ stage, view = stage, art, reducedMotion = false, now = () => new Date(), onMove = () => {}, reach = null, onLeaveLeft = null }) {
   const date = now();
   const hour = date.getHours();
   const month = date.getMonth();
@@ -225,7 +225,10 @@ export function animateRoom({ stage, view = stage, art, reducedMotion = false, n
 
   // `reach` keeps it in the study while the door is shut (room.js); null means the whole home.
   let farthest = reach ?? EDGES[1];
-  const clampX = x => Math.max(EDGES[0], Math.min(farthest, x));
+  // With the whole home open, the left wall can be walked through: past it lies the homepage.
+  const nearest = () => (onLeaveLeft && farthest === EDGES[1] ? -16 : EDGES[0]);
+  const clampX = x => Math.max(nearest(), Math.min(farthest, x));
+  let gone = false;
   /** Walk to x: strolling when it wanders on its own, hurrying when you sent it somewhere. */
   function walkTo(x, hurry = true) {
     if (state.mode === 'sleep') wake();
@@ -258,6 +261,7 @@ export function animateRoom({ stage, view = stage, art, reducedMotion = false, n
     }
     drawCreature();
     onMove(state.x);
+    if (!gone && state.x <= -15 && onLeaveLeft) { gone = true; state.control = 0; state.mode = 'idle'; onLeaveLeft(); return; }
     const busy = state.control || state.mode === 'walk' || state.hop;
     motionFrame = busy ? requestAnimationFrame(motion) : 0;
   }
@@ -375,6 +379,15 @@ export function animateRoom({ stage, view = stage, art, reducedMotion = false, n
       kickMotion();
     },
     position: () => ({ x: state.x, y: state.y }),
+    /** Back from the homepage: step in through the left wall. */
+    enterFromLeft() {
+      if (state.mode === 'sleep') wake();
+      state.x = -14;
+      state.facing = 1;
+      state.lastInput = performance.now();
+      walkTo(12);
+      say('……回来啦。', 2200);
+    },
     setReach(x) { farthest = x ?? EDGES[1]; },
     say(text, ms) { say(text, ms); },
     pet() {

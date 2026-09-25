@@ -5,8 +5,11 @@
 // the cabin. Clicking the picture calls it out; the Konami code makes it dance and then
 // hold up a tiny terminal board: clicking the board opens the (otherwise unlinked) terminal.
 // Seasons add falling leaves (autumn), petals (spring) or snow (winter).
+// The room's creature can visit too (core/portal.js): it walks in from the right edge, is steered
+// with ←/→ (↑ or space hops) or by clicking, and walks back into the room off the right edge.
 // Everything pauses while the picture is off-screen or the tab is hidden, and
 // stays still with reduced motion.
+import { portal } from '../core/portal.js';
 import { navigate } from '../core/router.js';
 import { gridToPaths, SCENE_HEIGHT, SCENE_WIDTH, sceneLayout, sprite } from './pixel-art.js';
 
@@ -115,6 +118,8 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
   critter.sprite.hide();
   critter.heartSprite.hide();
   critter.boardSprite.hide();
+  if (portal.visitor && portal.back) Object.assign(critter, { state: 'visit', x: SCENE_WIDTH - 1, target: SCENE_WIDTH - 16 });
+  let held = 0;                          // -1/1 while ←/→ is held (visitor only)
   let boardAt = null;
   const label = document.createElementNS(NS, 'text');
   label.setAttribute('class', 'scene-icon-label');
@@ -249,6 +254,24 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
         }
         return;
       }
+      case 'visit': {
+        const dir = held || Math.sign(critter.target - critter.x);
+        if (dir) {
+          critter.x = Math.max(0, Math.min(SCENE_WIDTH - 1, critter.x + dir));
+          critter.step += 1;
+          if (held) critter.target = critter.x;
+          critter.face = dir > 0 ? 'right' : 'left';
+        }
+        if (dir > 0 && critter.x === SCENE_WIDTH - 1) {   // off the right edge: back into the room
+          critter.state = 'away';
+          critter.sprite.hide();
+          critter.heartSprite.hide();
+          portal.back?.();
+          return;
+        }
+        drawCritter(dir ? (critter.step % 2 ? `${critter.face}2` : critter.face) : tick % 17 === 0 ? 'blink' : 'front');
+        return;
+      }
       case 'idle':
         drawCritter(critter.hop > 8 ? (critter.hop % 8 < 4 ? 'left' : 'right') : critter.pause % 17 === 0 ? 'blink' : 'front');
         if (--critter.pause <= 0 && !critter.hop) Object.assign(critter, { state: 'walk', target: home });
@@ -264,6 +287,13 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
       const y = ((event.clientY - box.top) / box.height) * SCENE_HEIGHT;
       if (x >= boardAt[0] - 1 && x <= boardAt[0] + BOARD_W + 1 && y >= boardAt[1] - 1 && y <= boardAt[1] + BOARD_H + 4) return navigate('terminal');
     }
+    if (critter.state === 'visit') {
+      const box = svg.getBoundingClientRect();
+      const x = Math.round(((event.clientX - box.left) / box.width) * SCENE_WIDTH) - 3;
+      held = 0;
+      critter.target = x > SCENE_WIDTH - 8 ? SCENE_WIDTH - 1 : Math.max(0, x);
+      return;
+    }
     if (critter.state === 'home') comeOut();
     else {
       Object.assign(critter, { state: 'idle', pause: rand(30, 50), hop: 8, heart: 16 });
@@ -271,12 +301,28 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
   }
   // The Konami code (see main.js) makes it dance.
   function onDance() {
+    if (critter.state === 'visit' || critter.state === 'away') return Object.assign(critter, { hop: 16, heart: 24 });
     if (critter.state === 'home') Object.assign(critter, { x: home + 10, target: home + 10 });
     Object.assign(critter, { state: 'idle', pause: 450, hop: 48, heart: 48, board: true });
   }
+  // Keys steer the visitor while the picture is on screen and nobody is typing.
+  const KEY_DIR = { ArrowLeft: -1, a: -1, A: -1, ArrowRight: 1, d: 1, D: 1 };
+  function onKey(event) {
+    if (critter.state !== 'visit' || !visible || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]')) return;
+    if (KEY_DIR[event.key]) held = KEY_DIR[event.key];
+    else if (['ArrowUp', 'w', 'W', ' '].includes(event.key)) { if (!critter.hop) critter.hop = 4; }
+    else return;
+    event.preventDefault();
+  }
+  const onKeyUp = event => { if (KEY_DIR[event.key] === held) held = 0; };
+  const onBlur = () => { held = 0; };
   const art = svg.closest('.hero-art');
   art?.addEventListener('click', onClick);
   addEventListener('gallery:dance', onDance);
+  addEventListener('keydown', onKey);
+  addEventListener('keyup', onKeyUp);
+  addEventListener('blur', onBlur);
 
   // --- scheduling ---------------------------------------------------------
   let visible = true;
@@ -295,6 +341,9 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
     observer?.disconnect();
     art?.removeEventListener('click', onClick);
     removeEventListener('gallery:dance', onDance);
+    removeEventListener('keydown', onKey);
+    removeEventListener('keyup', onKeyUp);
+    removeEventListener('blur', onBlur);
   }
   timer = setTimeout(loop, TICK);
   return stop;
