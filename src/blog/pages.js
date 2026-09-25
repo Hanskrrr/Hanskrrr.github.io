@@ -37,11 +37,11 @@ function sidebar() {
   const now = profile.now?.items?.length
     ? `<section class="now-box" aria-labelledby="now-title"><p class="aside-label" id="now-title">NOW<span>${escapeHtml(profile.now.updated || '')}</span></p><dl>${profile.now.items.map(([label, text]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(text)}</dd></div>`).join('')}</dl></section>`
     : '';
-  return `<aside class="sidebar"><div class="profile-card"><div class="avatar-tile">${avatarSprite(profile.avatar)}</div><h3>${escapeHtml(profile.handle)}</h3><ul class="focus-list">${profile.focus.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul><div class="profile-links">${links}<a class="small-link" href="/?view=about" data-nav="about">关于 <span aria-hidden="true">→</span></a></div></div>${now}<p class="aside-note">当前文章与媒体均为演示内容。</p></aside>`;
+  return `<aside class="sidebar"><div class="profile-card"><div class="avatar-tile">${avatarSprite(profile.avatar)}</div><h3>${escapeHtml(profile.handle)}</h3><ul class="focus-list">${profile.focus.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul><div class="profile-links">${links}<a class="small-link" href="/?view=about" data-nav="about">关于 <span aria-hidden="true">→</span></a></div></div>${now}</aside>`;
 }
 
 function renderBlog() {
-  main.innerHTML = `<section class="hero"><div class="hero-copy"><div class="eyebrow">PERSONAL SITE<span class="slash">/</span>2026</div><h1>${escapeHtml(profile.handle)}<span>.</span></h1><h2>${escapeHtml(profile.tagline)}</h2><p>${escapeHtml(profile.intro)}</p><div class="hero-actions"><button class="button button-primary" data-action="browse">浏览文章 <span aria-hidden="true">↓</span></button><a class="button" href="/?view=graph" data-nav="graph">知识图谱 <span aria-hidden="true">→</span></a></div><a class="terminal-hint" href="/terminal/" data-nav="terminal"><span aria-hidden="true">›_</span> terminal</a></div><div class="hero-art">${pixelScene()}</div></section>
+  main.innerHTML = `<section class="hero"><div class="hero-copy"><div class="eyebrow">PERSONAL SITE<span class="slash">/</span>2026</div><h1>${escapeHtml(profile.handle)}<span>.</span></h1><h2>${escapeHtml(profile.tagline)}</h2><p>${escapeHtml(profile.intro)}</p><div class="hero-actions"><button class="button button-primary" data-action="browse">浏览文章 <span aria-hidden="true">↓</span></button><a class="button" href="/?view=graph" data-nav="graph">知识图谱 <span aria-hidden="true">→</span></a></div></div><div class="hero-art">${pixelScene()}</div></section>
     <div class="content-grid"><section id="articles" aria-labelledby="articles-title"><div class="section-heading"><h2 id="articles-title">文章</h2><span class="count">00</span></div><div class="article-tools"><div class="topic-filters"><div class="filters" id="genre-filters" aria-label="文章分类"></div><div class="filters sub-filters" id="sub-filters" aria-label="子分类"></div></div><label class="search-field"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M5 1h5v1H5zM3 2h2v1H3zM10 2h2v1h-2zM2 3h1v2H2zM12 3h1v2h-1zM1 5h1v5H1zM13 5h1v5h-1zM2 10h1v2H2zM12 10h1v2h-1zM3 12h2v1H3zM10 12h2v1h-2zM5 13h5v1H5zM12 12h1v1h-1zM13 13h1v1h-1zM14 14h1v1h-1z"/></svg><input type="search" id="article-search" placeholder="搜索文章" aria-label="搜索文章"></label></div><div id="article-list"></div></section>
     ${sidebar()}</div>`;
   $('#article-search').value = search;
@@ -184,7 +184,7 @@ function intro(kicker,title,description) {
   return `<div class="page-intro"><span class="eyebrow">${kicker}</span><h1>${title}</h1><p>${description}</p></div>`;
 }
 function renderAbout() {
-  main.innerHTML = `${intro('ABOUT / THIS SITE','关于本站','Hanskrrr的个人网站')}<div class="about-body"><p>一个普通的知识/技术记录博客。</p><div class="about-list"><div><strong>我是谁</strong><span>尝试把知识拼凑成完整故事的人</span></div><div><strong>会看到什么</strong><span>对知识的反刍，一些想法，还有可能存在的角落</span></div></div></div>`;
+  main.innerHTML = `${intro('ABOUT / THIS SITE','关于本站','Hanskrrr的网站')}<div class="about-body"><p>一个普通的知识/技术记录博客。</p><div class="about-list"><div><strong>我是谁</strong><span>尝试把知识拼凑成完整故事的人</span></div><div><strong>会看到什么</strong><span>对知识的反刍，一些想法，还有可能存在的角落</span></div></div></div>`;
 }
 
 export const blogPages = {

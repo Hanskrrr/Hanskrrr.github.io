@@ -87,7 +87,7 @@ document.addEventListener('keydown', event => {
 
 // A hello for anyone who opens the developer console.
 console.log(
-  '%c   ▘  ▝\n  ▄████▄\n ██▀██▀██\n ████████\n  ▀▀  ▀▀\n%cHi, curious one. 试试 /terminal/ ——然后输入 help。',
+  '%c   ▘  ▝\n  ▄████▄\n ██▀██▀██\n ████████\n  ▀▀  ▀▀\n%cHi, curious one. try adding /terminal/ to the end of the url and see what happens.=)))',
   'color:#b18bff;font:14px/1 monospace',
   'color:#aef0a4;font:13px monospace',
 );

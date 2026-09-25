@@ -4,5 +4,5 @@ export const topics = [
 ];
 
 export const articles = [
-  {"id":"web-crypto","title":"浏览器中的加密与解密","topic":"web/security","date":"2026-09-23","summary":"从二进制和异或出发，逐步理解口令派生、AES、认证标签与浏览器加解密；术语可跳转到文内解释。","minutes":35,"links":[],"math":true,"mermaid":true},
+  {"id":"web-crypto","title":"浏览器中的加密与解密","topic":"web/security","date":"2026-09-23","summary":"到底如何在静态网页完成秘密内容","minutes":35,"links":[],"math":true,"mermaid":true},
 ];

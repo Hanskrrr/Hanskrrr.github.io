@@ -65,7 +65,7 @@ function renderExhibit(start) {
   const heading = el('div','page-intro');
   heading.innerHTML = '<div class="page-topline"><span class="eyebrow">EXHIBIT / UNLOCKED</span><button class="button" data-action="lock">锁定并返回 <span aria-hidden="true">←</span></button></div>';
   heading.append(el('h1','',decrypted.title));
-  container.append(heading, el('p','exhibit-note','内容已在此浏览器中解密。离开此界面或刷新页面后，需要重新输入口令。'));
+  container.append(heading, el('p','exhibit-note','Finally, you end up in the room.=)))'));
   const room = el('div','room');
   container.append(room);
   main.replaceChildren(container);

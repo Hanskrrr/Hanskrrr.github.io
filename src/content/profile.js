@@ -1,11 +1,11 @@
 // Everything personal on the public pages lives here — edit freely. Keep it
 // public-safe: truly personal material belongs in the encrypted exhibit.
 export const profile = {
-  handle: 'Hanskrrr',
+  handle: 'ZESPEJO',
   // Shown under the name on the homepage.
-  tagline: '系统编程 · 编译器 · AI 工具',
-  intro: '技术文章、项目记录和一些像素小实验。',
-  focus: ['系统编程', '编译器', 'AI 工具'],
+  tagline: 'Knowledge · Inspiration · Experiment',
+  intro: '一些像素实验和笔记',
+  focus: ['系统编程', '数学', 'AI 工具'],
   links: [
     { label: 'GitHub', href: 'https://github.com/Hanskrrr' },
   ],
