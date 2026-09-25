@@ -29,12 +29,16 @@ const critterFrames = {
 };
 export const CRITTER = Object.fromEntries(Object.entries(critterFrames).map(([name, rows]) => [name, sprite(rows, CRITTER_KEYS)]));
 const HEART = sprite(['h.h', 'hhh', '.h.'], { h: 'px-heart' });
-// A tiny terminal on a stick: a prompt and a blinking cursor.
-const BOARD_KEYS = { o: 'px-critter-edge', d: 'px-sky0', p: 'px-grass-light', c: 'px-window' };
+// A terminal app icon (title bar with three dots, a prompt and a blinking cursor),
+// labelled "terminal/" like an icon on a desktop.
+const BOARD_KEYS = { o: 'px-critter-edge', t: 'px-wall', r: 'px-heart', y: 'px-window', g: 'px-grass', d: 'px-critter-eye', p: 'px-grass-light', c: 'px-window' };
+const ICON = ['.ooooooooo.', 'otrygttttto', 'odddddddddo', 'odpdddddddo', 'oddpddddddo', 'odpddCCCddo', 'odddddddddo', '.ooooooooo.'];
 const BOARD = [
-  sprite(['ooooooo', 'opdcddo', 'ooooooo', '...o...', '...o...'], BOARD_KEYS),
-  sprite(['ooooooo', 'opddddo', 'ooooooo', '...o...', '...o...'], BOARD_KEYS),
+  sprite(ICON.map(row => row.replaceAll('C', 'c')), BOARD_KEYS),
+  sprite(ICON.map(row => row.replaceAll('C', 'd')), BOARD_KEYS),
 ];
+const BOARD_W = 11;
+const BOARD_H = 8;
 
 function layer(svg) {
   const group = document.createElementNS(NS, 'g');
@@ -112,6 +116,12 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
   critter.heartSprite.hide();
   critter.boardSprite.hide();
   let boardAt = null;
+  const label = document.createElementNS(NS, 'text');
+  label.setAttribute('class', 'scene-icon-label');
+  label.setAttribute('text-anchor', 'middle');
+  label.textContent = 'terminal/';
+  label.style.display = 'none';
+  live.append(label);
 
   // --- behaviour ----------------------------------------------------------
   let tick = 0;
@@ -194,12 +204,18 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
     critter.sprite.draw(CRITTER[frame], critter.x, y);
     // After the dance, the board goes up (and the heart gives way to it).
     if (critter.board && critter.hop === 0) {
-      boardAt = [critter.x - 1, y - 5];
+      // The icon floats above the head, bobbing gently, with its label underneath.
+      const bob = Math.floor(tick / 6) % 2;
+      boardAt = [critter.x - 2, y - BOARD_H - 5 - bob];
       critter.boardSprite.draw(BOARD[Math.floor(tick / 5) % 2], ...boardAt);
+      label.setAttribute('x', boardAt[0] + BOARD_W / 2);
+      label.setAttribute('y', boardAt[1] + BOARD_H + 3.2);
+      label.style.display = '';
       critter.heartSprite.hide();
       return;
     }
     boardAt = null;
+    label.style.display = 'none';
     critter.boardSprite.hide();
     if (critter.heart > 0) critter.heartSprite.draw(HEART, critter.x + 2, y - 5 - (critter.heart < 8 ? 1 : 0));
     else critter.heartSprite.hide();
@@ -215,6 +231,7 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
         critter.sprite.hide();
         critter.heartSprite.hide();
         critter.boardSprite.hide();
+        label.style.display = 'none';
         critter.board = false;
         boardAt = null;
         if (--critter.wait <= 0) comeOut();
@@ -245,7 +262,7 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
       const box = svg.getBoundingClientRect();
       const x = ((event.clientX - box.left) / box.width) * SCENE_WIDTH;
       const y = ((event.clientY - box.top) / box.height) * SCENE_HEIGHT;
-      if (x >= boardAt[0] - 1 && x <= boardAt[0] + 8 && y >= boardAt[1] - 1 && y <= boardAt[1] + 4) return navigate('terminal');
+      if (x >= boardAt[0] - 1 && x <= boardAt[0] + BOARD_W + 1 && y >= boardAt[1] - 1 && y <= boardAt[1] + BOARD_H + 4) return navigate('terminal');
     }
     if (critter.state === 'home') comeOut();
     else {

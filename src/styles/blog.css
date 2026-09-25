@@ -482,6 +482,7 @@ body:has(.exhibit) { overflow-x: clip; }
 .px-day-sky { fill: #8fb8ff; } .px-day-sky2 { fill: #bcd6ff; }
 .px-dusk-sky { fill: #6a4fb5; } .px-dusk-sky2 { fill: #e89a6e; }
 .px-sun { fill: #ffe37a; }
+.scene-icon-label { font-family: var(--pixel); font-size: 3.2px; fill: var(--ink); stroke: var(--bg-deep); stroke-width: .7px; paint-order: stroke; }
 .room-bubble { position: absolute; z-index: 2; margin: 0; padding: 6px 10px; transform: translate(-50%, -100%); white-space: nowrap; pointer-events: none; font: 16px/16px var(--pixel); color: var(--ink); background: var(--surface-2); box-shadow: 0 0 0 var(--px) var(--line), 4px 4px 0 var(--drop); }
 .room-bubble::after { content: ""; position: absolute; left: 50%; bottom: -9px; width: 6px; height: 6px; background: var(--line); box-shadow: 3px 3px 0 var(--line); }
 .room-scene { width: 100%; height: auto; aspect-ratio: 128 / 60; }
