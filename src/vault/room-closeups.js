@@ -1,11 +1,11 @@
 // Close-ups in the room: "walk up" to the projector screen or the jukebox. The room view is
 // scaled so the object lands on a chosen frame of the stage, and the overlays (curtains,
 // audience, the CD) are drawn at stage resolution on top. Pure data and markup, no DOM.
-import { creatureGrid, ROOM_HEIGHT as H, ROOM_WIDTH as W, SCREEN } from './room-art.js';
+import { creatureGrid, ROOM_HEIGHT as H, ROOM_WIDTH as W, SCREEN, WORLD_WIDTH } from './room-art.js';
 
-export const JUKEBOX = [107, 22, 16, 24];
+export const JUKEBOX = [222, 22, 16, 24];
 /** The round window in the jukebox where the record shows. */
-export const RECORD_WINDOW = [110, 27, 10, 7];
+export const RECORD_WINDOW = [225, 27, 10, 7];
 
 // Where each close-up puts its object, as fractions of the stage.
 const FRAMES = {
@@ -16,12 +16,14 @@ const FRAMES = {
 };
 
 /**
- * The view for a close-up (null = the whole room): { scale, x, y } moves room fractions
- * (X, Y) to (x + X·scale, y + Y·scale); place(rect) gives a room rect's frame on the stage.
+ * The view for a close-up, or (name = null) for the camera at world column `camera`:
+ * { scale, x, y } moves a world point (X, Y), in stage widths/heights, to (x + X·scale, y + Y·scale);
+ * place(rect) gives a world rect's frame on the stage; transform is the CSS for the view element,
+ * which is as wide as the whole world.
  */
-export function closeUp(name) {
+export function closeUp(name, camera = 0) {
   const frame = FRAMES[name];
-  let scale = 1, x = 0, y = 0;
+  let scale = 1, x = -camera / W, y = 0;
   if (frame) {
     const [ox, oy, ow, oh] = frame.object;
     scale = frame.width ? frame.width / (ow / W) : frame.height / (oh / H);
@@ -29,7 +31,7 @@ export function closeUp(name) {
     y = frame.top - (oy / H) * scale;
   }
   const place = ([rx, ry, rw, rh]) => ({ left: x + (rx / W) * scale, top: y + (ry / H) * scale, width: (rw / W) * scale, height: (rh / H) * scale });
-  return { scale, x, y, place, transform: `translate(${(x * 100).toFixed(3)}%, ${(y * 100).toFixed(3)}%) scale(${scale.toFixed(4)})` };
+  return { scale, x, y, place, transform: `translate(${((x * W) / WORLD_WIDTH * 100).toFixed(3)}%, ${(y * 100).toFixed(3)}%) scale(${scale.toFixed(4)})` };
 }
 
 const rect = (x, y, w, h, name) => `<rect class="${name}" x="${x}" y="${y}" width="${w}" height="${h}"/>`;

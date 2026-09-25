@@ -7,11 +7,14 @@
 // is hidden, and with reduced motion only the still state is drawn.
 import { gridToPaths } from '../blog/pixel-art.js';
 import { said } from '../core/uv.js';
-import { CREATURE_AT, creatureGrid, HOTSPOTS } from './room-art.js';
+import { CREATURE_AT, creatureGrid, HOTSPOTS, ROOMS, SCREEN, WORLD_WIDTH } from './room-art.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const TICK = 125;
-const FLOOR = [40, 90];            // the creature's left edge stays over the rug
+const EDGES = [2, WORLD_WIDTH - 16];   // how far the creature can walk (its left edge)
+const SPEED = 16;                     // room pixels per second, walking
+const JUMP = { height: 7, time: 0.5 }; // room pixels, seconds
+const PROJECTOR_LENS = [195, 35];
 const LINES = ['嘿嘿。', '今天过得怎么样？', '要不要放首歌？', '我一直在这里。', '书架上的书读完了吗？', '外面好安静。'];
 const NOTE = [[1, 0], [2, 0], [1, 1], [0, 2], [1, 2], [2, 2], [3, 2]];
 const Z = [[0, 0], [1, 0], [2, 0], [3, 0], [2, 1], [1, 2], [0, 3], [1, 3], [2, 3], [3, 3]];
@@ -100,10 +103,12 @@ export function windowGrid(hour, month, frame = 0, random = Math.random) {
 }
 
 /**
- * stage: the .room-stage element; art: its <svg>. Returns controls for room.js:
- * { goTo(object), pet(), toggleLamp(), setFilm(open), setTheater(on), setMusic(on), dispose() }.
+ * stage: the .room-stage element; view: the world-wide element holding the art and hotspots;
+ * art: its <svg>. onMove(x) reports where the creature is (for the camera). Returns controls:
+ * { goTo(object), walkTo(x), move(direction), jump(), position(), pet(), toggleLamp(),
+ *   setFilm(open), setTheater(on), setMusic(on), dispose() }.
  */
-export function animateRoom({ stage, art, reducedMotion = false, now = () => new Date() }) {
+export function animateRoom({ stage, view = stage, art, reducedMotion = false, now = () => new Date(), onMove = () => {} }) {
   const date = now();
   const hour = date.getHours();
   const month = date.getMonth();
@@ -127,18 +132,19 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
   lampGlow.className = 'room-lampglow';
   const filmGlow = document.createElement('div');
   filmGlow.className = 'room-filmglow';
-  stage.append(lampGlow, filmGlow);
+  view.append(lampGlow, filmGlow);
   sky.setAttribute('transform', 'translate(6 5)');
   const bubble = document.createElement('p');
   bubble.className = 'room-bubble';
   bubble.hidden = true;
-  stage.append(bubble);
+  view.append(bubble);
 
   const state = {
     x: CREATURE_AT[0], y: CREATURE_AT[1], target: null, facing: 1,
     mode: lateNight ? 'sleep' : 'idle', pose: lateNight ? 'sleep' : 'idle', until: 0,
     lamp: true, film: false, theater: false, music: false, notes: [], shooting: null, frame: 0, idleTicks: 0, heart: 0,
     sun: windowLight(hour, date.getMinutes()), dust: [],
+    control: 0, hop: null, lastInput: 0,
   };
   let bubbleTimer;
 
@@ -150,8 +156,8 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
     bubbleTimer = setTimeout(() => { bubble.hidden = true; }, ms);
   }
   function placeBubble() {
-    bubble.style.left = `${((state.x + 7) / 128) * 100}%`;
-    bubble.style.top = `${((state.y + 1) / 60) * 100}%`;
+    bubble.style.left = `${((state.x + 7) / WORLD_WIDTH) * 100}%`;
+    bubble.style.top = `${((state.y + lift() + 1) / 60) * 100}%`;
   }
 
   function drawLight() {
@@ -163,7 +169,7 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
     floorLight.innerHTML = panes.map(pane => polygon(pane, `room-${kind}light`)).join('');
     light.innerHTML = [
       state.lamp && !state.theater ? polygon([[26, 29], [29, 29], [37, 42], [16, 42]], 'room-lamplight') : '<rect class="px-room-edge" x="26" y="28" width="4" height="1"/>',
-      beam ? polygon([[102, 34], [104, 34], [122, 19], [96, 19]], 'room-beam') : '',
+      beam ? polygon(hull([PROJECTOR_LENS, [SCREEN[0], SCREEN[1]], [SCREEN[0] + SCREEN[2], SCREEN[1]], [SCREEN[0], SCREEN[1] + SCREEN[3]], [SCREEN[0] + SCREEN[2], SCREEN[1] + SCREEN[3]]]), 'room-beam') : '',
     ].join('');
   }
   function drawSky() {
@@ -181,7 +187,7 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
     const lights = ['px-window', 'px-grass-light', 'px-heart', 'px-far-light'];
     let html = '';
     if (state.music) {
-      html += Array.from({ length: 10 }, (_, i) => `<rect class="${lights[(i + Math.floor(state.frame / 3)) % 4]}" x="${110 + i}" y="24" width="1" height="1"/>`).join('');
+      html += Array.from({ length: 10 }, (_, i) => `<rect class="${lights[(i + Math.floor(state.frame / 3)) % 4]}" x="${225 + i}" y="24" width="1" height="1"/>`).join('');
     }
     for (const note of state.notes) html += pixels(NOTE, 'px-window', note.x, Math.round(note.y));
     effects.innerHTML = html;
@@ -189,13 +195,21 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
     shaft.innerHTML = polygon(state.sun.shaft, `room-shaft room-shaft-${state.sun.kind}`)
       + state.dust.map(mote => `<rect class="room-dust" x="${mote.x.toFixed(1)}" y="${mote.y.toFixed(1)}" width="0.6" height="0.6"/>`).join('');
     const film = state.film || state.theater;
-    farEffects.innerHTML = film ? `<rect class="room-screen-glow" x="95" y="3" width="28" height="16" opacity="${state.frame % 5 === 0 ? 0.12 : 0.22}"/>` : '';
+    farEffects.innerHTML = film ? `<rect class="room-screen-glow" x="${SCREEN[0]}" y="${SCREEN[1]}" width="${SCREEN[2]}" height="${SCREEN[3]}" opacity="${state.frame % 5 === 0 ? 0.12 : 0.22}"/>` : '';
     // The screen's light flickers over the room, a little brighter or cooler from frame to frame.
     filmGlow.style.opacity = state.theater ? String(0.55 + ((state.frame * 7919) % 45) / 100) : '0';
     filmGlow.style.setProperty('--tint', state.frame % 16 < 8 ? '140 170 255' : '255 214 170');
   }
+  /** Height above the floor while jumping (0 otherwise), in room pixels (negative is up). */
+  function lift() {
+    if (!state.hop) return 0;
+    const t = state.hop.t / JUMP.time;
+    return -4 * JUMP.height * t * (1 - t);
+  }
   function drawCreature() {
-    const flip = state.facing < 0 ? `translate(${state.x + 14} ${state.y}) scale(-1 1)` : `translate(${state.x} ${state.y})`;
+    const x = Math.round(state.x * 2) / 2;
+    const y = Math.round((state.y + lift()) * 2) / 2;
+    const flip = state.facing < 0 ? `translate(${x + 14} ${y}) scale(-1 1)` : `translate(${x} ${y})`;
     creature.setAttribute('transform', flip);
     creature.innerHTML = gridToPaths(creatureGrid(state.pose));
     let html = '';
@@ -209,10 +223,46 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
     if (!bubble.hidden) placeBubble();
   }
 
-  function walkTo(x) {
+  const clampX = x => Math.max(EDGES[0], Math.min(EDGES[1], x));
+  /** Walk to x: strolling when it wanders on its own, hurrying when you sent it somewhere. */
+  function walkTo(x, hurry = true) {
     if (state.mode === 'sleep') wake();
-    state.target = Math.max(FLOOR[0], Math.min(FLOOR[1], Math.round(x)));
+    state.target = clampX(Math.round(x));
+    state.speed = hurry ? SPEED * 2 : SPEED * 0.7;
     state.mode = 'walk';
+    kickMotion();
+  }
+
+  // Walking and jumping run every animation frame, so the creature (and the camera) glide;
+  // its poses and everything else stay on the stepped 8 fps timer.
+  let motionFrame = 0;
+  let lastTime = 0;
+  function motion(time) {
+    const dt = Math.min(0.05, (time - lastTime) / 1000 || 0);
+    lastTime = time;
+    if (state.control) {
+      state.x = clampX(state.x + state.control * SPEED * 1.4 * dt);
+      state.facing = state.control;
+    } else if (state.mode === 'walk') {
+      if (reducedMotion) state.x = state.target;
+      const dx = state.target - state.x;
+      state.facing = dx < 0 ? -1 : 1;
+      state.x += Math.sign(dx) * Math.min(Math.abs(dx), (state.speed || SPEED) * dt);
+      if (Math.abs(state.target - state.x) < 0.1) { state.x = state.target; state.mode = 'idle'; state.pose = 'happy'; state.until = state.frame + 6; }
+    }
+    if (state.hop) {
+      state.hop.t += dt;
+      if (state.hop.t >= JUMP.time) state.hop = null;
+    }
+    drawCreature();
+    onMove(state.x);
+    const busy = state.control || state.mode === 'walk' || state.hop;
+    motionFrame = busy ? requestAnimationFrame(motion) : 0;
+  }
+  function kickMotion() {
+    if (motionFrame) return;
+    lastTime = performance.now();
+    motionFrame = requestAnimationFrame(motion);
   }
   function wake() {
     state.mode = 'idle';
@@ -247,15 +297,11 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
     if (state.frame % 480 === 0) { const time = now(); state.sun = windowLight(time.getHours(), time.getMinutes()); drawLight(); }
     moveDust();
     // Music: notes rise from the jukebox and the creature bounces.
-    if (state.music && state.frame % 10 === 0) state.notes.push({ x: 111 + Math.floor(Math.random() * 8), y: 20, age: 0 });
+    if (state.music && state.frame % 10 === 0) state.notes.push({ x: 226 + Math.floor(Math.random() * 8), y: 20, age: 0 });
     state.notes = state.notes.filter(note => { note.y -= 0.5; return ++note.age < 16; });
-    if (state.mode === 'walk') {
-      const dx = state.target - state.x;
-      state.facing = dx < 0 ? -1 : 1;
-      state.x += Math.sign(dx) * Math.min(Math.abs(dx), 0.75);
-      state.pose = state.frame % 4 < 2 ? 'idle' : 'crouch';
-      if (Math.abs(dx) < 0.5) { state.x = state.target; state.mode = 'idle'; state.pose = 'happy'; state.until = state.frame + 6; }
-    } else if (state.mode === 'idle') {
+    if (state.hop) state.pose = 'jump';
+    else if (state.control || state.mode === 'walk') state.pose = state.frame % 4 < 2 ? 'idle' : 'crouch';
+    else if (state.mode === 'idle') {
       if (state.music) state.pose = state.frame % 4 < 2 ? 'crouch' : 'jump';
       else if (state.until && state.frame < state.until) { /* holding a reaction pose */ } else {
         state.until = 0;
@@ -263,7 +309,12 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
         state.idleTicks++;
         // Wander now and then; late at night, fall asleep again after a while.
         if (lateNight && state.idleTicks > 240) { state.mode = 'sleep'; state.pose = 'sleep'; }
-        else if (!lateNight && state.idleTicks > 48 && Math.random() < 0.02) { walkTo(FLOOR[0] + Math.random() * (FLOOR[1] - FLOOR[0])); state.idleTicks = 0; }
+        // Left alone for a while, it wanders around the room it is in.
+        else if (!lateNight && state.idleTicks > 48 && performance.now() - state.lastInput > 15000 && Math.random() < 0.02) {
+          const [from, to] = ROOMS.find(([, end]) => state.x <= end + 20) || ROOMS.at(-1);
+          walkTo(from + Math.random() * (to - from), false);
+          state.idleTicks = 0;
+        }
       }
     }
     drawSky();
@@ -286,7 +337,7 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
   const onPointer = event => {
     if (state.mode !== 'idle' || state.music) return;
     const box = art.getBoundingClientRect();
-    const x = ((event.clientX - box.left) / box.width) * 128;
+    const x = ((event.clientX - box.left) / box.width) * WORLD_WIDTH;
     state.facing = x < state.x + 7 ? -1 : 1;
     if (reducedMotion) drawCreature();
   };
@@ -302,9 +353,26 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
   return {
     goTo(object) {
       const spot = HOTSPOTS[object];
-      if (!spot || reducedMotion) return;
+      if (!spot) return;
       walkTo(spot[0] + spot[2] / 2 - 7);
     },
+    /** Walk so the creature's middle ends up at world column x (tap to walk). */
+    walkTo(x) { state.lastInput = performance.now(); walkTo(x - 7); },
+    /** Hold a direction: -1 left, 1 right, 0 stop (the arrow keys). */
+    move(direction) {
+      state.lastInput = performance.now();
+      if (direction && state.mode === 'sleep') { wake(); say('……嗯？'); }
+      state.control = direction;
+      if (direction) { state.mode = 'idle'; state.target = null; }
+      kickMotion();
+    },
+    jump() {
+      state.lastInput = performance.now();
+      if (state.mode === 'sleep') wake();
+      if (!state.hop) state.hop = { t: 0 };
+      kickMotion();
+    },
+    position: () => ({ x: state.x, y: state.y }),
     pet() {
       if (state.mode === 'sleep') { wake(); say('……嗯？你来啦。'); }
       else { const lines = said('creature', LINES); say(lines[Math.floor(Math.random() * lines.length)]); }
@@ -334,6 +402,7 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
       drawEffects();
     },
     dispose() {
+      cancelAnimationFrame(motionFrame);
       clearInterval(timer);
       clearTimeout(bubbleTimer);
       observer.disconnect();

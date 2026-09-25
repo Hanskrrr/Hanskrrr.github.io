@@ -8,7 +8,8 @@
 import { gridToPaths } from '../blog/pixel-art.js';
 import { enhance } from '../blog/rich.js';
 import { embedSize, isAllowedEmbed, toScreen } from './embeds.js';
-import { HOTSPOT_DEPTH, HOTSPOTS, PROJECTOR, ROOM_HEIGHT, ROOM_WIDTH, roomLayers, SCREEN, SWITCH } from './room-art.js';
+import { toggleTheme } from '../core/theme.js';
+import { HOTSPOT_DEPTH, HOTSPOTS, PROJECTOR, ROOM_HEIGHT, ROOM_WIDTH, roomLayers, SCREEN, SWITCH, WORLD_WIDTH } from './room-art.js';
 import { attachDepth } from './room-depth.js';
 import { audience, closeUp, curtains, DUST, RECORD_WINDOW } from './room-closeups.js';
 import { animateRoom } from './room-life.js';
@@ -55,15 +56,42 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   // Three depth layers for looking around (room-depth.js); the wall and floor run a little past
   // the edges so a shifted layer never shows a gap.
   const layers = roomLayers(available);
-  const edges = (name, y, h) => `<rect class="${name}" x="-12" y="${y}" width="12" height="${h}"/><rect class="${name}" x="${ROOM_WIDTH}" y="${y}" width="12" height="${h}"/>`;
-  viewLayer.innerHTML = `<svg class="pixel-art room-scene" viewBox="0 0 ${ROOM_WIDTH} ${ROOM_HEIGHT}" shape-rendering="crispEdges" aria-hidden="true">`
-    + `<g class="depth-far">${edges('px-room-wall', -6, 54)}${edges('px-room-edge', 41, 1)}<rect class="px-room-wall" x="0" y="-6" width="${ROOM_WIDTH}" height="6"/>${gridToPaths(layers.far)}</g>`
-    + `<g class="depth-floor">${edges('px-room-floor', 42, 24)}${[46, 51, 56].map(y => edges('px-room-floor-line', y, 1)).join('')}<rect class="px-room-floor" x="0" y="${ROOM_HEIGHT}" width="${ROOM_WIDTH}" height="6"/>${gridToPaths(layers.floor)}</g>`
+  const edges = (name, y, h) => `<rect class="${name}" x="-12" y="${y}" width="12" height="${h}"/><rect class="${name}" x="${WORLD_WIDTH}" y="${y}" width="12" height="${h}"/>`;
+  // The view is as wide as both rooms; the camera slides it so the stage shows 128 columns.
+  viewLayer.style.width = `${(WORLD_WIDTH / ROOM_WIDTH) * 100}%`;
+  viewLayer.innerHTML = `<svg class="pixel-art room-scene" viewBox="0 0 ${WORLD_WIDTH} ${ROOM_HEIGHT}" shape-rendering="crispEdges" aria-hidden="true">`
+    + `<g class="depth-far">${edges('px-room-wall', -6, 54)}${edges('px-room-edge', 41, 1)}<rect class="px-room-wall" x="0" y="-6" width="${WORLD_WIDTH}" height="6"/>${gridToPaths(layers.far)}</g>`
+    + `<g class="depth-floor">${edges('px-room-floor', 42, 24)}${[46, 51, 56].map(y => edges('px-room-floor-line', y, 1)).join('')}<rect class="px-room-floor" x="0" y="${ROOM_HEIGHT}" width="${WORLD_WIDTH}" height="6"/>${gridToPaths(layers.floor)}</g>`
     + `<g class="depth-mid">${gridToPaths(layers.mid)}</g><g class="depth-actor"></g>`
     + `<g class="depth-fore">${gridToPaths(layers.fore)}</g></svg>`;
   stage.append(viewLayer);
   const art = viewLayer.querySelector('svg');
-  const life = animateRoom({ stage, art, reducedMotion });
+  // --- the camera -------------------------------------------------------------------
+  // It follows the creature, moving only when the creature nears an edge of the stage.
+  let camera = 0;
+  let cameraTarget = 0;
+  let cameraFrame = 0;
+  let creatureSpot = null;
+  function follow(x) {
+    const middle = x + 7 - camera;
+    if (middle < 40) cameraTarget = x + 7 - 40;
+    else if (middle > ROOM_WIDTH - 40) cameraTarget = x + 7 - (ROOM_WIDTH - 40);
+    cameraTarget = Math.max(0, Math.min(WORLD_WIDTH - ROOM_WIDTH, cameraTarget));
+    if (creatureSpot) creatureSpot.style.left = `${((x + 1) / WORLD_WIDTH) * 100}%`;
+    showNear(x);
+    cameraFrame ||= requestAnimationFrame(pan);
+  }
+  function pan() {
+    camera += (cameraTarget - camera) * (reducedMotion ? 1 : 0.14);
+    if (Math.abs(cameraTarget - camera) < 0.05) camera = cameraTarget;
+    if (!closeup) {
+      const view = closeUp(null, camera);
+      viewLayer.style.transform = view.transform;
+      place(screen, view.place(SCREEN));
+    }
+    cameraFrame = camera === cameraTarget ? 0 : requestAnimationFrame(pan);
+  }
+  const life = animateRoom({ stage, view: viewLayer, art, reducedMotion, onMove: follow });
   const depth = attachDepth({ stage, art, reducedMotion });
 
   const legend = el('div', 'room-legend');
@@ -80,9 +108,10 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     hotspot.dataset.object = name;
     hotspot.dataset.depth = HOTSPOT_DEPTH[name] || 'mid';
     hotspot.setAttribute('aria-label', LABELS[name]);
-    Object.assign(hotspot.style, { left: `${(x / ROOM_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / ROOM_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
+    Object.assign(hotspot.style, { left: `${(x / WORLD_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / WORLD_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
     hotspot.append(el('span', 'room-tip', name === 'films' || name === 'music' ? `${LABELS[name]} · 双击走近` : LABELS[name]));
     viewLayer.append(hotspot);
+    if (name === 'creature') creatureSpot = hotspot;
     if (name !== 'creature' && name !== 'lamp') {
       const button = el('button', 'room-choice', LABELS[name]);
       button.type = 'button';
@@ -99,7 +128,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     hotspot.dataset.object = 'films';
     hotspot.dataset.depth = 'mid';
     hotspot.setAttribute('aria-label', LABELS.films);
-    Object.assign(hotspot.style, { left: `${(x / ROOM_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / ROOM_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
+    Object.assign(hotspot.style, { left: `${(x / WORLD_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / WORLD_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
     hotspot.append(el('span', 'room-tip', `${LABELS.films} · 双击走近`));
     viewLayer.append(hotspot);
   }
@@ -111,7 +140,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     light.dataset.action = 'toggle-theme';
     light.dataset.depth = 'far';
     light.setAttribute('aria-label', '切换配色');
-    Object.assign(light.style, { left: `${(x / ROOM_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / ROOM_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
+    Object.assign(light.style, { left: `${(x / WORLD_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / WORLD_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
     light.append(el('span', 'room-tip', '配色'));
     viewLayer.append(light);
     const button = el('button', 'room-choice', '配色');
@@ -239,13 +268,18 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   };
 
   let closeup = null;
+  let zoomTimer;
   function zoom(name) {
     closeup = name === 'screen' && !projector.url ? null : name;
-    const view = closeUp(closeup);
+    const view = closeUp(closeup, camera);
+    // Animate only this change (the camera moves the view every frame without transitions).
+    stage.classList.add('zooming');
+    clearTimeout(zoomTimer);
+    zoomTimer = setTimeout(() => stage.classList.remove('zooming'), 500);
     stage.classList.toggle('zoomed', Boolean(closeup));
     depth.enable(!closeup);
     stage.dataset.closeup = closeup || '';
-    viewLayer.style.transform = closeup ? view.transform : '';
+    viewLayer.style.transform = view.transform;
     place(screen, view.place(SCREEN));
     place(record, view.place(RECORD_WINDOW));
     syncAll();
@@ -714,7 +748,12 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   });
   const onClick = event => {
     const target = event.target.closest('[data-object]');
-    if (target) open(target.dataset.object);
+    if (target) { open(target.dataset.object); return; }
+    // Clicking or tapping an empty spot in the room walks the creature there.
+    if (event.currentTarget === stage && !closeup && !event.target.closest('button, a, iframe')) {
+      const box = art.getBoundingClientRect();
+      life.walkTo(((event.clientX - box.left) / box.width) * WORLD_WIDTH);
+    }
   };
   stage.addEventListener('click', onClick);
   // Double-click the projector or the jukebox to walk up to it. A projector with nothing on
@@ -728,14 +767,91 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   });
   legend.addEventListener('click', onClick);
 
-  const onKey = event => { if (event.key === 'Escape' && closeup) zoom(null); };
+  // --- walking the creature with the keys ---------------------------------------------
+  //   ← → / A D walk · ↑ / W / Space jump · E / Enter use what it stands at (again at the
+  //   projector or the jukebox: walk up to it). Keys work while the room is mostly on screen
+  //   and nothing is being typed; Esc leaves a close-up.
+  const reachable = [
+    ...Object.entries(HOTSPOTS).filter(([name]) => available[name] && name !== 'creature').map(([name, rect]) => ({ name, rect })),
+    ...(available.films ? [{ name: 'films', rect: PROJECTOR }] : []),
+    { name: 'switch', rect: SWITCH },
+  ];
+  /** What the creature (left edge at x) stands at: the object whose middle is nearest, if any. */
+  function nearest(x) {
+    const middle = x + 7;
+    let best = null;
+    for (const item of reachable) {
+      const [left, , width] = item.rect;
+      if (middle < left - 3 || middle > left + width + 3) continue;
+      const distance = Math.abs(middle - (left + width / 2));
+      if (!best || distance < best.distance) best = { ...item, distance };
+    }
+    return best;
+  }
+  function use(name) {
+    if (name === 'switch') return toggleTheme();
+    if (name === 'films' && panel.dataset.open === 'films' && projector.url) return zoom('screen');
+    if (name === 'music' && panel.dataset.open === 'music') return zoom('jukebox');
+    open(name, { walk: false });
+  }
+  let nearName = null;
+  function showNear(x) {
+    const name = stage.classList.contains('keyboard') ? nearest(x)?.name ?? null : null;
+    if (name === nearName) return;
+    nearName = name;
+    viewLayer.querySelectorAll('.room-hotspot.near').forEach(node => node.classList.remove('near'));
+    if (name) viewLayer.querySelectorAll(name === 'switch' ? '.room-switch' : `.room-hotspot[data-object="${name}"]`).forEach(node => node.classList.add('near'));
+  }
+  let onScreen = false;
+  const seen = new IntersectionObserver(([entry]) => { onScreen = entry.intersectionRatio > 0.4; }, { threshold: [0, 0.4, 1] });
+  seen.observe(stage);
+  const held = [];
+  const directions = { ArrowLeft: -1, a: -1, ArrowRight: 1, d: 1 };
+  const onKey = event => {
+    if (event.key === 'Escape' && closeup) { zoom(null); return; }
+    if (!onScreen || closeup || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.target.closest?.('input, textarea, select, [contenteditable]')) return;
+    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    const onButton = event.target.closest?.('a, button');
+    if (directions[key]) {
+      event.preventDefault();
+      if (!held.includes(key)) held.push(key);
+      stage.classList.add('keyboard');
+      life.move(directions[held.at(-1)]);
+    } else if (key === 'ArrowUp' || key === 'w' || (key === ' ' && !onButton)) {
+      event.preventDefault();
+      stage.classList.add('keyboard');
+      life.jump();
+    } else if (key === 'e' || (key === 'Enter' && !onButton)) {
+      event.preventDefault();
+      stage.classList.add('keyboard');
+      const near = nearest(life.position().x);
+      if (near) use(near.name);
+    }
+    showNear(life.position().x);
+  };
+  const onKeyUp = event => {
+    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    const index = held.indexOf(key);
+    if (index < 0) return;
+    held.splice(index, 1);
+    life.move(held.length ? directions[held.at(-1)] : 0);
+  };
+  const onBlur = () => { held.length = 0; life.move(0); };
   document.addEventListener('keydown', onKey);
+  document.addEventListener('keyup', onKeyUp);
+  addEventListener('blur', onBlur);
 
   container.append(stage, legend, panel);
   open(available[start] ? start : 'intro', { walk: false });
   zoom(null);
   return () => {
     document.removeEventListener('keydown', onKey);
+    document.removeEventListener('keyup', onKeyUp);
+    removeEventListener('blur', onBlur);
+    seen.disconnect();
+    cancelAnimationFrame(cameraFrame);
+    clearTimeout(zoomTimer);
     screen.replaceChildren();
     deck.audio.pause();
     deck.audio.removeAttribute('src');

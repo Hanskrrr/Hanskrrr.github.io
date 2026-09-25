@@ -493,11 +493,11 @@ body:has(.exhibit) { overflow-x: clip; }
 [data-daylight="moon"] .room-dust { fill: var(--moon); opacity: .5; }
 /* Soft light over the scene: the lamp's warmth (strongest at night) and the film's flicker. */
 .room-lampglow, .room-filmglow { position: absolute; inset: 0; z-index: 1; pointer-events: none; mix-blend-mode: screen; }
-.room-lampglow { background: radial-gradient(ellipse 18% 38% at 22% 48%, rgb(255 206 130 / .45), transparent); opacity: 0; transition: opacity .3s steps(3); }
+.room-lampglow { background: radial-gradient(ellipse 9% 38% at 11% 48%, rgb(255 206 130 / .45), transparent); opacity: 0; transition: opacity .3s steps(3); }
 .room-stage.lamp-on .room-lampglow { opacity: .3; }
 .room-stage.lamp-on[data-daylight="dusk"] .room-lampglow { opacity: .45; }
 .room-stage.lamp-on[data-daylight="moon"] .room-lampglow { opacity: .8; }
-.room-filmglow { background: radial-gradient(ellipse 50% 110% at 85% 15%, rgb(var(--tint, 160 180 255) / .2), transparent 75%); opacity: 0; }
+.room-filmglow { background: radial-gradient(ellipse 28% 110% at 66% 25%, rgb(var(--tint, 160 180 255) / .2), transparent 75%); opacity: 0; }
 .room-stage.zoomed .room-lampglow, .room-stage.zoomed .room-filmglow { display: none; }
 .room-beam { fill: var(--room-paper); opacity: .07; }
 .room-screen-glow { fill: var(--window); }
@@ -507,7 +507,7 @@ body:has(.exhibit) { overflow-x: clip; }
 .scene-icon-label { font-family: var(--pixel); font-size: 3.2px; fill: var(--ink); stroke: var(--bg-deep); stroke-width: .7px; paint-order: stroke; }
 .room-bubble { position: absolute; z-index: 2; margin: 0; padding: 6px 10px; transform: translate(calc(-50% + var(--actor-x, 0px)), calc(-100% + var(--actor-y, 0px))); white-space: nowrap; pointer-events: none; font: 16px/16px var(--pixel); color: var(--ink); background: var(--surface-2); box-shadow: 0 0 0 var(--px) var(--line), 4px 4px 0 var(--drop); }
 .room-bubble::after { content: ""; position: absolute; left: 50%; bottom: -9px; width: 6px; height: 6px; background: var(--line); box-shadow: 3px 3px 0 var(--line); }
-.room-scene { width: 100%; height: auto; aspect-ratio: 128 / 60; }
+.room-scene { width: 100%; height: auto; aspect-ratio: 256 / 60; }  /* both rooms; the stage shows half */
 .room-hotspot { position: absolute; padding: 0; cursor: pointer; background: transparent; outline-offset: 2px; transform: translate(var(--mid-x, 0px), var(--mid-y, 0px)); }
 .room-hotspot[data-depth="far"] { transform: translate(var(--far-x, 0px), var(--far-y, 0px)); }
 .room-hotspot[data-depth="actor"] { transform: translate(var(--actor-x, 0px), var(--actor-y, 0px)); }
@@ -524,7 +524,10 @@ body:has(.exhibit) { overflow-x: clip; }
   color: #121133; background: var(--yellow); opacity: 0; pointer-events: none;
   transition: opacity .12s steps(2);
 }
-.room-hotspot:hover .room-tip, .room-hotspot:focus-visible .room-tip { opacity: 1; }
+.room-hotspot:hover .room-tip, .room-hotspot:focus-visible .room-tip, .room-hotspot.near .room-tip { opacity: 1; }
+/* Walking with the keys: what the creature stands at shows its name, with the key to use it. */
+.room-hotspot.near { box-shadow: 0 0 0 var(--px) var(--yellow); }
+.room-hotspot.near .room-tip::before { content: "E · "; opacity: .6; }
 .room-legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 28px 0 24px; }
 .room-choice { font: 16px/16px var(--pixel); color: var(--muted); padding: 6px 8px; transition: color .12s steps(2), background-color .12s steps(2); }
 .room-choice:hover { color: var(--ink); background: var(--surface); }
@@ -599,8 +602,12 @@ button.note-card { display: flex; flex-direction: column; gap: 4px; cursor: poin
 /* Close-ups (room.js, room-closeups.js): "walk up" scales the room view (inline transform) so
    the projector screen or the jukebox fills the stage; the player, the record and the overlays
    are placed at stage resolution, so video and covers stay sharp. */
-.room-view { position: relative; transform-origin: 0 0; transition: transform .45s steps(9); }
-.room-screen, .jukebox-window { position: absolute; line-height: 0; transition: left .45s steps(9), top .45s steps(9), width .45s steps(9), height .45s steps(9); }
+/* The view is as wide as both rooms (width set in room.js); the camera and close-ups transform it.
+   Only a close-up change animates: the camera itself moves the view every frame. */
+.room-view { position: relative; transform-origin: 0 0; }
+.room-screen, .jukebox-window { position: absolute; line-height: 0; }
+.room-stage.zooming .room-view { transition: transform .45s steps(9); }
+.room-stage.zooming .room-screen, .room-stage.zooming .jukebox-window { transition: left .45s steps(9), top .45s steps(9), width .45s steps(9), height .45s steps(9); }
 .room-screen { z-index: 3; display: none; background: #000; }
 .room-screen iframe { width: 100%; height: 100%; border: 0; }
 .room-stage.projecting .room-screen { display: block; }
@@ -663,7 +670,7 @@ button.note-card { display: flex; flex-direction: column; gap: 4px; cursor: poin
 .room-screen-controls .room-choice { background: var(--surface); box-shadow: 0 0 0 var(--px) var(--line); }
 @media (max-width: 800px) { .room-screen-controls { display: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .room-view, .room-screen, .jukebox-window { transition: none; }
+  .room-stage.zooming .room-view, .room-stage.zooming .room-screen, .room-stage.zooming .jukebox-window { transition: none; }
   .cinema-beam i, .jukebox-cd, .room-stage[data-closeup] .closeup-dim, .room-stage[data-closeup="screen"] .room-screen::after { animation: none; }
   .screen-card { animation-duration: 1.2s; }
 }
