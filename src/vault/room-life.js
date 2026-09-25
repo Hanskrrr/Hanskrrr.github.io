@@ -108,7 +108,7 @@ export function windowGrid(hour, month, frame = 0, random = Math.random) {
  * { goTo(object), walkTo(x), move(direction), jump(), position(), pet(), toggleLamp(),
  *   setFilm(open), setTheater(on), setMusic(on), dispose() }.
  */
-export function animateRoom({ stage, view = stage, art, reducedMotion = false, now = () => new Date(), onMove = () => {} }) {
+export function animateRoom({ stage, view = stage, art, reducedMotion = false, now = () => new Date(), onMove = () => {}, reach = null }) {
   const date = now();
   const hour = date.getHours();
   const month = date.getMonth();
@@ -223,7 +223,9 @@ export function animateRoom({ stage, view = stage, art, reducedMotion = false, n
     if (!bubble.hidden) placeBubble();
   }
 
-  const clampX = x => Math.max(EDGES[0], Math.min(EDGES[1], x));
+  // `reach` keeps it in the study while the door is shut (room.js); null means the whole home.
+  let farthest = reach ?? EDGES[1];
+  const clampX = x => Math.max(EDGES[0], Math.min(farthest, x));
   /** Walk to x: strolling when it wanders on its own, hurrying when you sent it somewhere. */
   function walkTo(x, hurry = true) {
     if (state.mode === 'sleep') wake();
@@ -373,6 +375,8 @@ export function animateRoom({ stage, view = stage, art, reducedMotion = false, n
       kickMotion();
     },
     position: () => ({ x: state.x, y: state.y }),
+    setReach(x) { farthest = x ?? EDGES[1]; },
+    say(text, ms) { say(text, ms); },
     pet() {
       if (state.mode === 'sleep') { wake(); say('……嗯？你来啦。'); }
       else { const lines = said('creature', LINES); say(lines[Math.floor(Math.random() * lines.length)]); }

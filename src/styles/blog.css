@@ -513,6 +513,12 @@ body:has(.exhibit) { overflow-x: clip; }
 .room-hotspot[data-depth="actor"] { transform: translate(var(--actor-x, 0px), var(--actor-y, 0px)); }
 /* The wall switch is tiny in the art; keep it easy to hit on a phone. */
 .room-switch { min-width: 28px; min-height: 36px; }
+/* The secret (room.js): before the Konami code the door is shut and the living room's things
+   aren't offered; afterwards the door is open and a short hint shows how to walk. */
+.room:not(.explorer) .room-secret { display: none; }
+.room.explorer .room-door { display: none; }
+.room-hint { position: absolute; left: 50%; bottom: 12px; z-index: 6; margin: 0; padding: 6px 12px; transform: translateX(-50%); font: 16px/16px var(--pixel); color: #121133; background: var(--yellow); white-space: nowrap; pointer-events: none; animation: room-hint 6s steps(1) forwards; }
+@keyframes room-hint { 0%, 8%, 16% { opacity: 1; } 4%, 12% { opacity: .4; } 92% { opacity: 1; } 100% { opacity: 0; } }
 /* Drag to look around; vertical swipes still scroll the page. */
 .room-stage { touch-action: pan-y; cursor: grab; }
 .room-stage.looking, .room-stage.looking .room-hotspot { cursor: grabbing; }

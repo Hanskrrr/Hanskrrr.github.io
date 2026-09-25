@@ -36,7 +36,17 @@ const byline = (...parts) => parts.filter(Boolean).join(' · ');
  * onUnlock(passphrase, panel) → Promise<boolean>: opens the inner lock (the caller re-renders).
  * start: the panel to open first. Returns dispose().
  */
+// A secret: until the Konami code (↑ ↑ ↓ ↓ ← → ← → B A, or the same as swipes and two taps on a
+// phone) is entered in the room, the creature can't be steered and the door to the living room,
+// with the projector and the jukebox, stays shut. Remembered until the page is reloaded.
+let explorer = false;
+const STUDY_REACH = 108;   // how far right the creature may walk while the door is shut
+// The door in the doorway, shut until the secret is found (CSS hides it after).
+const DOOR = '<g class="room-door"><rect class="px-room-wood" x="125" y="10" width="6" height="31"/><rect class="px-room-wood-dark" x="127" y="12" width="1" height="27"/><rect class="px-room-wood-dark" x="125" y="25" width="6" height="1"/><rect class="px-window" x="129" y="26" width="1" height="2"/></g>';
+
 export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'intro', reducedMotion = false }) {
+  container.classList.toggle('explorer', explorer);
+  const secret = name => name === 'films' || name === 'music';
   const available = {
     intro: true,
     journal: content.articles.length > 0,
@@ -60,7 +70,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   // The view is as wide as both rooms; the camera slides it so the stage shows 128 columns.
   viewLayer.style.width = `${(WORLD_WIDTH / ROOM_WIDTH) * 100}%`;
   viewLayer.innerHTML = `<svg class="pixel-art room-scene" viewBox="0 0 ${WORLD_WIDTH} ${ROOM_HEIGHT}" shape-rendering="crispEdges" aria-hidden="true">`
-    + `<g class="depth-far">${edges('px-room-wall', -6, 54)}${edges('px-room-edge', 41, 1)}<rect class="px-room-wall" x="0" y="-6" width="${WORLD_WIDTH}" height="6"/>${gridToPaths(layers.far)}</g>`
+    + `<g class="depth-far">${edges('px-room-wall', -6, 54)}${edges('px-room-edge', 41, 1)}<rect class="px-room-wall" x="0" y="-6" width="${WORLD_WIDTH}" height="6"/>${gridToPaths(layers.far)}${DOOR}</g>`
     + `<g class="depth-floor">${edges('px-room-floor', 42, 24)}${[46, 51, 56].map(y => edges('px-room-floor-line', y, 1)).join('')}<rect class="px-room-floor" x="0" y="${ROOM_HEIGHT}" width="${WORLD_WIDTH}" height="6"/>${gridToPaths(layers.floor)}</g>`
     + `<g class="depth-mid">${gridToPaths(layers.mid)}</g><g class="depth-actor"></g>`
     + `<g class="depth-fore">${gridToPaths(layers.fore)}</g></svg>`;
@@ -76,7 +86,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     const middle = x + 7 - camera;
     if (middle < 40) cameraTarget = x + 7 - 40;
     else if (middle > ROOM_WIDTH - 40) cameraTarget = x + 7 - (ROOM_WIDTH - 40);
-    cameraTarget = Math.max(0, Math.min(WORLD_WIDTH - ROOM_WIDTH, cameraTarget));
+    cameraTarget = Math.max(0, Math.min(explorer ? WORLD_WIDTH - ROOM_WIDTH : 0, cameraTarget));
     if (creatureSpot) creatureSpot.style.left = `${((x + 1) / WORLD_WIDTH) * 100}%`;
     showNear(x);
     cameraFrame ||= requestAnimationFrame(pan);
@@ -91,7 +101,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     }
     cameraFrame = camera === cameraTarget ? 0 : requestAnimationFrame(pan);
   }
-  const life = animateRoom({ stage, view: viewLayer, art, reducedMotion, onMove: follow });
+  const life = animateRoom({ stage, view: viewLayer, art, reducedMotion, onMove: follow, reach: explorer ? null : STUDY_REACH });
   const depth = attachDepth({ stage, art, reducedMotion });
 
   const legend = el('div', 'room-legend');
@@ -103,7 +113,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
 
   for (const [name, [x, y, w, h]] of Object.entries(HOTSPOTS)) {
     if (!available[name]) continue;
-    const hotspot = el('button', 'room-hotspot');
+    const hotspot = el('button', secret(name) ? 'room-hotspot room-secret' : 'room-hotspot');
     hotspot.type = 'button';
     hotspot.dataset.object = name;
     hotspot.dataset.depth = HOTSPOT_DEPTH[name] || 'mid';
@@ -113,7 +123,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     viewLayer.append(hotspot);
     if (name === 'creature') creatureSpot = hotspot;
     if (name !== 'creature' && name !== 'lamp') {
-      const button = el('button', 'room-choice', LABELS[name]);
+      const button = el('button', secret(name) ? 'room-choice room-secret' : 'room-choice', LABELS[name]);
       button.type = 'button';
       button.dataset.object = name;
       legend.append(button);
@@ -123,7 +133,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   // The projector itself, on its stand.
   if (available.films) {
     const [x, y, w, h] = PROJECTOR;
-    const hotspot = el('button', 'room-hotspot');
+    const hotspot = el('button', 'room-hotspot room-secret');
     hotspot.type = 'button';
     hotspot.dataset.object = 'films';
     hotspot.dataset.depth = 'mid';
@@ -750,7 +760,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     const target = event.target.closest('[data-object]');
     if (target) { open(target.dataset.object); return; }
     // Clicking or tapping an empty spot in the room walks the creature there.
-    if (event.currentTarget === stage && !closeup && !event.target.closest('button, a, iframe')) {
+    if (explorer && event.currentTarget === stage && !closeup && !event.target.closest('button, a, iframe')) {
       const box = art.getBoundingClientRect();
       life.walkTo(((event.clientX - box.left) / box.width) * WORLD_WIDTH);
     }
@@ -809,7 +819,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   const directions = { ArrowLeft: -1, a: -1, ArrowRight: 1, d: 1 };
   const onKey = event => {
     if (event.key === 'Escape' && closeup) { zoom(null); return; }
-    if (!onScreen || closeup || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (!explorer || !onScreen || closeup || event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.target.closest?.('input, textarea, select, [contenteditable]')) return;
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
     const onButton = event.target.closest?.('a, button');
@@ -842,10 +852,42 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   document.addEventListener('keyup', onKeyUp);
   addEventListener('blur', onBlur);
 
+  // --- the secret ------------------------------------------------------------------------
+  function discover() {
+    if (explorer) return;
+    explorer = true;
+    container.classList.add('explorer');
+    life.setReach(null);
+    life.say('……咔哒。门开了。', 3600);
+    const hint = el('p', 'room-hint', matchMedia('(pointer: coarse)').matches ? '点一下地板，它就走过去' : '← → 走 · ↑ 跳 · E 使用');
+    stage.append(hint);
+    setTimeout(() => hint.remove(), 6000);
+  }
+  // On a keyboard main.js spots the code and sends gallery:dance; on a phone, swipes and taps.
+  addEventListener('gallery:dance', discover);
+  const GESTURES = ['up', 'up', 'down', 'down', 'left', 'right', 'left', 'right', 'tap', 'tap'];
+  let gesture = 0;
+  let touchStart = null;
+  const onTouchStart = event => { const touch = event.touches[0]; touchStart = touch ? [touch.clientX, touch.clientY] : null; };
+  const onTouchEnd = event => {
+    const touch = event.changedTouches[0];
+    if (!touchStart || !touch) return;
+    const dx = touch.clientX - touchStart[0];
+    const dy = touch.clientY - touchStart[1];
+    const move = Math.max(Math.abs(dx), Math.abs(dy)) < 24 ? 'tap' : Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+    gesture = move === GESTURES[gesture] ? gesture + 1 : move === GESTURES[0] ? 1 : 0;
+    if (gesture === GESTURES.length) { gesture = 0; discover(); }
+  };
+  stage.addEventListener('touchstart', onTouchStart, { passive: true });
+  stage.addEventListener('touchend', onTouchEnd, { passive: true });
+
   container.append(stage, legend, panel);
   open(available[start] ? start : 'intro', { walk: false });
   zoom(null);
   return () => {
+    removeEventListener('gallery:dance', discover);
+    stage.removeEventListener('touchstart', onTouchStart);
+    stage.removeEventListener('touchend', onTouchEnd);
     document.removeEventListener('keydown', onKey);
     document.removeEventListener('keyup', onKeyUp);
     removeEventListener('blur', onBlur);
