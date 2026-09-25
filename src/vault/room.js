@@ -8,7 +8,7 @@
 import { gridToPaths } from '../blog/pixel-art.js';
 import { enhance } from '../blog/rich.js';
 import { embedSize, isAllowedEmbed, toScreen } from './embeds.js';
-import { HOTSPOT_DEPTH, HOTSPOTS, ROOM_HEIGHT, ROOM_WIDTH, roomLayers, SCREEN, SWITCH } from './room-art.js';
+import { HOTSPOT_DEPTH, HOTSPOTS, PROJECTOR, ROOM_HEIGHT, ROOM_WIDTH, roomLayers, SCREEN, SWITCH } from './room-art.js';
 import { attachDepth } from './room-depth.js';
 import { audience, closeUp, curtains, DUST, RECORD_WINDOW } from './room-closeups.js';
 import { animateRoom } from './room-life.js';
@@ -81,7 +81,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     hotspot.dataset.depth = HOTSPOT_DEPTH[name] || 'mid';
     hotspot.setAttribute('aria-label', LABELS[name]);
     Object.assign(hotspot.style, { left: `${(x / ROOM_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / ROOM_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
-    hotspot.append(el('span', 'room-tip', LABELS[name]));
+    hotspot.append(el('span', 'room-tip', name === 'films' || name === 'music' ? `${LABELS[name]} · 双击走近` : LABELS[name]));
     viewLayer.append(hotspot);
     if (name !== 'creature' && name !== 'lamp') {
       const button = el('button', 'room-choice', LABELS[name]);
@@ -90,6 +90,18 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
       legend.append(button);
       buttons[name] = button;
     }
+  }
+  // The projector itself, on its stand.
+  if (available.films) {
+    const [x, y, w, h] = PROJECTOR;
+    const hotspot = el('button', 'room-hotspot');
+    hotspot.type = 'button';
+    hotspot.dataset.object = 'films';
+    hotspot.dataset.depth = 'mid';
+    hotspot.setAttribute('aria-label', LABELS.films);
+    Object.assign(hotspot.style, { left: `${(x / ROOM_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / ROOM_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
+    hotspot.append(el('span', 'room-tip', `${LABELS.films} · 双击走近`));
+    viewLayer.append(hotspot);
   }
   // The wall switch and a legend button change the colour style; main.js handles the action.
   {
@@ -705,6 +717,15 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     if (target) open(target.dataset.object);
   };
   stage.addEventListener('click', onClick);
+  // Double-click the projector or the jukebox to walk up to it. A projector with nothing on
+  // switches on with your first film (you asked for it, so its player may load).
+  stage.addEventListener('dblclick', event => {
+    const name = event.target.closest('[data-object]')?.dataset.object;
+    if (name === 'music') zoom('jukebox');
+    if (name !== 'films') return;
+    if (!projector.url && !content.films.some(film => !film.locked && playFilm(film))) return;
+    zoom('screen');
+  });
   legend.addEventListener('click', onClick);
 
   const onKey = event => { if (event.key === 'Escape' && closeup) zoom(null); };

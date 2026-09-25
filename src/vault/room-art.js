@@ -24,6 +24,9 @@ export const HOTSPOTS = {
 };
 /** The projector screen on the wall: where videos play. */
 export const SCREEN = [95, 3, 28, 16];
+/** The projector on its stand: a second way to reach the films, still clickable while a film
+ * plays on the screen (the player takes the clicks there). */
+export const PROJECTOR = [92, 31, 14, 15];
 /** The wall switch that changes the colour style (not an object with a panel). */
 export const SWITCH = [32, 16, 5, 9];
 export const CREATURE_AT = [71, 38];
