@@ -107,7 +107,9 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     else box.style.height = `${size.height}px`;
     const load = el('button', 'room-choice room-embed-load', `▶ 加载播放器（${new URL(url).hostname}）`);
     load.type = 'button';
-    load.addEventListener('click', () => {
+    /** Also called by the jukebox's own ▶, so both buttons do the same thing. */
+    box.start = () => {
+      if (!box.contains(load)) return;
       const frame = el('iframe');
       // You asked for it, so NetEase's player may start at once.
       const source = new URL(url);
@@ -119,8 +121,11 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
       frame.setAttribute('allowfullscreen', '');
       frame.referrerPolicy = 'strict-origin-when-cross-origin';
       box.replaceChildren(frame);
+      // NetEase's player stays silent for VIP and licensed songs (it gets no audio address).
+      if (source.hostname === 'music.163.com') box.after(el('p', 'room-text room-embed-note', '没有声音？网易云的会员或版权歌曲在外链播放器里放不出来。换成 bilibili 的链接，或者用你自己的音频文件（audio:）。'));
       onLoad?.();
-    });
+    };
+    load.addEventListener('click', box.start);
     box.append(load);
     return box;
   }
@@ -178,7 +183,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   const syncAll = () => {
     closeupControls.replaceChildren(...({
       screen: [control('← 退后', () => zoom(null)), control('⏻ 关机', powerOff)],
-      jukebox: [control('⏮', () => step(-1)), control(deck.playing ? '⏸' : '▶', togglePlay), control('⏭', () => step(1)), control('← 退后', () => zoom(null))],
+      jukebox: [control('⏮', () => step(-1)), control(deck.link ? (deck.loaded.has(deck.index) ? '↓ 播放器' : '▶') : deck.playing ? '⏸' : '▶', togglePlay), control('⏭', () => step(1)), control('← 退后', () => zoom(null))],
     }[closeup] || []));
     renderStrips();
     for (const sync of remotes) sync();
@@ -314,7 +319,13 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   }
   function togglePlay() {
     if (deck.index < 0) return playTrack(content.music.findIndex((_, index) => playable(index)));
-    if (deck.link) return;
+    if (deck.link) {
+      // A link song plays in its site's player below the room: ▶ loads it, then points to it.
+      if (!deck.embedBox?.isConnected || deck.embedBox.dataset.index !== String(deck.index)) openItem('music', content.music[deck.index].id);
+      if (deck.loaded.has(deck.index)) deck.embedBox?.scrollIntoView({ block: 'center', behavior: reducedMotion ? 'instant' : 'smooth' });
+      else deck.embedBox?.start();
+      return;
+    }
     if (deck.audio.paused) deck.audio.play().catch(() => {}); else deck.audio.pause();
   }
   /** The next (or previous) song; when a song ends, only your own files follow on. */
@@ -364,11 +375,12 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     box.append(message, buttons, seek);
     listen(box, () => {
       const track = content.music[deck.index];
-      play.textContent = deck.playing && !deck.link ? '⏸' : '▶';
-      play.disabled = deck.link;
+      play.textContent = deck.link ? (deck.loaded.has(deck.index) ? '↓ 播放器' : '▶') : deck.playing ? '⏸' : '▶';
       near.textContent = closeup === 'jukebox' ? '← 退后' : '⤢ 走近点唱机';
       seek.hidden = !track?.audio;
-      message.textContent = track ? `${deck.playing ? '正在播放' : '暂停'}：${track.title}` : '点唱机等着。选一首歌。';
+      message.textContent = !track ? '点唱机等着。选一首歌。'
+        : deck.link ? `${track.title}：在下方${deck.loaded.has(deck.index) ? '的播放器里控制' : '加载它的播放器'}（链接歌曲）`
+          : `${deck.playing ? '正在播放' : '暂停'}：${track.title}`;
     });
     return box;
   }
@@ -538,6 +550,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
         if (track.locked) { body.replaceChildren(unlockForm('music', track.hint, showList)); return; }
         const put = track.audio && deck.index !== index ? control('▶ 放进点唱机', () => playTrack(index, { reveal: false })) : null;
         const embed = player(track.embed, () => { deck.loaded.add(index); deck.audio.pause(); if (deck.index !== index) playTrack(index, { reveal: false }); else setSpinning(true); });
+        if (embed) { embed.dataset.index = index; if (deck.index === index || deck.index < 0) deck.embedBox = embed; }
         body.replaceChildren(detail(track, byline(track.artist, track.album, track.year), showList, [put, track.audio ? null : embed]));
       };
       openers.music = id => { const index = content.music.findIndex(item => item.id === id); if (index >= 0) showItem(index); };
