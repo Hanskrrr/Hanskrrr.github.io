@@ -565,32 +565,82 @@ button.note-card { display: flex; flex-direction: column; gap: 4px; cursor: poin
 .room-unlock-row input { flex: 1; min-width: 0; padding: 8px 10px; font: 16px/16px var(--pixel); color: var(--ink); background: var(--bg-deep); border: 0; box-shadow: inset 0 0 0 var(--px) var(--line); }
 .room-unlock-row input:focus { outline: none; box-shadow: inset 0 0 0 var(--px) var(--yellow); }
 
-/* The projector: videos play on the wall screen (room.js); "walk up" zooms the scene so the
-   screen fills the stage. The view scales by --zoom with the screen's centre moved to the middle;
-   the player itself is resized (never scaled), so the video stays sharp. */
+/* Close-ups (room.js, room-closeups.js): "walk up" scales the room view (inline transform) so
+   the projector screen or the jukebox fills the stage; the player, the record and the overlays
+   are placed at stage resolution, so video and covers stay sharp. */
 .room-view { position: relative; transform-origin: 0 0; transition: transform .45s steps(9); }
-.room-screen {
-  position: absolute; z-index: 3; display: none;
-  left: var(--x); top: var(--y); width: var(--w); height: var(--h);
-  background: #000; line-height: 0;
-  transition: left .45s steps(9), top .45s steps(9), width .45s steps(9), height .45s steps(9);
-}
+.room-screen, .jukebox-window { position: absolute; line-height: 0; transition: left .45s steps(9), top .45s steps(9), width .45s steps(9), height .45s steps(9); }
+.room-screen { z-index: 3; display: none; background: #000; }
 .room-screen iframe { width: 100%; height: 100%; border: 0; }
 .room-stage.projecting .room-screen { display: block; }
-/* Screen centre (95 + 14, 3 + 8) of 128 × 60 → the middle of the stage, at 3.4×. */
-.room-stage.zoomed .room-view { transform: translate(-239.53%, -12.33%) scale(3.4); }
-.room-stage.zoomed .room-screen { left: 12.81%; top: 4.67%; width: 74.38%; height: 90.67%; }
 .room-stage.zoomed .room-hotspot, .room-stage.zoomed .room-bubble { visibility: hidden; }
-/* Beside the zoomed screen, in the margin; on narrow screens the remote below the room does this. */
-.room-screen-controls { position: absolute; z-index: 4; right: 12px; bottom: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; line-height: normal; }
-@media (max-width: 800px) { .room-screen-controls { display: none; } }
+.closeup-dim, .cinema, .jukebox-strips { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .4s steps(4); }
+.closeup-dim { z-index: 1; }
+.room-stage[data-closeup] .closeup-dim { opacity: 1; }
+.room-stage[data-closeup="screen"] .closeup-dim { background: rgb(3 2 10 / .9); }
+.room-stage[data-closeup="jukebox"] .closeup-dim { background: radial-gradient(ellipse 22% 60% at 76% 50%, transparent 70%, rgb(4 3 12 / .82) 100%); }
+.room-stage.music-on[data-closeup="jukebox"] .closeup-dim { animation: jukebox-glow 1.2s steps(2) infinite; }
+@keyframes jukebox-glow { 50% { box-shadow: inset 0 0 120px rgb(255 95 210 / .18); } }
+
+/* The cinema: curtains, the beam with drifting dust, and a row of seats with the creature. */
+.cinema { z-index: 2; transition-delay: .25s; }
+.room-stage[data-closeup="screen"] .cinema { opacity: 1; }
+.cinema svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cinema-audience { z-index: 5; }
+.c-curtain { fill: #7a1d3a; } .c-curtain-dark { fill: #4d0f25; } .c-curtain-light { fill: #a33452; }
+.c-silhouette { fill: #1a1630; } .c-rim { fill: #8a78b8; } .c-seat { fill: #0c0a18; } .c-seat-top { fill: #2a2344; }
+:root[data-theme="uv"] .c-curtain { fill: #4a1f7a; } :root[data-theme="uv"] .c-curtain-dark { fill: #2a1050; } :root[data-theme="uv"] .c-curtain-light { fill: #7a3cbf; }
+.cinema-beam { position: absolute; inset: 0; z-index: 4; clip-path: polygon(48.5% 100%, 51.5% 100%, 81% 5%, 19% 5%); background: linear-gradient(to top, rgb(255 244 214 / .07), rgb(255 244 214 / .015) 70%); mix-blend-mode: screen; }
+.cinema-beam i { position: absolute; width: 3px; height: 3px; background: rgb(255 244 214 / .7); animation: dust 9s linear infinite; }
+@keyframes dust { 0% { transform: translate(0, 0); opacity: 0; } 20% { opacity: .8; } 80% { opacity: .6; } 100% { transform: translate(18px, -90px); opacity: 0; } }
+/* Edge flicker on the zoomed screen, and the title card when a film starts. */
+.room-stage[data-closeup="screen"] .room-screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 40px 12px rgb(0 0 0 / .55); animation: projector-flicker 4s steps(1) infinite; }
+@keyframes projector-flicker { 0%, 100% { opacity: 1; } 31% { opacity: .75; } 33% { opacity: 1; } 71% { opacity: .85; } 72% { opacity: 1; } }
+.screen-card { position: absolute; inset: 0; display: grid; place-content: center; gap: 4%; text-align: center; background: #07060c; color: #f4ecd8; line-height: 1.2; pointer-events: none; animation: screen-card 2.6s steps(1) forwards; }
+.screen-card span { font: 16px/16px var(--pixel); letter-spacing: .3em; color: #d9b36a; }
+.screen-card strong { font: 400 clamp(16px, 4vw, 48px)/1.1 var(--pixel); }
+@keyframes screen-card { 0%, 6%, 12% { opacity: 1; } 4%, 10% { opacity: .4; } 82% { opacity: 1; } 90% { opacity: .5; } 100% { opacity: 0; visibility: hidden; } }
+
+/* The jukebox: a spinning record in its window, and title strips to pick a song. */
+.jukebox-window { z-index: 3; display: none; place-items: center; }
+.room-stage[data-closeup="jukebox"] .jukebox-window { display: grid; }
+.jukebox-cd {
+  height: 92%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, #111 0 9%, transparent 9.5%), repeating-radial-gradient(circle, rgb(255 255 255 / .05) 0 1px, transparent 1px 4px), conic-gradient(from 30deg, rgb(255 255 255 / .25), transparent 12%, rgb(180 140 255 / .25) 30%, transparent 45%, rgb(255 255 255 / .2) 62%, transparent 80%), var(--cover, linear-gradient(135deg, #7b5fd0, #ff5fd2)) center / cover;
+  box-shadow: 0 0 0 3px #0c0a18, 0 0 24px rgb(255 95 210 / .35);
+  animation: spin 3.2s linear infinite paused;
+}
+.jukebox-cd.spinning { animation-play-state: running; }
+@keyframes spin { to { transform: rotate(1turn); } }
+.jukebox-strips { z-index: 3; left: 5%; top: 8%; right: auto; bottom: auto; width: 52%; max-height: 84%; overflow: auto; pointer-events: auto; line-height: normal; }
+.room-stage[data-closeup="jukebox"] .jukebox-strips { opacity: 1; }
+.room-stage:not([data-closeup="jukebox"]) .jukebox-strips { visibility: hidden; }
+.jukebox-now { margin: 0 0 12px; font: 16px/16px var(--pixel); color: var(--accent); letter-spacing: .1em; }
+.jukebox-strip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
+.jukebox-strip { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; text-align: left; padding: 8px 10px; background: #f3ead2; color: #221d5c; box-shadow: inset 0 3px 0 #d94f6a, inset 0 -3px 0 #d94f6a; }
+.jukebox-strip:hover { background: #fff6dc; color: #221d5c; }
+.jukebox-strip[aria-pressed="true"] { background: var(--yellow); }
+.strip-code { grid-row: span 2; align-self: center; font: 16px/16px var(--pixel); color: #d94f6a; }
+.strip-title { font: 16px/20px var(--pixel); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strip-sub { font-size: 12px; opacity: .7; }
+.jukebox-hint { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.jukebox-seek { width: 100%; margin: 8px 0 4px; accent-color: var(--accent); }
+@media (max-width: 800px) { .jukebox-strips { display: none; } }
+/* Beside the zoomed object, in the margin; on narrow screens the remote below the room does this. */
+.room-screen-controls { position: absolute; z-index: 6; right: 12px; bottom: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; line-height: normal; }
+.room-stage[data-closeup="jukebox"] .room-screen-controls { flex-direction: row; left: 5%; right: auto; }
 .room-screen-controls .room-choice { background: var(--surface); box-shadow: 0 0 0 var(--px) var(--line); }
+@media (max-width: 800px) { .room-screen-controls { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .room-view, .room-screen, .jukebox-window { transition: none; }
+  .cinema-beam i, .jukebox-cd, .room-stage[data-closeup] .closeup-dim, .room-stage[data-closeup="screen"] .room-screen::after { animation: none; }
+  .screen-card { animation-duration: 1.2s; }
+}
 .projector-remote { margin: 0 0 24px; padding: 12px 16px 4px; background: var(--bg-deep); box-shadow: inset var(--px) 0 0 var(--line); }
 .projector-address { margin-top: 4px; }
 .projector-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .projector-buttons .room-choice:disabled { opacity: .35; cursor: default; }
 .projector-status { margin: 8px 0; font-size: 14px; }
-@media (prefers-reduced-motion: reduce) { .room-view, .room-screen { transition: none; } }
 .room-unlock-message { min-height: 1.5em; margin: 0; }
 @media (max-width: 520px) { .shelf-detail-head { grid-template-columns: 96px 1fr; gap: 16px; } }
 .trail { list-style: none; margin: 0; padding: 0; }

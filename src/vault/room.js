@@ -9,6 +9,7 @@ import { svg } from '../blog/pixel-art.js';
 import { enhance } from '../blog/rich.js';
 import { embedSize, isAllowedEmbed, toScreen } from './embeds.js';
 import { HOTSPOTS, ROOM_HEIGHT, ROOM_WIDTH, roomGrid, SCREEN } from './room-art.js';
+import { audience, closeUp, curtains, DUST, RECORD_WINDOW } from './room-closeups.js';
 import { animateRoom } from './room-life.js';
 
 const LABELS = { lamp: '台灯', intro: '窗外', journal: '日记', serials: '手稿', books: '书架', photos: '照片', thoughts: '便签', timeline: '时间线', films: '放映机', music: '点唱机', creature: '小生物' };
@@ -49,10 +50,10 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   };
   const stage = el('div', 'room-stage');
   // The scene and its hotspots sit in one view, so "walk up to the screen" can zoom it.
-  const view = el('div', 'room-view');
-  view.innerHTML = svg(roomGrid(available), { className: 'pixel-art room-scene' });
-  stage.append(view);
-  const art = view.querySelector('svg');
+  const viewLayer = el('div', 'room-view');
+  viewLayer.innerHTML = svg(roomGrid(available), { className: 'pixel-art room-scene' });
+  stage.append(viewLayer);
+  const art = viewLayer.querySelector('svg');
   const life = animateRoom({ stage, art, reducedMotion });
 
   const legend = el('div', 'room-legend');
@@ -70,7 +71,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     hotspot.setAttribute('aria-label', LABELS[name]);
     Object.assign(hotspot.style, { left: `${(x / ROOM_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / ROOM_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
     hotspot.append(el('span', 'room-tip', LABELS[name]));
-    view.append(hotspot);
+    viewLayer.append(hotspot);
     if (name !== 'creature' && name !== 'lamp') {
       const button = el('button', 'room-choice', LABELS[name]);
       button.type = 'button';
@@ -142,31 +143,69 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     if (item.html) view.append(prose(item.html));
     return view;
   }
-  function audio(ref, title) {
-    const node = el('audio');
-    node.controls = true;
-    node.preload = 'metadata';
-    node.setAttribute('aria-label', title);
-    urlFor(ref).then(url => { node.src = url; }, () => node.replaceWith(el('p', 'room-text', '音频无法解密或加载。')));
-    node.addEventListener('play', () => life.setMusic(true));
-    for (const type of ['pause', 'ended']) node.addEventListener(type, () => life.setMusic(false));
-    return node;
-  }
-  // --- the projector ---------------------------------------------------------------
-  // Videos play on the wall screen itself: an embed player laid over the screen's pixels.
-  // Nothing loads until something is played; power off removes the player.
+  // --- close-ups: the projector and the jukebox ------------------------------------
+  // "Walk up" scales the room view so the object fills the stage (room-closeups.js); the
+  // player and the record are real elements placed over the object's pixels, resized rather
+  // than scaled, so video and covers stay sharp. Nothing third-party loads until played.
+  const place = (node, { left, top, width, height }) => {
+    node.style.left = `${left * 100}%`;
+    node.style.top = `${top * 100}%`;
+    node.style.width = `${width * 100}%`;
+    node.style.height = `${height * 100}%`;
+  };
+  const dim = el('div', 'closeup-dim');
+  const cinema = el('div', 'cinema');
+  cinema.innerHTML = `${curtains()}<div class="cinema-beam">${DUST.map(([x, y, delay, time]) => `<i style="left:${x}%;top:${y}%;animation-delay:${delay}s;animation-duration:${time}s"></i>`).join('')}</div>${audience()}`;
+  cinema.setAttribute('aria-hidden', 'true');
   const screen = el('div', 'room-screen');
-  const [sx, sy, sw, sh] = SCREEN;
-  Object.entries({ x: sx / ROOM_WIDTH, y: sy / ROOM_HEIGHT, w: sw / ROOM_WIDTH, h: sh / ROOM_HEIGHT }).forEach(([key, value]) => screen.style.setProperty(`--${key}`, `${value * 100}%`));
-  const screenControls = el('div', 'room-screen-controls');
-  stage.append(screen, screenControls);
-  const projector = { url: null, title: '', zoomed: false, remotes: new Set() };
+  const record = el('div', 'jukebox-window');
+  const disc = el('div', 'jukebox-cd');
+  record.append(disc);
+  const strips = el('div', 'jukebox-strips');
+  const closeupControls = el('div', 'room-screen-controls');
+  stage.append(dim, cinema, screen, record, strips, closeupControls);
   const control = (label, action) => {
     const button = el('button', 'room-choice', label);
     button.type = 'button';
     button.addEventListener('click', action);
     return button;
   };
+  /** Remotes in the panel below (one per open panel) redraw through this. */
+  const remotes = new Set();
+  const syncAll = () => {
+    closeupControls.replaceChildren(...({
+      screen: [control('← 退后', () => zoom(null)), control('⏻ 关机', powerOff)],
+      jukebox: [control('⏮', () => step(-1)), control(deck.playing ? '⏸' : '▶', togglePlay), control('⏭', () => step(1)), control('← 退后', () => zoom(null))],
+    }[closeup] || []));
+    renderStrips();
+    for (const sync of remotes) sync();
+  };
+  /** A remote's sync: stops listening once its panel has been replaced. */
+  const listen = (box, sync) => {
+    const wrapped = () => {
+      if (box.isConnected) box.dataset.shown = '1';
+      else if (box.dataset.shown) { remotes.delete(wrapped); return; }
+      sync();
+    };
+    remotes.add(wrapped);
+    sync();
+  };
+
+  let closeup = null;
+  function zoom(name) {
+    closeup = name === 'screen' && !projector.url ? null : name;
+    const view = closeUp(closeup);
+    stage.classList.toggle('zoomed', Boolean(closeup));
+    stage.dataset.closeup = closeup || '';
+    viewLayer.style.transform = closeup ? view.transform : '';
+    place(screen, view.place(SCREEN));
+    place(record, view.place(RECORD_WINDOW));
+    syncAll();
+    if (closeup) stage.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'instant' : 'smooth' });
+  }
+
+  // The projector.
+  const projector = { url: null, title: '' };
   function project(url, title) {
     const frame = el('iframe');
     frame.src = url;
@@ -174,34 +213,28 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     frame.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
     frame.setAttribute('allowfullscreen', '');
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    screen.replaceChildren(frame);
+    // A title card flickers on while the player loads underneath.
+    const card = el('div', 'screen-card');
+    card.append(el('span', '', 'NOW SHOWING'), el('strong', '', title || new URL(url).hostname));
+    card.addEventListener('animationend', () => card.remove());
+    screen.replaceChildren(frame, card);
     Object.assign(projector, { url, title });
     stage.classList.add('projecting');
     life.setFilm(true);
     life.setTheater(true);
-    syncProjector();
+    syncAll();
   }
   function powerOff() {
     screen.replaceChildren();
     Object.assign(projector, { url: null, title: '' });
     stage.classList.remove('projecting');
-    zoom(false);
     life.setTheater(false);
     life.setFilm(panel.dataset.open === 'films');
-    syncProjector();
+    if (closeup === 'screen') zoom(null); else syncAll();
   }
-  function zoom(on) {
-    projector.zoomed = on && Boolean(projector.url);
-    stage.classList.toggle('zoomed', projector.zoomed);
-    syncProjector();
-    if (projector.zoomed) stage.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'instant' : 'smooth' });
-  }
-  function syncProjector() {
-    screenControls.replaceChildren(...(projector.zoomed ? [control('← 退后', () => zoom(false)), control('⏻ 关机', powerOff)] : []));
-    for (const sync of projector.remotes) sync();
-  }
-  /** The remote in the projector panel: an address bar, power and zoom. */
-  function remote() {
+  const playFilm = film => { const url = film.embed && toScreen(film.embed); if (url) project(url, film.title); return Boolean(url); };
+  /** The projector remote: an address bar, walk up and power off. */
+  function projectorRemote() {
     const box = el('div', 'projector-remote');
     const form = el('form', 'room-unlock-row projector-address');
     const address = el('input');
@@ -214,18 +247,10 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     form.append(address, go);
     const message = el('p', 'room-text projector-status');
     message.setAttribute('role', 'status');
-    const buttons = el('div', 'projector-buttons');
+    const near = control('', () => zoom(closeup === 'screen' ? null : 'screen'));
     const power = control('⏻ 关机', powerOff);
-    const near = control('', () => zoom(!projector.zoomed));
+    const buttons = el('div', 'projector-buttons');
     buttons.append(near, power);
-    const sync = () => {
-      // A remote whose panel was replaced stops listening.
-      if (box.isConnected) box.dataset.shown = '1';
-      else if (box.dataset.shown) { projector.remotes.delete(sync); return; }
-      power.disabled = near.disabled = !projector.url;
-      near.textContent = projector.zoomed ? '← 退后' : '⤢ 走近屏幕';
-      message.textContent = projector.url ? `正在放映：${projector.title || new URL(projector.url).hostname}` : '放映机关着。选一部片子，或者粘贴一个视频链接。';
-    };
     form.addEventListener('submit', event => {
       event.preventDefault();
       const url = toScreen(address.value);
@@ -233,12 +258,116 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
       address.value = '';
       project(url, new URL(url).hostname === 'player.bilibili.com' ? 'bilibili' : 'YouTube');
     });
-    projector.remotes.add(sync);
     box.append(form, buttons, message);
-    sync();
+    listen(box, () => {
+      power.disabled = near.disabled = !projector.url;
+      near.textContent = closeup === 'screen' ? '← 退后' : '⤢ 走近屏幕';
+      message.textContent = projector.url ? `正在放映：${projector.title || new URL(projector.url).hostname}` : '放映机关着。选一部片子，或者粘贴一个视频链接。';
+    });
     return box;
   }
-  const playFilm = film => { const url = film.embed && toScreen(film.embed); if (url) project(url, film.title); return Boolean(url); };
+
+  // The jukebox: your own audio plays through one shared player; a song that is only a
+  // link (NetEase, Spotify…) plays in its own player in the panel below.
+  const deck = { index: -1, audio: new Audio(), playing: false, link: false, loaded: new Set() };
+  deck.audio.preload = 'metadata';
+  const playable = index => { const track = content.music[index]; return track && !track.locked && (track.audio || track.embed); };
+  const setSpinning = on => {
+    deck.playing = on;
+    disc.classList.toggle('spinning', on);
+    stage.classList.toggle('music-on', on);
+    life.setMusic(on);
+    syncAll();
+  };
+  deck.audio.addEventListener('play', () => setSpinning(true));
+  deck.audio.addEventListener('pause', () => setSpinning(false));
+  deck.audio.addEventListener('ended', () => step(1, { ownFiles: true }));
+  function showDisc(track) {
+    disc.style.removeProperty('--cover');
+    disc.dataset.title = track.title;
+    if (track.cover) urlFor(track.cover).then(url => { if (content.music[deck.index] === track) disc.style.setProperty('--cover', `url("${url}")`); }, () => {});
+  }
+  /** Put a song on: your own file plays at once; a link song opens its page below. */
+  function playTrack(index, { reveal = true } = {}) {
+    const track = content.music[index];
+    if (!playable(index)) return;
+    deck.index = index;
+    deck.link = !track.audio;
+    showDisc(track);
+    if (track.audio) {
+      urlFor(track.audio).then(url => {
+        if (deck.index !== index) return;
+        if (deck.audio.src !== url) deck.audio.src = url;
+        deck.audio.play().catch(() => setSpinning(false));
+      }, () => setSpinning(false));
+    } else {
+      deck.audio.pause();
+      // A link song counts as playing once its player has been loaded.
+      setSpinning(deck.loaded.has(index));
+    }
+    if (reveal && (panel.dataset.open === 'music' || deck.link)) openItem('music', track.id);
+    else syncAll();
+  }
+  function togglePlay() {
+    if (deck.index < 0) return playTrack(content.music.findIndex((_, index) => playable(index)));
+    if (deck.link) return;
+    if (deck.audio.paused) deck.audio.play().catch(() => {}); else deck.audio.pause();
+  }
+  /** The next (or previous) song; when a song ends, only your own files follow on. */
+  function step(direction, { ownFiles = false } = {}) {
+    const count = content.music.length;
+    for (let i = 1; i <= count; i++) {
+      const index = (deck.index + direction * i + count * count) % count;
+      if (playable(index) && (!ownFiles || content.music[index].audio)) return playTrack(index, { reveal: !ownFiles });
+    }
+  }
+  function renderStrips() {
+    if (closeup !== 'jukebox') return strips.replaceChildren();
+    const heading = el('p', 'jukebox-now', deck.index >= 0 ? `NOW PLAYING · ${content.music[deck.index].title}` : 'SELECT A SONG');
+    const grid = el('div', 'jukebox-strip-grid');
+    content.music.forEach((track, index) => {
+      if (!playable(index)) return;
+      const strip = control('', () => playTrack(index));
+      strip.classList.add('jukebox-strip');
+      strip.setAttribute('aria-pressed', String(index === deck.index));
+      strip.append(el('span', 'strip-code', `${'ABCDEFGH'[Math.floor(index / 10) % 8]}${index % 10 + 1}`), el('span', 'strip-title', track.title), el('span', 'strip-sub', byline(track.artist)));
+      grid.append(strip);
+    });
+    const hint = deck.link && !deck.playing ? el('p', 'jukebox-hint', '这首是链接歌曲：在下方加载它的播放器。') : '';
+    strips.replaceChildren(heading, grid, hint);
+  }
+  /** The jukebox remote: now playing, ⏮ ⏯ ⏭, a progress bar for your own files, walk up. */
+  function jukeboxRemote() {
+    const box = el('div', 'projector-remote');
+    const message = el('p', 'room-text projector-status');
+    message.setAttribute('role', 'status');
+    const buttons = el('div', 'projector-buttons');
+    const play = control('', togglePlay);
+    const near = control('', () => zoom(closeup === 'jukebox' ? null : 'jukebox'));
+    buttons.append(control('⏮', () => step(-1)), play, control('⏭', () => step(1)), near);
+    const seek = el('input', 'jukebox-seek');
+    seek.type = 'range';
+    seek.min = 0;
+    seek.step = 'any';
+    seek.setAttribute('aria-label', '播放进度');
+    seek.addEventListener('input', () => { deck.audio.currentTime = Number(seek.value); });
+    const tick = () => {
+      if (!box.isConnected) { deck.audio.removeEventListener('timeupdate', tick); return; }
+      seek.max = deck.audio.duration || 0;
+      seek.value = deck.audio.currentTime;
+    };
+    deck.audio.addEventListener('timeupdate', tick);
+    box.append(message, buttons, seek);
+    listen(box, () => {
+      const track = content.music[deck.index];
+      play.textContent = deck.playing && !deck.link ? '⏸' : '▶';
+      play.disabled = deck.link;
+      near.textContent = closeup === 'jukebox' ? '← 退后' : '⤢ 走近点唱机';
+      seek.hidden = !track?.audio;
+      message.textContent = track ? `${deck.playing ? '正在播放' : '暂停'}：${track.title}` : '点唱机等着。选一首歌。';
+    });
+    return box;
+  }
 
   // --- the inner lock ------------------------------------------------------------
   /** A form for the inner password; on success the caller re-renders the room at `name`. */
@@ -380,23 +509,36 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
       };
       openers.films = id => { const index = content.films.findIndex(item => item.id === id); if (index >= 0) showItem(index); };
       showList();
-      return [el('h2', '', '放映机'), remote(), body];
+      return [el('h2', '', '放映机'), projectorRemote(), body];
     },
     music() {
-      return collection('点唱机', content.music, open => {
+      // The remote on top; the song list (clicking a song puts it on) or one song's page below.
+      const body = el('div');
+      const showList = () => {
         const list = el('ol', 'track-list');
         content.music.forEach((track, index) => {
           const item = el('li');
-          if (track.locked) { item.append(lockedCard(track, 'track', () => open(index))); list.append(item); return; }
+          if (track.locked) { item.append(lockedCard(track, 'track', () => showItem(index))); list.append(item); return; }
           const button = el('button', 'track');
           button.type = 'button';
+          button.setAttribute('aria-pressed', String(index === deck.index));
           button.append(cover(track, 'track-cover'), el('span', 'shelf-title', track.title), el('span', 'shelf-sub', byline(track.artist, track.album, track.year)));
-          button.addEventListener('click', () => open(index));
+          button.addEventListener('click', () => { if (playable(index)) playTrack(index, { reveal: false }); showItem(index); });
           item.append(button);
           list.append(item);
         });
-        return list;
-      }, (track, back) => track.locked ? unlockForm('music', track.hint, back) : detail(track, byline(track.artist, track.album, track.year), back, [track.audio && audio(track.audio, track.title), player(track.embed, () => life.setMusic(true))]), 'music');
+        body.replaceChildren(overview('music'), list);
+      };
+      const showItem = index => {
+        const track = content.music[index];
+        if (track.locked) { body.replaceChildren(unlockForm('music', track.hint, showList)); return; }
+        const put = track.audio && deck.index !== index ? control('▶ 放进点唱机', () => playTrack(index, { reveal: false })) : null;
+        const embed = player(track.embed, () => { deck.loaded.add(index); deck.audio.pause(); if (deck.index !== index) playTrack(index, { reveal: false }); else setSpinning(true); });
+        body.replaceChildren(detail(track, byline(track.artist, track.album, track.year), showList, [put, track.audio ? null : embed]));
+      };
+      openers.music = id => { const index = content.music.findIndex(item => item.id === id); if (index >= 0) showItem(index); };
+      showList();
+      return [el('h2', '', '点唱机'), jukeboxRemote(), body];
     },
     serials() {
       const wrap = el('div');
@@ -494,7 +636,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     // A film keeps playing while you look at other things in the room.
     life.setFilm(name === 'films' || Boolean(projector.url));
     if (projector.url) life.setTheater(true);
-    life.setMusic(false);
+    life.setMusic(deck.playing);
     panel.dataset.open = name;
     panel.replaceChildren(...panels[name]());
     Object.entries(buttons).forEach(([key, button]) => button.setAttribute('aria-pressed', String(key === name)));
@@ -514,14 +656,18 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   stage.addEventListener('click', onClick);
   legend.addEventListener('click', onClick);
 
-  const onKey = event => { if (event.key === 'Escape' && projector.zoomed) zoom(false); };
+  const onKey = event => { if (event.key === 'Escape' && closeup) zoom(null); };
   document.addEventListener('keydown', onKey);
 
   container.append(stage, legend, panel);
   open(available[start] ? start : 'intro', { walk: false });
+  zoom(null);
   return () => {
     document.removeEventListener('keydown', onKey);
     screen.replaceChildren();
+    deck.audio.pause();
+    deck.audio.removeAttribute('src');
+    deck.audio.load();
     life.dispose();
   };
 }
