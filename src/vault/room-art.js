@@ -40,24 +40,25 @@ export function creatureGrid(pose = 'idle') {
 const SPINES = ['px-roof', 'px-far-light', 'px-grass', 'px-window', 'px-near-light', 'px-room-rug', 'px-heart', 'px-room-paper'];
 
 /** Which depth each clickable object sits at (the wall moves least when you look around). */
-export const HOTSPOT_DEPTH = { intro: 'far', photos: 'far', thoughts: 'far', timeline: 'far', films: 'far' };
+export const HOTSPOT_DEPTH = { intro: 'far', photos: 'far', thoughts: 'far', timeline: 'far', films: 'far', creature: 'actor' };
 
 /** The whole room as one grid (the depth layers flattened). */
 export function roomGrid(available) {
-  const { far, mid } = roomLayers(available);
-  return far.map((row, y) => row.map((cell, x) => mid[y][x] || cell));
+  const { far, floor, mid } = roomLayers(available);
+  return far.map((row, y) => row.map((cell, x) => mid[y][x] || floor[y][x] || cell));
 }
 
 /**
- * The room in depth layers, for parallax: `far` is the wall and what hangs on it (drawn a few
- * rows past the floor line, so a shift never opens a gap), `mid` is the floor and everything
- * standing on it, `fore` is a dark plant and chair right in front of the camera.
+ * The room in depth layers, for parallax (room-depth.js): `far` is the wall and what hangs on
+ * it (drawn a few rows past the floor line, so a shift never opens a gap), `floor` is the floor
+ * and the rug (tilted, so its back edge stays joined to the wall), `mid` is the furniture
+ * standing against the wall, `fore` is a dark plant and chair right in front of the camera.
  */
 export function roomLayers({ journal = true, serials = true, photos = true, thoughts = true, timeline = true, books = true, films = true, music = true } = {}) {
   const W = ROOM_WIDTH;
   const H = ROOM_HEIGHT;
   const blank = () => Array.from({ length: H }, () => Array(W).fill(''));
-  const layers = { far: blank(), mid: blank(), fore: blank() };
+  const layers = { far: blank(), floor: blank(), mid: blank(), fore: blank() };
   let grid = layers.far;
   const into = name => { grid = layers[name]; };
   const set = (x, y, name) => { if (x >= 0 && x < W && y >= 0 && y < H) grid[y][x] = name; };
@@ -67,8 +68,8 @@ export function roomLayers({ journal = true, serials = true, photos = true, thou
   // Wall with a dotted wallpaper (running on behind the floor), then the baseboard and floor.
   rect(0, 0, W, 48, 'px-room-wall');
   for (let y = 4; y < 40; y += 8) for (let x = (y / 8) % 2 ? 8 : 4; x < W; x += 8) set(x, y, 'px-room-wall-dot');
-  into('mid');
   rect(0, 41, W, 1, 'px-room-edge');
+  into('floor');
   rect(0, 42, W, H - 42, 'px-room-floor');
   [46, 51, 56].forEach((y, row) => {
     rect(0, y, W, 1, 'px-room-floor-line');
@@ -201,6 +202,7 @@ export function roomLayers({ journal = true, serials = true, photos = true, thou
   }
 
   // Rug in the middle.
+  into('floor');
   for (let y = 46; y <= 56; y++) for (let x = 52; x <= 104; x++) {
     const d = ((x - 78) / 26) ** 2 + ((y - 51) / 5) ** 2;
     if (d <= 1) set(x, y, d > 0.8 ? 'px-room-rug-edge' : (x + y) % 6 === 0 ? 'px-room-rug-dot' : 'px-room-rug');

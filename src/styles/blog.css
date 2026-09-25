@@ -505,11 +505,12 @@ body:has(.exhibit) { overflow-x: clip; }
 .px-dusk-sky { fill: #6a4fb5; } .px-dusk-sky2 { fill: #e89a6e; }
 .px-sun { fill: #ffe37a; }
 .scene-icon-label { font-family: var(--pixel); font-size: 3.2px; fill: var(--ink); stroke: var(--bg-deep); stroke-width: .7px; paint-order: stroke; }
-.room-bubble { position: absolute; z-index: 2; margin: 0; padding: 6px 10px; transform: translate(calc(-50% + var(--mid-x, 0px)), calc(-100% + var(--mid-y, 0px))); white-space: nowrap; pointer-events: none; font: 16px/16px var(--pixel); color: var(--ink); background: var(--surface-2); box-shadow: 0 0 0 var(--px) var(--line), 4px 4px 0 var(--drop); }
+.room-bubble { position: absolute; z-index: 2; margin: 0; padding: 6px 10px; transform: translate(calc(-50% + var(--actor-x, 0px)), calc(-100% + var(--actor-y, 0px))); white-space: nowrap; pointer-events: none; font: 16px/16px var(--pixel); color: var(--ink); background: var(--surface-2); box-shadow: 0 0 0 var(--px) var(--line), 4px 4px 0 var(--drop); }
 .room-bubble::after { content: ""; position: absolute; left: 50%; bottom: -9px; width: 6px; height: 6px; background: var(--line); box-shadow: 3px 3px 0 var(--line); }
 .room-scene { width: 100%; height: auto; aspect-ratio: 128 / 60; }
 .room-hotspot { position: absolute; padding: 0; cursor: pointer; background: transparent; outline-offset: 2px; transform: translate(var(--mid-x, 0px), var(--mid-y, 0px)); }
 .room-hotspot[data-depth="far"] { transform: translate(var(--far-x, 0px), var(--far-y, 0px)); }
+.room-hotspot[data-depth="actor"] { transform: translate(var(--actor-x, 0px), var(--actor-y, 0px)); }
 /* The wall switch is tiny in the art; keep it easy to hit on a phone. */
 .room-switch { min-width: 28px; min-height: 36px; }
 /* Drag to look around; vertical swipes still scroll the page. */

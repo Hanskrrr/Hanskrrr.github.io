@@ -110,15 +110,18 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
   const night = hour >= 19 || hour < 7;
   const lateNight = hour >= 23 || hour < 6;
 
-  // Wall things live in the far layer, floor things in the middle one (see room-depth.js).
-  const far = art.querySelector('.depth-far') || art;
-  const mid = art.querySelector('.depth-mid') || art;
-  const sky = layer(far, 'room-sky');
-  const farEffects = layer(far, 'room-far-effects');
-  const light = layer(mid, 'room-light');
-  const effects = layer(mid, 'room-effects');
-  const creature = layer(mid, 'room-creature');
-  const extras = layer(mid, 'room-creature-extras');
+  // Each thing is drawn in the depth layer it belongs to (see room-depth.js): the window's sky,
+  // the screen's glow and the shaft of light on the wall; the light patches on the tilted floor;
+  // lamp, beam and jukebox lights with the furniture; the creature on its own.
+  const depth = name => art.querySelector(`.depth-${name}`) || art;
+  const sky = layer(depth('far'), 'room-sky');
+  const farEffects = layer(depth('far'), 'room-far-effects');
+  const shaft = layer(depth('far'), 'room-shaft-layer');
+  const floorLight = layer(depth('floor'), 'room-floor-light');
+  const light = layer(depth('mid'), 'room-light');
+  const effects = layer(depth('mid'), 'room-effects');
+  const creature = layer(depth('actor'), 'room-creature');
+  const extras = layer(depth('actor'), 'room-creature-extras');
   // Soft light over the whole scene: the lamp's warmth and the screen's flicker.
   const lampGlow = document.createElement('div');
   lampGlow.className = 'room-lampglow';
@@ -153,13 +156,12 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
 
   function drawLight() {
     const beam = state.film || state.theater;
-    const { kind, panes, shaft } = state.sun;
+    const { kind, panes } = state.sun;
     stage.classList.toggle('lights-off', !state.lamp || state.theater);
     stage.classList.toggle('lamp-on', state.lamp && !state.theater);
     stage.dataset.daylight = kind;
+    floorLight.innerHTML = panes.map(pane => polygon(pane, `room-${kind}light`)).join('');
     light.innerHTML = [
-      polygon(shaft, `room-shaft room-shaft-${kind}`),
-      ...panes.map(pane => polygon(pane, `room-${kind}light`)),
       state.lamp && !state.theater ? polygon([[26, 29], [29, 29], [37, 42], [16, 42]], 'room-lamplight') : '<rect class="px-room-edge" x="26" y="28" width="4" height="1"/>',
       beam ? polygon([[102, 34], [104, 34], [122, 19], [96, 19]], 'room-beam') : '',
     ].join('');
@@ -182,9 +184,10 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
       html += Array.from({ length: 10 }, (_, i) => `<rect class="${lights[(i + Math.floor(state.frame / 3)) % 4]}" x="${110 + i}" y="24" width="1" height="1"/>`).join('');
     }
     for (const note of state.notes) html += pixels(NOTE, 'px-window', note.x, Math.round(note.y));
-    // Dust drifting in the window's light.
-    for (const mote of state.dust) html += `<rect class="room-dust" x="${mote.x.toFixed(1)}" y="${mote.y.toFixed(1)}" width="0.6" height="0.6"/>`;
     effects.innerHTML = html;
+    // The shaft of window light, with dust drifting in it.
+    shaft.innerHTML = polygon(state.sun.shaft, `room-shaft room-shaft-${state.sun.kind}`)
+      + state.dust.map(mote => `<rect class="room-dust" x="${mote.x.toFixed(1)}" y="${mote.y.toFixed(1)}" width="0.6" height="0.6"/>`).join('');
     const film = state.film || state.theater;
     farEffects.innerHTML = film ? `<rect class="room-screen-glow" x="95" y="3" width="28" height="16" opacity="${state.frame % 5 === 0 ? 0.12 : 0.22}"/>` : '';
     // The screen's light flickers over the room, a little brighter or cooler from frame to frame.

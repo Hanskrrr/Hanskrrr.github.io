@@ -57,8 +57,9 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   const layers = roomLayers(available);
   const edges = (name, y, h) => `<rect class="${name}" x="-12" y="${y}" width="12" height="${h}"/><rect class="${name}" x="${ROOM_WIDTH}" y="${y}" width="12" height="${h}"/>`;
   viewLayer.innerHTML = `<svg class="pixel-art room-scene" viewBox="0 0 ${ROOM_WIDTH} ${ROOM_HEIGHT}" shape-rendering="crispEdges" aria-hidden="true">`
-    + `<g class="depth-far">${edges('px-room-wall', -6, 54)}<rect class="px-room-wall" x="0" y="-6" width="${ROOM_WIDTH}" height="6"/>${gridToPaths(layers.far)}</g>`
-    + `<g class="depth-mid">${edges('px-room-floor', 41, 25)}${edges('px-room-edge', 41, 1)}${[46, 51, 56].map(y => edges('px-room-floor-line', y, 1)).join('')}<rect class="px-room-floor" x="0" y="${ROOM_HEIGHT}" width="${ROOM_WIDTH}" height="6"/>${gridToPaths(layers.mid)}</g>`
+    + `<g class="depth-far">${edges('px-room-wall', -6, 54)}${edges('px-room-edge', 41, 1)}<rect class="px-room-wall" x="0" y="-6" width="${ROOM_WIDTH}" height="6"/>${gridToPaths(layers.far)}</g>`
+    + `<g class="depth-floor">${edges('px-room-floor', 42, 24)}${[46, 51, 56].map(y => edges('px-room-floor-line', y, 1)).join('')}<rect class="px-room-floor" x="0" y="${ROOM_HEIGHT}" width="${ROOM_WIDTH}" height="6"/>${gridToPaths(layers.floor)}</g>`
+    + `<g class="depth-mid">${gridToPaths(layers.mid)}</g><g class="depth-actor"></g>`
     + `<g class="depth-fore">${gridToPaths(layers.fore)}</g></svg>`;
   stage.append(viewLayer);
   const art = viewLayer.querySelector('svg');
