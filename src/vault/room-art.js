@@ -60,7 +60,8 @@ export function roomGrid(available) {
  * The room in depth layers, for parallax (room-depth.js): `far` is the wall and what hangs on
  * it (drawn a few rows past the floor line, so a shift never opens a gap), `floor` is the floor
  * and the rug (tilted, so its back edge stays joined to the wall), `mid` is the furniture
- * standing against the wall, `fore` is a dark plant and chair right in front of the camera.
+ * standing against the wall, `fore` is the dark plant, armchair and sofa at the front of the
+ * floor, standing on short legs over their shadows (which lie on the floor).
  */
 export function roomLayers({ journal = true, serials = true, photos = true, thoughts = true, timeline = true, books = true, films = true, music = true } = {}) {
   const W = WORLD_WIDTH;
@@ -233,7 +234,13 @@ export function roomLayers({ journal = true, serials = true, photos = true, thou
     if (d <= 1) set(x, y, d > 0.8 ? 'px-room-rug-edge' : (x + y) % 6 === 0 ? 'px-room-rug-dot' : 'px-room-rug');
   }
 
-  // In front of the camera: a potted plant bottom left, the back of an armchair bottom right.
+  // At the front of the floor: a potted plant, the back of an armchair, and the back of the
+  // living room's sofa. Each stands on the floor (feet on row 58) over a shadow on the floor.
+  into('floor');
+  const shadow = (x0, x1) => { rect(x0, 58, x1 - x0, 1, 'px-room-floor-line'); rect(x0 + 2, 59, x1 - x0 - 4, 1, 'px-room-floor-line'); };
+  shadow(2, 15);
+  shadow(102, 127);
+  shadow(144, 196);
   into('fore');
   // Leaves: tapered strokes from the pot, lit along their upper edge.
   const leaf = (x0, y0, x1, y1) => {
@@ -248,25 +255,29 @@ export function roomLayers({ journal = true, serials = true, photos = true, thou
     }
   };
   [[7, 53, 1, 43], [8, 53, 9, 40], [9, 53, 16, 44], [6, 53, 0, 49], [10, 53, 18, 50]].forEach(([x0, y0, x1, y1]) => leaf(x0, y0, x1, y1));
+  // The pot: a rim, a body narrowing to its foot.
   rect(3, 54, 11, 1, 'px-fore-light');
-  rect(4, 55, 9, H - 55, 'px-fore');
-  // The armchair: a rounded back with a cushion seam, and its arm in front.
+  rect(4, 55, 9, 2, 'px-fore');
+  rect(5, 57, 7, 2, 'px-fore');
+  set(5, 55, 'px-fore-light');
+  // The armchair: a rounded back with a cushion seam, its arm in front, on four short legs.
   const chairEnd = 124;   // it stands just left of the doorway
   rect(111, 49, chairEnd - 111, 1, 'px-fore-light');
   rect(109, 50, chairEnd - 109, 1, 'px-fore');
-  rect(108, 51, chairEnd - 108, H - 51, 'px-fore');
   rect(110, 50, chairEnd - 110, 1, 'px-fore-light');
-  rect(chairEnd - 3, 51, 3, H - 51, 'px-fore');
-  for (let y = 53; y < H; y++) set(119, y, 'px-fore-light');
-  rect(104, 55, 5, H - 55, 'px-fore');
+  rect(108, 51, chairEnd - 108, 6, 'px-fore');
+  for (let y = 53; y < 57; y++) set(119, y, 'px-fore-light');
+  rect(104, 55, 5, 2, 'px-fore');
   rect(104, 55, 5, 1, 'px-fore-light');
-  // The back of the living room's sofa, facing the screen: three cushions and two arms.
-  rect(150, 50, 40, H - 50, 'px-fore');
+  [105, 109, 115, chairEnd - 2].forEach(x => rect(x, 57, 1, 2, 'px-fore'));
+  // The sofa facing the screen: three cushions between two arms, on short legs.
   rect(151, 49, 38, 1, 'px-fore-light');
-  [163, 176].forEach(x => { for (let y = 51; y < H; y++) set(x, y, 'px-fore-light'); });
-  rect(146, 53, 5, H - 53, 'px-fore');
-  rect(189, 53, 5, H - 53, 'px-fore');
+  rect(150, 50, 40, 7, 'px-fore');
+  [163, 176].forEach(x => { for (let y = 51; y < 57; y++) set(x, y, 'px-fore-light'); });
+  rect(146, 53, 5, 4, 'px-fore');
+  rect(189, 53, 5, 4, 'px-fore');
   rect(146, 53, 5, 1, 'px-fore-light');
   rect(189, 53, 5, 1, 'px-fore-light');
+  [147, 160, 179, 192].forEach(x => rect(x, 57, 1, 2, 'px-fore'));
   return layers;
 }

@@ -6,8 +6,9 @@
 
 const RANGE = { x: 4, y: 2 };                   // room pixels, at depth factor 1
 // How far each layer moves. Things standing on the floor move like the floor where they stand:
-// the furniture against the wall (feet around row 45), the creature out on the rug (row 52).
-export const DEPTH = { far: 0.3, mid: 0.45, actor: 0.7, fore: 1.8 };
+// the furniture against the wall (feet around row 45), the creature out on the rug (row 52), and
+// the plant, armchair and sofa at the front (feet on row 58: floorDepth(58) ≈ 0.93).
+export const DEPTH = { far: 0.3, mid: 0.45, actor: 0.7, fore: 0.93 };
 // The floor is tilted between its back edge, joined to the wall, and its front edge.
 const FLOOR = { back: 41, front: 60, near: 1 };
 /** Depth factor of the floor at a row (the wall's factor at the back edge). */

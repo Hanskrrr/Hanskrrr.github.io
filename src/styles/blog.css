@@ -541,16 +541,22 @@ body:has(.exhibit) { overflow-x: clip; }
 .room-stage { touch-action: pan-y; cursor: grab; }
 .room-stage.looking, .room-stage.looking .room-hotspot { cursor: grabbing; }
 .room-stage:not(.zoomed) .room-screen { transform: translate(var(--far-x, 0px), var(--far-y, 0px)); }
-.room-hotspot:hover, .room-hotspot.active { box-shadow: 0 0 0 var(--px) var(--yellow); }
+/* What can be used lights up softly (a warm pool over it) and shows a small name tag. */
+.room-hotspot::before {
+  content: ""; position: absolute; inset: -8%; pointer-events: none; opacity: 0; mix-blend-mode: screen;
+  background: radial-gradient(closest-side, rgb(255 236 170 / .2), rgb(255 236 170 / .07) 70%, transparent);
+  transition: opacity .2s steps(3);
+}
+.room-hotspot:hover::before, .room-hotspot.active::before, .room-hotspot.near::before { opacity: 1; }
+.room-hotspot:focus-visible { outline: var(--px) dashed rgb(255 236 170 / .6); outline-offset: 2px; }
 .room-tip {
-  position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
-  padding: 4px 6px; font: 16px/16px var(--pixel); white-space: nowrap;
-  color: #121133; background: var(--yellow); opacity: 0; pointer-events: none;
-  transition: opacity .12s steps(2);
+  position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%);
+  padding: 3px 6px; font: 14px/14px var(--pixel); white-space: nowrap;
+  color: var(--ink); background: var(--surface-2); box-shadow: 0 0 0 1px var(--line);
+  opacity: 0; pointer-events: none; transition: opacity .12s steps(2);
 }
 .room-hotspot:hover .room-tip, .room-hotspot:focus-visible .room-tip, .room-hotspot.near .room-tip { opacity: 1; }
 /* Walking with the keys: what the creature stands at shows its name, with the key to use it. */
-.room-hotspot.near { box-shadow: 0 0 0 var(--px) var(--yellow); }
 .room-hotspot.near .room-tip::before { content: "E · "; opacity: .6; }
 .room-legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 28px 0 24px; }
 .room-choice { font: 16px/16px var(--pixel); color: var(--muted); padding: 6px 8px; transition: color .12s steps(2), background-color .12s steps(2); }
