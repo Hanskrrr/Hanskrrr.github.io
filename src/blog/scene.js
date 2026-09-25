@@ -2,10 +2,12 @@
 // pixel scene and moved in whole pixels at a stepped 10 fps: stars twinkle, clouds
 // drift, chimney smoke rises, fireflies wander (night), a shooting star passes now
 // and then, and a tiny version of the terminal creature sometimes strolls out of
-// the cabin. Clicking the picture calls it out; the Konami code makes it dance.
+// the cabin. Clicking the picture calls it out; the Konami code makes it dance and then
+// hold up a tiny terminal board: clicking the board opens the (otherwise unlinked) terminal.
 // Seasons add falling leaves (autumn), petals (spring) or snow (winter).
 // Everything pauses while the picture is off-screen or the tab is hidden, and
 // stays still with reduced motion.
+import { navigate } from '../core/router.js';
 import { gridToPaths, SCENE_HEIGHT, SCENE_WIDTH, sceneLayout, sprite } from './pixel-art.js';
 
 const TICK = 100;
@@ -27,6 +29,12 @@ const critterFrames = {
 };
 export const CRITTER = Object.fromEntries(Object.entries(critterFrames).map(([name, rows]) => [name, sprite(rows, CRITTER_KEYS)]));
 const HEART = sprite(['h.h', 'hhh', '.h.'], { h: 'px-heart' });
+// A tiny terminal on a stick: a prompt and a blinking cursor.
+const BOARD_KEYS = { o: 'px-critter-edge', d: 'px-sky0', p: 'px-grass-light', c: 'px-window' };
+const BOARD = [
+  sprite(['ooooooo', 'opdcddo', 'ooooooo', '...o...', '...o...'], BOARD_KEYS),
+  sprite(['ooooooo', 'opddddo', 'ooooooo', '...o...', '...o...'], BOARD_KEYS),
+];
 
 function layer(svg) {
   const group = document.createElementNS(NS, 'g');
@@ -99,9 +107,11 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
   }
 
   const home = cabin.door - 3;           // critter's x when standing at the door
-  const critter = { state: 'home', wait: rand(40, 120), x: home, target: home, pause: 0, hop: 0, heart: 0, step: 0, sprite: layer(live), heartSprite: layer(live) };
+  const critter = { state: 'home', wait: rand(40, 120), x: home, target: home, pause: 0, hop: 0, heart: 0, step: 0, board: false, sprite: layer(live), heartSprite: layer(live), boardSprite: layer(live) };
   critter.sprite.hide();
   critter.heartSprite.hide();
+  critter.boardSprite.hide();
+  let boardAt = null;
 
   // --- behaviour ----------------------------------------------------------
   let tick = 0;
@@ -182,6 +192,15 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
   function drawCritter(frame) {
     const y = surface(critter.x + 3) - 5 - (critter.hop ? [0, 1, 2, 1][critter.hop % 4] : 0);
     critter.sprite.draw(CRITTER[frame], critter.x, y);
+    // After the dance, the board goes up (and the heart gives way to it).
+    if (critter.board && critter.hop === 0) {
+      boardAt = [critter.x - 1, y - 5];
+      critter.boardSprite.draw(BOARD[Math.floor(tick / 5) % 2], ...boardAt);
+      critter.heartSprite.hide();
+      return;
+    }
+    boardAt = null;
+    critter.boardSprite.hide();
     if (critter.heart > 0) critter.heartSprite.draw(HEART, critter.x + 2, y - 5 - (critter.heart < 8 ? 1 : 0));
     else critter.heartSprite.hide();
   }
@@ -195,6 +214,9 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
       case 'home':
         critter.sprite.hide();
         critter.heartSprite.hide();
+        critter.boardSprite.hide();
+        critter.board = false;
+        boardAt = null;
         if (--critter.wait <= 0) comeOut();
         return;
       case 'walk': {
@@ -217,7 +239,14 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
   }
 
   // Clicking the picture calls the critter out, or makes it hop with a heart.
-  function onClick() {
+  function onClick(event) {
+    // A click on (or right next to) the raised board opens the terminal.
+    if (boardAt) {
+      const box = svg.getBoundingClientRect();
+      const x = ((event.clientX - box.left) / box.width) * SCENE_WIDTH;
+      const y = ((event.clientY - box.top) / box.height) * SCENE_HEIGHT;
+      if (x >= boardAt[0] - 1 && x <= boardAt[0] + 8 && y >= boardAt[1] - 1 && y <= boardAt[1] + 4) return navigate('terminal');
+    }
     if (critter.state === 'home') comeOut();
     else {
       Object.assign(critter, { state: 'idle', pause: rand(30, 50), hop: 8, heart: 16 });
@@ -226,7 +255,7 @@ export function animateScene(svg, { reducedMotion = false } = {}) {
   // The Konami code (see main.js) makes it dance.
   function onDance() {
     if (critter.state === 'home') Object.assign(critter, { x: home + 10, target: home + 10 });
-    Object.assign(critter, { state: 'idle', pause: 60, hop: 48, heart: 60 });
+    Object.assign(critter, { state: 'idle', pause: 450, hop: 48, heart: 48, board: true });
   }
   const art = svg.closest('.hero-art');
   art?.addEventListener('click', onClick);

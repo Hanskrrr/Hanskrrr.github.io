@@ -5,7 +5,7 @@
 //                                    so links, search engines and readers without JavaScript see it
 //   dist/feed.xml                    RSS
 // No bundling or transpiling: browsers load the same ES modules the tests import.
-import { cp, mkdir, readdir, readFile, rm, copyFile, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { articles, topics } from '../src/content/articles.js';
@@ -26,7 +26,8 @@ await rm(output, { recursive: true, force: true });
 await cp(src, output, { recursive: true });
 await cp(pub, output, { recursive: true });
 await mkdir(join(output, 'terminal'), { recursive: true });
-await copyFile(join(src, 'index.html'), join(output, 'terminal/index.html'));
+// The terminal is a hidden extra: reachable, but kept out of search results.
+await writeFile(join(output, 'terminal/index.html'), (await readFile(join(src, 'index.html'), 'utf8')).replace('<head>', '<head>\n  <meta name="robots" content="noindex">'));
 
 const shell = await readFile(join(src, 'index.html'), 'utf8');
 for (const article of articles) {

@@ -87,7 +87,7 @@ document.addEventListener('keydown', event => {
 
 // A hello for anyone who opens the developer console.
 console.log(
-  '%c   ▘  ▝\n  ▄████▄\n ██▀██▀██\n ████████\n  ▀▀  ▀▀\n%cHi! There is a terminal at /terminal/ — try typing pet.',
+  '%c   ▘  ▝\n  ▄████▄\n ██▀██▀██\n ████████\n  ▀▀  ▀▀\n%cHi, curious one. 试试 /terminal/ ——然后输入 help。',
   'color:#b18bff;font:14px/1 monospace',
   'color:#aef0a4;font:13px monospace',
 );
