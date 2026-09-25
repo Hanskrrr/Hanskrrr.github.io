@@ -63,6 +63,7 @@
   /* Seasons and night light */
   --snow: #e8ecff; --trunk: #4a3a6e; --leaf: #2f7a53; --leaf-light: #63c27a;
   --leaf-autumn: #e8a33a; --leaf-autumn-light: #ffe98f; --blossom: #d3bfff; --blossom-light: #f4eaff; --window-off: #2e2c72;
+  --fore: #0d0b26; --fore-light: #2a2566;
 
   background: var(--bg);
   color: var(--ink);
@@ -112,6 +113,7 @@
   --room-rug: #c9b6f2; --room-rug-edge: #3c55d9; --room-rug-dot: #ffffff; --critter-shade: #b6a2ea; --critter-light: #f4eeff;
   --snow: #ffffff; --trunk: #6b4f7a; --leaf: #4aa062; --leaf-light: #8fd69a;
   --leaf-autumn: #e89a2e; --leaf-autumn-light: #ffd95e; --blossom: #c9b6f2; --blossom-light: #ffffff; --window-off: #6d84e0;
+  --fore: #3b3470; --fore-light: #5f57a3;
 }
 
 /* ---------- Base ---------- */
@@ -316,6 +318,7 @@ main:focus, main:focus-visible { outline: none; }
 .px-room-wall { fill: var(--room-wall); } .px-room-wall-dot { fill: var(--room-wall-dot); } .px-room-edge { fill: var(--room-edge); }
 .px-room-floor { fill: var(--room-floor); } .px-room-floor-line { fill: var(--room-floor-line); } .px-room-frame { fill: var(--room-frame); }
 .px-room-wood { fill: var(--room-wood); } .px-room-wood-dark { fill: var(--room-wood-dark); } .px-room-paper { fill: var(--room-paper); } .px-room-line { fill: var(--room-line); }
+.px-fore { fill: var(--fore); } .px-fore-light { fill: var(--fore-light); }
 .px-room-rug { fill: var(--room-rug); } .px-room-rug-edge { fill: var(--room-rug-edge); } .px-room-rug-dot { fill: var(--room-rug-dot); }
 .px-critter-shade { fill: var(--critter-shade); } .px-critter-light { fill: var(--critter-light); }
 .px-snow { fill: var(--snow); } .px-trunk { fill: var(--trunk); } .px-window-off { fill: var(--window-off); }
@@ -473,20 +476,43 @@ body:has(.exhibit) { overflow-x: clip; }
 .exhibit .room-stage { width: min(100vw, 1600px); margin-left: 50%; transform: translateX(-50%); box-shadow: none; }
 .room-stage::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 45% 55%, transparent 55%, rgb(8 6 30 / .35) 100%); transition: background-color .4s steps(4); }
 :root[data-theme="paper"] .room-stage::after { background: radial-gradient(ellipse at 45% 55%, transparent 60%, rgb(43 37 112 / .18) 100%); }
+/* With the lamp off the room darkens as much as the window lets it: little by day, a lot at night. */
 .room-stage.lights-off::after { background-color: rgb(8 6 30 / .4); }
+.room-stage[data-daylight="sun"].lights-off::after { background-color: rgb(8 6 30 / .12); }
+.room-stage[data-daylight="dusk"].lights-off::after { background-color: rgb(8 6 30 / .28); }
+.room-stage[data-daylight="moon"].lights-off::after { background-color: rgb(8 6 30 / .5); }
+.room-stage.projecting.lights-off::after { background-color: rgb(8 6 30 / .5); }
 .room-lamplight { fill: var(--window); opacity: .16; }
-.room-moonlight { fill: var(--moon); opacity: .08; }
-.room-sunlight { fill: var(--window); opacity: .14; }
+.room-moonlight { fill: var(--moon); opacity: .1; }
+.room-sunlight { fill: var(--window); opacity: .2; }
+.room-dusklight { fill: #ff9a4a; opacity: .18; }
+/* The shaft of window light, and dust floating in it. */
+.room-shaft { opacity: .05; } .room-shaft-sun { fill: var(--window); } .room-shaft-dusk { fill: #ffb070; } .room-shaft-moon { fill: var(--moon); opacity: .035; }
+.room-dust { fill: var(--window); opacity: .75; }
+[data-daylight="moon"] .room-dust { fill: var(--moon); opacity: .5; }
+/* Soft light over the scene: the lamp's warmth (strongest at night) and the film's flicker. */
+.room-lampglow, .room-filmglow { position: absolute; inset: 0; z-index: 1; pointer-events: none; mix-blend-mode: screen; }
+.room-lampglow { background: radial-gradient(ellipse 18% 38% at 22% 48%, rgb(255 206 130 / .45), transparent); opacity: 0; transition: opacity .3s steps(3); }
+.room-stage.lamp-on .room-lampglow { opacity: .3; }
+.room-stage.lamp-on[data-daylight="dusk"] .room-lampglow { opacity: .45; }
+.room-stage.lamp-on[data-daylight="moon"] .room-lampglow { opacity: .8; }
+.room-filmglow { background: radial-gradient(ellipse 50% 110% at 85% 15%, rgb(var(--tint, 160 180 255) / .2), transparent 75%); opacity: 0; }
+.room-stage.zoomed .room-lampglow, .room-stage.zoomed .room-filmglow { display: none; }
 .room-beam { fill: var(--room-paper); opacity: .07; }
 .room-screen-glow { fill: var(--window); }
 .px-day-sky { fill: #8fb8ff; } .px-day-sky2 { fill: #bcd6ff; }
 .px-dusk-sky { fill: #6a4fb5; } .px-dusk-sky2 { fill: #e89a6e; }
 .px-sun { fill: #ffe37a; }
 .scene-icon-label { font-family: var(--pixel); font-size: 3.2px; fill: var(--ink); stroke: var(--bg-deep); stroke-width: .7px; paint-order: stroke; }
-.room-bubble { position: absolute; z-index: 2; margin: 0; padding: 6px 10px; transform: translate(-50%, -100%); white-space: nowrap; pointer-events: none; font: 16px/16px var(--pixel); color: var(--ink); background: var(--surface-2); box-shadow: 0 0 0 var(--px) var(--line), 4px 4px 0 var(--drop); }
+.room-bubble { position: absolute; z-index: 2; margin: 0; padding: 6px 10px; transform: translate(calc(-50% + var(--mid-x, 0px)), calc(-100% + var(--mid-y, 0px))); white-space: nowrap; pointer-events: none; font: 16px/16px var(--pixel); color: var(--ink); background: var(--surface-2); box-shadow: 0 0 0 var(--px) var(--line), 4px 4px 0 var(--drop); }
 .room-bubble::after { content: ""; position: absolute; left: 50%; bottom: -9px; width: 6px; height: 6px; background: var(--line); box-shadow: 3px 3px 0 var(--line); }
 .room-scene { width: 100%; height: auto; aspect-ratio: 128 / 60; }
-.room-hotspot { position: absolute; padding: 0; cursor: pointer; background: transparent; outline-offset: 2px; }
+.room-hotspot { position: absolute; padding: 0; cursor: pointer; background: transparent; outline-offset: 2px; transform: translate(var(--mid-x, 0px), var(--mid-y, 0px)); }
+.room-hotspot[data-depth="far"] { transform: translate(var(--far-x, 0px), var(--far-y, 0px)); }
+/* Drag to look around; vertical swipes still scroll the page. */
+.room-stage { touch-action: pan-y; cursor: grab; }
+.room-stage.looking, .room-stage.looking .room-hotspot { cursor: grabbing; }
+.room-stage:not(.zoomed) .room-screen { transform: translate(var(--far-x, 0px), var(--far-y, 0px)); }
 .room-hotspot:hover, .room-hotspot.active { box-shadow: 0 0 0 var(--px) var(--yellow); }
 .room-tip {
   position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
@@ -920,6 +946,7 @@ a.tag:hover { filter: brightness(1.08); }
   --room-rug: #3b1f7a; --room-rug-edge: #c8ff4d; --room-rug-dot: #ff5fd2; --critter-shade: #b89cf0; --critter-light: #f6eeff;
   --snow: #e8e0ff; --trunk: #2d1a55; --leaf: #1f6b52; --leaf-light: #5dffb4;
   --leaf-autumn: #ff5fd2; --leaf-autumn-light: #c8ff4d; --blossom: #b77bff; --blossom-light: #efe6ff; --window-off: #1e1840;
+  --fore: #06050d; --fore-light: #2b1a55;
 }
 :root[data-theme="uv"] .hero h1, :root[data-theme="uv"] .page-intro h1, :root[data-theme="uv"] .article-page h1,
 :root[data-theme="uv"] .lost-page h1, :root[data-theme="uv"] .brand {

@@ -37,17 +37,35 @@ export function creatureGrid(pose = 'idle') {
 
 const SPINES = ['px-roof', 'px-far-light', 'px-grass', 'px-window', 'px-near-light', 'px-room-rug', 'px-heart', 'px-room-paper'];
 
-export function roomGrid({ journal = true, serials = true, photos = true, thoughts = true, timeline = true, books = true, films = true, music = true } = {}) {
+/** Which depth each clickable object sits at (the wall moves least when you look around). */
+export const HOTSPOT_DEPTH = { intro: 'far', photos: 'far', thoughts: 'far', timeline: 'far', films: 'far' };
+
+/** The whole room as one grid (the depth layers flattened). */
+export function roomGrid(available) {
+  const { far, mid } = roomLayers(available);
+  return far.map((row, y) => row.map((cell, x) => mid[y][x] || cell));
+}
+
+/**
+ * The room in depth layers, for parallax: `far` is the wall and what hangs on it (drawn a few
+ * rows past the floor line, so a shift never opens a gap), `mid` is the floor and everything
+ * standing on it, `fore` is a dark plant and chair right in front of the camera.
+ */
+export function roomLayers({ journal = true, serials = true, photos = true, thoughts = true, timeline = true, books = true, films = true, music = true } = {}) {
   const W = ROOM_WIDTH;
   const H = ROOM_HEIGHT;
-  const grid = Array.from({ length: H }, () => Array(W).fill(''));
+  const blank = () => Array.from({ length: H }, () => Array(W).fill(''));
+  const layers = { far: blank(), mid: blank(), fore: blank() };
+  let grid = layers.far;
+  const into = name => { grid = layers[name]; };
   const set = (x, y, name) => { if (x >= 0 && x < W && y >= 0 && y < H) grid[y][x] = name; };
   const rect = (x, y, w, h, name) => { for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) set(x + dx, y + dy, name); };
   const frame = (x, y, w, h, name) => { rect(x, y, w, 1, name); rect(x, y + h - 1, w, 1, name); rect(x, y, 1, h, name); rect(x + w - 1, y, 1, h, name); };
 
-  // Wall with a dotted wallpaper, baseboard, and a plank floor.
-  rect(0, 0, W, 41, 'px-room-wall');
+  // Wall with a dotted wallpaper (running on behind the floor), then the baseboard and floor.
+  rect(0, 0, W, 48, 'px-room-wall');
   for (let y = 4; y < 40; y += 8) for (let x = (y / 8) % 2 ? 8 : 4; x < W; x += 8) set(x, y, 'px-room-wall-dot');
+  into('mid');
   rect(0, 41, W, 1, 'px-room-edge');
   rect(0, 42, W, H - 42, 'px-room-floor');
   [46, 51, 56].forEach((y, row) => {
@@ -56,6 +74,7 @@ export function roomGrid({ journal = true, serials = true, photos = true, though
   });
 
   // Window: the sky follows the site theme (night or day).
+  into('far');
   rect(6, 5, 24, 20, 'px-sky1');
   rect(6, 15, 24, 10, 'px-sky2');
   for (let y = 8; y <= 14; y++) for (let x = 19; x <= 27; x++) if ((x - 23) ** 2 + (y - 11) ** 2 <= 10) set(x, y, 'px-moon');
@@ -66,6 +85,7 @@ export function roomGrid({ journal = true, serials = true, photos = true, though
   rect(4, 26, 28, 1, 'px-room-wood');
 
   // Desk with a lamp, and the journal when there are private notes.
+  into('mid');
   rect(3, 34, 32, 2, 'px-room-wood');
   rect(5, 36, 2, 9, 'px-room-wood-dark');
   rect(31, 36, 2, 9, 'px-room-wood-dark');
@@ -112,6 +132,7 @@ export function roomGrid({ journal = true, serials = true, photos = true, though
   }
 
   // Picture frame with a tiny landscape, when there are photos.
+  into('far');
   if (photos) {
     rect(59, 8, 13, 12, 'px-sky2');
     for (let x = 59; x < 72; x++) for (let y = 13 + Math.floor(Math.abs(x - 64) / 1.5); y < 20; y++) set(x, y, 'px-far');
@@ -138,6 +159,7 @@ export function roomGrid({ journal = true, serials = true, photos = true, though
 
   // Projector screen on the wall, and the projector on a stand throwing a dotted beam.
   if (films) {
+    into('far');
     rect(94, 2, 30, 1, 'px-room-edge');
     rect(95, 3, 28, 16, 'px-room-paper');
     rect(98, 5, 22, 12, 'px-sky1');
@@ -145,6 +167,7 @@ export function roomGrid({ journal = true, serials = true, photos = true, though
     for (let x = 98; x < 120; x++) for (let y = 14 + Math.floor(Math.abs(x - 106) / 3); y < 17; y++) set(x, y, 'px-near');
     [[102, 7], [113, 6], [117, 9]].forEach(([x, y]) => set(x, y, 'px-star'));
     rect(95, 19, 28, 1, 'px-room-edge');
+    into('mid');
     rect(94, 36, 10, 2, 'px-far');
     rect(95, 34, 8, 2, 'px-far-light');
     rect(102, 34, 2, 2, 'px-window');
@@ -154,6 +177,7 @@ export function roomGrid({ journal = true, serials = true, photos = true, though
   }
 
   // Jukebox: an arched cabinet with a row of lights, a record window and a grille.
+  into('mid');
   if (music) {
     for (let y = 22; y < 46; y++) {
       const inset = y < 26 ? [4, 2, 1, 0][y - 22] : 0;
@@ -174,5 +198,31 @@ export function roomGrid({ journal = true, serials = true, photos = true, though
     const d = ((x - 78) / 26) ** 2 + ((y - 51) / 5) ** 2;
     if (d <= 1) set(x, y, d > 0.8 ? 'px-room-rug-edge' : (x + y) % 6 === 0 ? 'px-room-rug-dot' : 'px-room-rug');
   }
-  return grid;
+
+  // In front of the camera: a potted plant bottom left, the back of an armchair bottom right.
+  into('fore');
+  // Leaves: tapered strokes from the pot, lit along their upper edge.
+  const leaf = (x0, y0, x1, y1) => {
+    const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const x = Math.round(x0 + (x1 - x0) * t);
+      const y = Math.round(y0 + (y1 - y0) * t);
+      const width = t > 0.15 && t < 0.8 ? 1 : 0;
+      for (let dy = -width; dy <= width; dy++) set(x, y + dy, 'px-fore');
+      set(x, y - width - 1 < y0 - steps ? y : y - width, t > 0.2 && t < 0.9 ? 'px-fore-light' : 'px-fore');
+    }
+  };
+  [[7, 53, 1, 43], [8, 53, 9, 40], [9, 53, 16, 44], [6, 53, 0, 49], [10, 53, 18, 50]].forEach(([x0, y0, x1, y1]) => leaf(x0, y0, x1, y1));
+  rect(3, 54, 11, 1, 'px-fore-light');
+  rect(4, 55, 9, H - 55, 'px-fore');
+  // The armchair: a rounded back with a cushion seam, and its arm in front.
+  rect(111, 49, W - 111, 1, 'px-fore-light');
+  rect(109, 50, W - 109, 1, 'px-fore');
+  rect(108, 51, W - 108, H - 51, 'px-fore');
+  rect(110, 50, W - 110, 1, 'px-fore-light');
+  for (let y = 53; y < H; y++) set(119, y, 'px-fore-light');
+  rect(104, 55, 5, H - 55, 'px-fore');
+  rect(104, 55, 5, 1, 'px-fore-light');
+  return layers;
 }

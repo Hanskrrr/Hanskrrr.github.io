@@ -26,6 +26,48 @@ const pixels = (points, className, dx = 0, dy = 0) =>
   points.map(([x, y]) => `<rect class="${className}" x="${x + dx}" y="${y + dy}" width="1" height="1"/>`).join('');
 const polygon = (points, className) => `<polygon class="${className}" points="${points.map(point => point.join(',')).join(' ')}"/>`;
 
+/** Convex hull of points (monotone chain), for the shaft of light between window and floor. */
+function hull(points) {
+  const sorted = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = list => list.reduce((out, point) => {
+    while (out.length >= 2 && cross(out.at(-2), out.at(-1), point) <= 0) out.pop();
+    out.push(point);
+    return out;
+  }, []);
+  const lower = half(sorted);
+  const upper = half([...sorted].reverse());
+  return [...lower.slice(0, -1), ...upper.slice(0, -1)];
+}
+const inside = (polygon, [x, y]) => polygon.reduce((hit, [x1, y1], i) => {
+  const [x2, y2] = polygon[(i + 1) % polygon.length];
+  return (y1 > y) !== (y2 > y) && x < ((x2 - x1) * (y - y1)) / (y2 - y1) + x1 ? !hit : hit;
+}, false);
+// The window's four panes on the wall (the bars between them stay dark): [x, y, w, h].
+const PANES = [[6, 5, 11, 9], [19, 5, 11, 9], [6, 15, 11, 10], [19, 15, 11, 10]];
+
+/**
+ * The window's light on the floor at a time of day: { kind: 'sun' | 'dusk' | 'moon', panes, shaft }.
+ * The sun comes from the right in the morning and the left in the evening, and reaches further
+ * into the room the lower it is; at night the moon throws a fainter, shorter patch.
+ */
+export function windowLight(hour, minute = 0) {
+  const time = hour + minute / 60;
+  const kind = time >= 7 && time < 17 ? 'sun' : (time >= 5 && time < 7) || (time >= 17 && time < 19) ? 'dusk' : 'moon';
+  let slant = 0.25, reach = 0.4;
+  if (kind !== 'moon') {
+    const day = Math.min(1, Math.max(0, (time - 5) / 14));
+    slant = 0.9 - day * 1.6;
+    reach = 0.35 + Math.abs(day - 0.5) * 0.5;
+  }
+  // A point on the wall at height h above the floor line lands h × reach into the room.
+  const project = ([x, y]) => { const h = 41 - y; return [Math.round((x + h * slant) * 10) / 10, Math.round((42 + h * reach) * 10) / 10]; };
+  const corners = ([x, y, w, h]) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+  const panes = PANES.map(pane => corners(pane).map(project));
+  const shaft = hull([...corners([6, 5, 24, 20]), ...panes.flat()]);
+  return { kind, panes, shaft };
+}
+
 export function greeting(hour) {
   if (hour < 5) return '这么晚还没睡？';
   if (hour < 11) return '早上好！';
@@ -68,11 +110,21 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
   const night = hour >= 19 || hour < 7;
   const lateNight = hour >= 23 || hour < 6;
 
-  const light = layer(art, 'room-light');
-  const sky = layer(art, 'room-sky');
-  const effects = layer(art, 'room-effects');
-  const creature = layer(art, 'room-creature');
-  const extras = layer(art, 'room-creature-extras');
+  // Wall things live in the far layer, floor things in the middle one (see room-depth.js).
+  const far = art.querySelector('.depth-far') || art;
+  const mid = art.querySelector('.depth-mid') || art;
+  const sky = layer(far, 'room-sky');
+  const farEffects = layer(far, 'room-far-effects');
+  const light = layer(mid, 'room-light');
+  const effects = layer(mid, 'room-effects');
+  const creature = layer(mid, 'room-creature');
+  const extras = layer(mid, 'room-creature-extras');
+  // Soft light over the whole scene: the lamp's warmth and the screen's flicker.
+  const lampGlow = document.createElement('div');
+  lampGlow.className = 'room-lampglow';
+  const filmGlow = document.createElement('div');
+  filmGlow.className = 'room-filmglow';
+  stage.append(lampGlow, filmGlow);
   sky.setAttribute('transform', 'translate(6 5)');
   const bubble = document.createElement('p');
   bubble.className = 'room-bubble';
@@ -83,6 +135,7 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
     x: CREATURE_AT[0], y: CREATURE_AT[1], target: null, facing: 1,
     mode: lateNight ? 'sleep' : 'idle', pose: lateNight ? 'sleep' : 'idle', until: 0,
     lamp: true, film: false, theater: false, music: false, notes: [], shooting: null, frame: 0, idleTicks: 0, heart: 0,
+    sun: windowLight(hour, date.getMinutes()), dust: [],
   };
   let bubbleTimer;
 
@@ -100,9 +153,13 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
 
   function drawLight() {
     const beam = state.film || state.theater;
+    const { kind, panes, shaft } = state.sun;
     stage.classList.toggle('lights-off', !state.lamp || state.theater);
+    stage.classList.toggle('lamp-on', state.lamp && !state.theater);
+    stage.dataset.daylight = kind;
     light.innerHTML = [
-      polygon([[8, 42], [28, 42], [40, 56], [20, 56]], night ? 'room-moonlight' : 'room-sunlight'),
+      polygon(shaft, `room-shaft room-shaft-${kind}`),
+      ...panes.map(pane => polygon(pane, `room-${kind}light`)),
       state.lamp && !state.theater ? polygon([[26, 29], [29, 29], [37, 42], [16, 42]], 'room-lamplight') : '<rect class="px-room-edge" x="26" y="28" width="4" height="1"/>',
       beam ? polygon([[102, 34], [104, 34], [122, 19], [96, 19]], 'room-beam') : '',
     ].join('');
@@ -125,10 +182,14 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
       html += Array.from({ length: 10 }, (_, i) => `<rect class="${lights[(i + Math.floor(state.frame / 3)) % 4]}" x="${110 + i}" y="24" width="1" height="1"/>`).join('');
     }
     for (const note of state.notes) html += pixels(NOTE, 'px-window', note.x, Math.round(note.y));
-    if (state.film || state.theater) {
-      html += `<rect class="room-screen-glow" x="95" y="3" width="28" height="16" opacity="${state.frame % 5 === 0 ? 0.12 : 0.22}"/>`;
-    }
+    // Dust drifting in the window's light.
+    for (const mote of state.dust) html += `<rect class="room-dust" x="${mote.x.toFixed(1)}" y="${mote.y.toFixed(1)}" width="0.6" height="0.6"/>`;
     effects.innerHTML = html;
+    const film = state.film || state.theater;
+    farEffects.innerHTML = film ? `<rect class="room-screen-glow" x="95" y="3" width="28" height="16" opacity="${state.frame % 5 === 0 ? 0.12 : 0.22}"/>` : '';
+    // The screen's light flickers over the room, a little brighter or cooler from frame to frame.
+    filmGlow.style.opacity = state.theater ? String(0.55 + ((state.frame * 7919) % 45) / 100) : '0';
+    filmGlow.style.setProperty('--tint', state.frame % 16 < 8 ? '140 170 255' : '255 214 170');
   }
   function drawCreature() {
     const flip = state.facing < 0 ? `translate(${state.x + 14} ${state.y}) scale(-1 1)` : `translate(${state.x} ${state.y})`;
@@ -156,9 +217,32 @@ export function animateRoom({ stage, art, reducedMotion = false, now = () => new
     state.idleTicks = 0;
   }
 
+  function moveDust() {
+    const { shaft, kind } = state.sun;
+    const count = kind === 'moon' ? 4 : 9;
+    const xs = shaft.map(point => point[0]);
+    const ys = shaft.map(point => point[1]);
+    const spawn = () => {
+      for (let tries = 0; tries < 20; tries++) {
+        const point = [Math.min(...xs) + Math.random() * (Math.max(...xs) - Math.min(...xs)), Math.min(...ys) + Math.random() * (Math.max(...ys) - Math.min(...ys))];
+        if (inside(shaft, point)) return { x: point[0], y: point[1], phase: Math.random() * 6 };
+      }
+      return null;
+    };
+    state.dust = state.dust.filter(mote => {
+      mote.y -= 0.04;
+      mote.x += Math.sin(state.frame / 24 + mote.phase) * 0.05;
+      return inside(shaft, [mote.x, mote.y]);
+    });
+    while (state.dust.length < count) { const mote = spawn(); if (!mote) break; state.dust.push(mote); }
+  }
+
   function step() {
     state.frame++;
     if (state.heart > 0) state.heart--;
+    // Once a minute the light follows the clock.
+    if (state.frame % 480 === 0) { const time = now(); state.sun = windowLight(time.getHours(), time.getMinutes()); drawLight(); }
+    moveDust();
     // Music: notes rise from the jukebox and the creature bounces.
     if (state.music && state.frame % 10 === 0) state.notes.push({ x: 111 + Math.floor(Math.random() * 8), y: 20, age: 0 });
     state.notes = state.notes.filter(note => { note.y -= 0.5; return ++note.age < 16; });

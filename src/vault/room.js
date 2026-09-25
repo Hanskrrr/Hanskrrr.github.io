@@ -5,10 +5,11 @@
 // (markdown-it with raw HTML off), which is authenticated by the cipher. Media is
 // decrypted lazily into blob URLs (revoked on lock); third-party players load only
 // when asked, and only from the hosts in embeds.js.
-import { svg } from '../blog/pixel-art.js';
+import { gridToPaths } from '../blog/pixel-art.js';
 import { enhance } from '../blog/rich.js';
 import { embedSize, isAllowedEmbed, toScreen } from './embeds.js';
-import { HOTSPOTS, ROOM_HEIGHT, ROOM_WIDTH, roomGrid, SCREEN } from './room-art.js';
+import { HOTSPOT_DEPTH, HOTSPOTS, ROOM_HEIGHT, ROOM_WIDTH, roomLayers, SCREEN } from './room-art.js';
+import { attachDepth } from './room-depth.js';
 import { audience, closeUp, curtains, DUST, RECORD_WINDOW } from './room-closeups.js';
 import { animateRoom } from './room-life.js';
 
@@ -51,10 +52,18 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   const stage = el('div', 'room-stage');
   // The scene and its hotspots sit in one view, so "walk up to the screen" can zoom it.
   const viewLayer = el('div', 'room-view');
-  viewLayer.innerHTML = svg(roomGrid(available), { className: 'pixel-art room-scene' });
+  // Three depth layers for looking around (room-depth.js); the wall and floor run a little past
+  // the edges so a shifted layer never shows a gap.
+  const layers = roomLayers(available);
+  const edges = (name, y, h) => `<rect class="${name}" x="-12" y="${y}" width="12" height="${h}"/><rect class="${name}" x="${ROOM_WIDTH}" y="${y}" width="12" height="${h}"/>`;
+  viewLayer.innerHTML = `<svg class="pixel-art room-scene" viewBox="0 0 ${ROOM_WIDTH} ${ROOM_HEIGHT}" shape-rendering="crispEdges" aria-hidden="true">`
+    + `<g class="depth-far">${edges('px-room-wall', -6, 54)}<rect class="px-room-wall" x="0" y="-6" width="${ROOM_WIDTH}" height="6"/>${gridToPaths(layers.far)}</g>`
+    + `<g class="depth-mid">${edges('px-room-floor', 41, 25)}${edges('px-room-edge', 41, 1)}${[46, 51, 56].map(y => edges('px-room-floor-line', y, 1)).join('')}<rect class="px-room-floor" x="0" y="${ROOM_HEIGHT}" width="${ROOM_WIDTH}" height="6"/>${gridToPaths(layers.mid)}</g>`
+    + `<g class="depth-fore">${gridToPaths(layers.fore)}</g></svg>`;
   stage.append(viewLayer);
   const art = viewLayer.querySelector('svg');
   const life = animateRoom({ stage, art, reducedMotion });
+  const depth = attachDepth({ stage, art, reducedMotion });
 
   const legend = el('div', 'room-legend');
   legend.setAttribute('role', 'toolbar');
@@ -68,6 +77,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     const hotspot = el('button', 'room-hotspot');
     hotspot.type = 'button';
     hotspot.dataset.object = name;
+    hotspot.dataset.depth = HOTSPOT_DEPTH[name] || 'mid';
     hotspot.setAttribute('aria-label', LABELS[name]);
     Object.assign(hotspot.style, { left: `${(x / ROOM_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / ROOM_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
     hotspot.append(el('span', 'room-tip', LABELS[name]));
@@ -204,6 +214,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     closeup = name === 'screen' && !projector.url ? null : name;
     const view = closeUp(closeup);
     stage.classList.toggle('zoomed', Boolean(closeup));
+    depth.enable(!closeup);
     stage.dataset.closeup = closeup || '';
     viewLayer.style.transform = closeup ? view.transform : '';
     place(screen, view.place(SCREEN));
@@ -691,6 +702,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     deck.audio.pause();
     deck.audio.removeAttribute('src');
     deck.audio.load();
+    depth.dispose();
     life.dispose();
   };
 }
