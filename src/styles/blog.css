@@ -149,7 +149,7 @@ img { image-rendering: pixelated; }
 
 /* ---------- Pixel frame: notched corners + hard drop shadow ---------- */
 .button, .style-trigger, .brand-symbol, .search-field, .filter[aria-pressed="true"], .tag,
-.hero-art, .profile-card, .project-card, .exhibit-note, .room-stage, .room-panel,
+.hero-art, .profile-card, .project-card, .room-stage, .room-panel,
 .room-photos figure, dialog, .icon-button, .count, .term-card, .return-chip {
   --fc: var(--line);
   --dc: var(--drop);
@@ -467,9 +467,10 @@ main:focus, main:focus-visible { outline: none; }
 }
 
 /* Decrypted exhibit: the creature's room (vault/room.js). Session only. */
-.exhibit { padding: 0 0 88px; max-width: 960px; margin: auto; }
-.exhibit .page-intro { padding-bottom: 24px; }
-.exhibit-note { background: var(--bg-deep); padding: 16px 20px; margin-bottom: 32px; font-size: 14px; color: var(--muted); line-height: 1.8; --d: 0px; --fc: var(--line-soft); }
+.exhibit { padding: 0 0 56px; max-width: 960px; margin: auto; }
+/* The room replaces the site layout: no header or footer, the scene starts at the very top. */
+:root[data-view="exhibit"] .site-header, :root[data-view="exhibit"] .site-footer { display: none; }
+.exhibit-leave { display: flex; justify-content: center; margin-top: 40px; }
 .room-stage { position: relative; line-height: 0; --d: 10px; overflow: hidden; }
 /* The room fills the width of the window (up to a limit) instead of sitting in a card. */
 body:has(.exhibit) { overflow-x: clip; }
