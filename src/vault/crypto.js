@@ -2,7 +2,9 @@ import { isAllowedEmbed } from './embeds.js';
 
 const ENVELOPE_VERSION = 1;
 const ITERATIONS = 600_000;
-const AAD = new TextEncoder().encode('gallery-exhibit:v1');
+// The room and its inner lock use different associated data, so one envelope can never pass as the other.
+export const ROOM_AAD = 'gallery-exhibit:v1';
+export const INNER_AAD = 'gallery-inner:v1';
 const MAX_CIPHERTEXT_BYTES = 16 * 1024 * 1024;
 const FAILURE_MESSAGE = '无法解锁内容，请检查输入后重试。';
 
@@ -42,6 +44,8 @@ const MEDIA_AAD = new TextEncoder().encode('gallery-media:v1');
  * Media is either inline { mime, data } or a separately encrypted file
  * { mime, file: 'room/<hex>.bin', key, iv, sha256? } (see decryptMedia).
  * The older { images, audio } fields are read as photos and one music item.
+ * Items behind the inner password appear as placeholders { locked: true, lock, hint? };
+ * the inner envelope carries the full items with the same `lock` id (see mergeInner).
  */
 export function readExhibit(value) {
   const fail = () => { throw new Error('Invalid content'); };
@@ -58,6 +62,19 @@ export function readExhibit(value) {
     return ref;
   };
   /** Shared fields of shelf items (books, films, music): text, links, a cover and a comment. */
+  const lockId = input => (/^[0-9a-f]{12}$/.test(input) ? input : fail());
+  const placeholder = item => {
+    const out = { locked: true, lock: lockId(item.lock) };
+    optional(item, 'hint', 200, out);
+    return out;
+  };
+  /** Each collection item is either a placeholder or read by `read`, keeping its lock id. */
+  const lockable = read => item => {
+    if (item?.locked === true) return placeholder(item);
+    const out = read(item);
+    if (item.lock !== undefined) out.lock = lockId(item.lock);
+    return out;
+  };
   const shelfItem = (item, fields) => {
     if (!item || typeof item !== 'object') fail();
     const out = { title: text(item.title, 300) };
@@ -75,21 +92,38 @@ export function readExhibit(value) {
     title: text(value.title, 300),
     intro: text(value.intro, 10_000),
     // Private vault notes also carry pre-rendered html (from scripts/publish.mjs) and a date.
-    articles: value.articles.map(article => {
+    articles: value.articles.map(lockable(article => {
       const item = { title: text(article?.title, 300), body: text(article?.body, 500_000) };
       optional(article, 'html', 4_000_000, item);
       optional(article, 'date', 40, item);
       return item;
-    }),
+    })),
+    // The note board: short dated notes.
+    thoughts: list(value.thoughts).map(lockable(thought => {
+      const item = { date: text(thought?.date, 40), html: text(thought?.html, 1_000_000) };
+      optional(thought, 'text', 100_000, item);
+      return item;
+    })),
+    // The manuscript drawer: serials with a preface and numbered chapters.
+    serials: list(value.serials, 200).map(lockable(serial => {
+      const item = { title: text(serial?.title, 300), chapters: list(serial.chapters, 1000).map(chapter => {
+        const out = { title: text(chapter?.title, 300), chapter: Number.isInteger(chapter.chapter) ? chapter.chapter : fail(), html: text(chapter.html, 4_000_000) };
+        optional(chapter, 'date', 40, out);
+        return out;
+      }) };
+      optional(serial, 'summary', 1000, item);
+      optional(serial, 'html', 1_000_000, item);
+      return item;
+    })),
     photos: [
       ...list(value.images, 200).map(item => ({ title: text(item?.title, 300), media: media(item, IMAGE_TYPES) })),
       ...list(value.photos, 500).map(item => ({ title: text(item?.title, 300), media: media(item?.media, IMAGE_TYPES) })),
     ],
-    books: list(value.books).map(item => shelfItem(item, ['author', 'year', 'shelf'])),
-    films: list(value.films).map(item => shelfItem(item, ['director', 'year', 'kind'])),
+    books: list(value.books).map(lockable(item => shelfItem(item, ['author', 'year', 'shelf']))),
+    films: list(value.films).map(lockable(item => shelfItem(item, ['director', 'year', 'kind']))),
     music: [
       ...(value.audio !== undefined ? [{ title: text(value.audio.title, 300), audio: media(value.audio, AUDIO_TYPES) }] : []),
-      ...list(value.music).map(item => shelfItem(item, ['artist', 'album', 'year'])),
+      ...list(value.music).map(lockable(item => shelfItem(item, ['artist', 'album', 'year']))),
     ],
   };
   optional(value, 'introHtml', 1_000_000, exhibit);
@@ -104,6 +138,18 @@ export function readExhibit(value) {
   return exhibit;
 }
 
+const COLLECTIONS = ['articles', 'thoughts', 'serials', 'books', 'films', 'music'];
+
+/** Replace placeholders with the inner items that share their lock id. */
+export function mergeInner(room, inner) {
+  const merged = { ...room };
+  for (const key of COLLECTIONS) {
+    const byLock = new Map((inner[key] || []).map(item => [item.lock, item]));
+    merged[key] = room[key].map(item => (item.locked && byLock.has(item.lock) ? byLock.get(item.lock) : item));
+  }
+  return merged;
+}
+
 /** Fetch and decrypt one separately encrypted media file; returns its bytes. */
 export async function decryptMedia(ref, { signal } = {}) {
   const response = await fetch(new URL(`../data/${ref.file}`, import.meta.url), { signal, credentials: 'omit' });
@@ -116,7 +162,7 @@ export async function decryptMedia(ref, { signal } = {}) {
 }
 
 /** Decrypt and validate one authenticated envelope. No password or key is retained. */
-export async function decryptPayload(envelope, passphrase) {
+export async function decryptPayload(envelope, passphrase, { aad = ROOM_AAD } = {}) {
   let plaintext;
   try {
     if (typeof passphrase !== 'string' || passphrase.length === 0 || passphrase.length > 1024) {
@@ -131,7 +177,7 @@ export async function decryptPayload(envelope, passphrase) {
       material, { name: 'AES-GCM', length: 256 }, false, ['decrypt'],
     );
     plaintext = new Uint8Array(await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv, additionalData: AAD, tagLength: 128 }, key, ciphertext,
+      { name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(aad), tagLength: 128 }, key, ciphertext,
     ));
     return readExhibit(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(plaintext)));
   } catch {
@@ -147,10 +193,10 @@ function checkAbort(signal) {
 }
 
 /** Fetch ciphertext; decryption occurs only in this browser. */
-export async function unlockExhibit(passphrase, { signal } = {}) {
+export async function unlockExhibit(passphrase, { signal, file = 'exhibit.enc.json', aad = ROOM_AAD } = {}) {
   try {
     checkAbort(signal);
-    const response = await fetch(new URL('../data/exhibit.enc.json', import.meta.url), {
+    const response = await fetch(new URL(`../data/${file}`, import.meta.url), {
       signal,
       cache: 'no-store',
       credentials: 'omit',
@@ -158,7 +204,7 @@ export async function unlockExhibit(passphrase, { signal } = {}) {
     if (!response.ok) throw new Error(FAILURE_MESSAGE);
     const envelope = await response.json();
     checkAbort(signal);
-    const exhibit = await decryptPayload(envelope, passphrase);
+    const exhibit = await decryptPayload(envelope, passphrase, { aad });
     // Web Crypto itself cannot be cancelled, so discard a late result after navigation/lock.
     checkAbort(signal);
     return exhibit;
@@ -169,3 +215,6 @@ export async function unlockExhibit(passphrase, { signal } = {}) {
     throw new Error(FAILURE_MESSAGE);
   }
 }
+
+/** The inner lock: a second envelope, opened inside the room with its own password. */
+export const unlockInner = (passphrase, options = {}) => unlockExhibit(passphrase, { ...options, file: 'inner.enc.json', aad: INNER_AAD });

@@ -2,13 +2,13 @@ import { audioTracks } from '../../content/audio.js';
 import { photoCatalog } from '../../content/photos.js';
 
 /** ~/articles/<genre>/<sub>/<id>.md, mirroring the blog's topics. */
-export const articlePath = (home, article) => `${home}/articles/${article.topic ? `${article.topic}/` : ''}${article.series ? `${article.series}/` : ''}${article.id}.md`;
+export const articlePath = (home, article) => `${home}/articles/${article.topic ? `${article.topic}/` : ''}${article.id}.md`;
 
 /**
  * A read-only catalog for the public terminal. This is an in-memory filesystem,
  * not access to the visitor's computer or a server shell.
  */
-export function createFilesystem(articles = [], { photos = photoCatalog, tracks = audioTracks, thoughts = '' } = {}) {
+export function createFilesystem(articles = [], { photos = photoCatalog, tracks = audioTracks } = {}) {
   const home = '/home/guest';
   const nodes = new Map();
   const children = new Map();
@@ -49,16 +49,15 @@ export function createFilesystem(articles = [], { photos = photoCatalog, tracks 
     ].join('\n'),
   });
   add(`${home}/about.txt`, 'file', {
-    content: 'Hanskrrr\n\n文章、随想和一些像素小实验。\n终端在浏览器内运行，只提供本站公开内容的只读目录。',
+    content: 'Hanskrrr\n\n文章和一些像素小实验。\n终端在浏览器内运行，只提供本站公开内容的只读目录。',
     action: { type: 'about' },
   });
 
-  if (thoughts) add(`${home}/thoughts.md`, 'file', { content: `# 随想\n\n${thoughts}`, action: { type: 'thoughts' } });
   for (const article of articles) {
     if (!article || typeof article.id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(article.id)) {
       throw new TypeError('Public article IDs must contain only letters, digits, underscores or hyphens.');
     }
-    if (article.topic !== undefined && !/^[a-z0-9-]+\/[a-z0-9-]+$/.test(article.topic)) throw new TypeError('Article topics look like genre/sub.');
+    if (article.topic !== undefined && !/^[a-z0-9-]+(\/[a-z0-9-]+)?$/.test(article.topic)) throw new TypeError('Article topics look like genre/sub or genre.');
     const content = [`# ${article.title}`, article.summary, article.text].filter(Boolean).join('\n\n');
     const path = articlePath(home, article);
     const missing = [];

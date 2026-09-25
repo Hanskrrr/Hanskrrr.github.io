@@ -39,7 +39,6 @@ export async function runAction(action, { log, pet }) {
     clear: () => clearOutput(),
     blog: () => navigate('blog'),
     about: () => navigate('about'),
-    thoughts: () => navigate('thoughts'),
     article: ({ id }) => navigate('article', id, { fromTerminal: true }),
     theme: ({ name }) => theme(name, log),
     photo: ({ index }) => showPhoto(index),

@@ -1,6 +1,7 @@
 // The creature's room, drawn as a 128×60 pixel grid. Objects only appear when the
 // exhibit has matching content. Pure data (no DOM) so it can be tested.
-//   window (intro) · desk + journal · bookshelf · photo frame · wall map (timeline)
+//   window (intro) · desk + journal + manuscript drawer (serials) · bookshelf · photo frame
+//   note board (thoughts) · wall map (timeline)
 //   projector + screen (films) · jukebox (music) · rug with the creature
 import { poseGrid } from '../terminal/ui/creature.js';
 
@@ -11,8 +12,10 @@ export const ROOM_HEIGHT = 60;
 export const HOTSPOTS = {
   intro: [5, 4, 26, 22],
   journal: [8, 28, 14, 6],
+  serials: [8, 36, 22, 8],
   books: [37, 9, 18, 37],
   photos: [57, 5, 17, 17],
+  thoughts: [57, 23, 18, 13],
   timeline: [77, 5, 15, 18],
   films: [94, 2, 30, 19],
   music: [106, 22, 18, 24],
@@ -31,7 +34,7 @@ export function creatureGrid(pose = 'idle') {
 
 const SPINES = ['px-roof', 'px-far-light', 'px-grass', 'px-window', 'px-near-light', 'px-room-rug', 'px-heart', 'px-room-paper'];
 
-export function roomGrid({ journal = true, photos = true, timeline = true, books = true, films = true, music = true } = {}) {
+export function roomGrid({ journal = true, serials = true, photos = true, thoughts = true, timeline = true, books = true, films = true, music = true } = {}) {
   const W = ROOM_WIDTH;
   const H = ROOM_HEIGHT;
   const grid = Array.from({ length: H }, () => Array(W).fill(''));
@@ -74,6 +77,17 @@ export function roomGrid({ journal = true, photos = true, timeline = true, books
     rect(11, 32, 6, 1, 'px-room-line');
   }
 
+  // A drawer under the desk, pulled open to show the manuscripts inside.
+  if (serials) {
+    rect(9, 36, 20, 5, 'px-room-wood-dark');
+    rect(10, 37, 18, 3, 'px-room-wood');
+    rect(18, 38, 2, 1, 'px-window');
+    rect(10, 41, 18, 2, 'px-room-wood-dark');
+    rect(11, 40, 7, 1, 'px-room-paper');
+    rect(19, 40, 8, 1, 'px-room-paper');
+    rect(12, 39, 5, 1, 'px-room-paper');
+  }
+
   // Bookshelf: four shelves of spines in varied colours and heights.
   if (books) {
     rect(38, 10, 16, 36, 'px-room-wood-dark');
@@ -101,6 +115,14 @@ export function roomGrid({ journal = true, photos = true, timeline = true, books
     rect(59, 17, 13, 3, 'px-grass');
     set(69, 10, 'px-moon');
     frame(58, 7, 15, 14, 'px-roof');
+  }
+
+  // Note board for thoughts: small pinned notes on cork.
+  if (thoughts) {
+    rect(58, 24, 16, 11, 'px-room-wood-dark');
+    rect(59, 25, 14, 9, 'px-room-wood');
+    [[60, 26, 'px-window'], [65, 27, 'px-grass-light'], [69, 26, 'px-room-paper'], [61, 30, 'px-far-light'], [66, 31, 'px-room-paper'], [70, 30, 'px-window']]
+      .forEach(([x, y, color]) => { rect(x, y, 3, 3, color); set(x + 1, y, 'px-heart'); });
   }
 
   // Wall map for the timeline: a dotted trail between markers.

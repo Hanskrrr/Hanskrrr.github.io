@@ -2,7 +2,7 @@
 // page (lockContent) aborts pending unlocks, revokes media URLs and drops the content.
 import { $, el, main, reducedMotion } from '../core/dom.js';
 import { renderView, swapPage } from '../core/router.js';
-import { decryptMedia } from './crypto.js';
+import { decryptMedia, mergeInner, unlockInner } from './crypto.js';
 import { mountRoom } from './room.js';
 
 let unlockController;
@@ -45,7 +45,21 @@ async function mediaUrl(ref) {
   mediaUrls.push(url);
   return url;
 }
-function renderExhibit() {
+/** The inner password, entered inside the room: merge the locked items and redraw the room. */
+async function openInner(passphrase, panel) {
+  const { signal } = mediaController;
+  try {
+    const inner = await unlockInner(passphrase, { signal });
+    if (signal.aborted || !decrypted) return false;
+    decrypted = mergeInner(decrypted, inner);
+    disposeRoom();
+    renderExhibit(panel);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function renderExhibit(start) {
   if (!decrypted) { renderView('terminal'); return; }
   const container = el('section','exhibit');
   const heading = el('div','page-intro');
@@ -55,7 +69,7 @@ function renderExhibit() {
   const room = el('div','room');
   container.append(room);
   main.replaceChildren(container);
-  disposeRoom = mountRoom(room, decrypted, { mediaUrl, reducedMotion: reducedMotion.matches });
+  disposeRoom = mountRoom(room, decrypted, { mediaUrl, onUnlock: openInner, start: typeof start === 'string' ? start : 'intro', reducedMotion: reducedMotion.matches });
 }
 
 export const exhibitPage = { title: '内容展示', render: renderExhibit };

@@ -26,7 +26,7 @@ export function routeFromUrl() {
   const slug = /^\/articles\/([a-z0-9-]+)\/?$/.exec(location.pathname)?.[1] ?? query.get('article');
   const article = articles.find(item => item.id === slug);
   if (article) return { view: 'article', article };
-  if (['blog', 'thoughts', 'about', 'graph'].includes(query.get('view'))) return { view: query.get('view') };
+  if (['blog', 'about', 'graph'].includes(query.get('view'))) return { view: query.get('view') };
   return { view: window.GALLERY_CONFIG.defaultView === 'terminal' ? 'terminal' : 'blog' };
 }
 export function routeUrl(nextView, articleId) {
