@@ -5,11 +5,9 @@
 //   actions.js effects for shell results (navigate, open a program, theme…)
 import { $, el, main, reducedMotion } from '../core/dom.js';
 import { app } from '../core/router.js';
-import { articleText } from '../content/article-text.js';
 import { articles } from '../content/articles.js';
 import { audioTracks } from '../content/audio.js';
 import { photoCatalog } from '../content/photos.js';
-import { unlockRoom } from '../vault/crypto.js';
 import { openExhibit, startUnlock } from '../vault/exhibit.js';
 import { runAction, showPhoto } from './actions.js';
 import { activeProgram, closeProgram, configureRuntime, handleRuntimeKeydown, refocusProgram, stopTrain } from './programs/runtime.js';
@@ -20,7 +18,18 @@ import { createIntro } from './ui/intro.js';
 import { attachLineEditor, input, setInput, syncInput } from './ui/line-editor.js';
 import { appendBlock, clearOutput, logLine, makePrompt, output, promptText } from './ui/output.js';
 
-const shell = createShell(articles.map(article => ({ ...article, text: articleText[article.id] })));
+const withText = text => articles.map(article => ({ ...article, text: text?.[article.id] }));
+let shell = createShell(withText());
+// Article bodies (the biggest file) are fetched once the terminal is on screen, never on
+// blog pages; until then cat and grep see titles and summaries.
+let textLoading;
+function loadArticleText() {
+  textLoading ??= import('../content/article-text.js').then(({ articleText }) => {
+    const cwd = shell.cwd;
+    shell = createShell(withText(articleText));
+    if (cwd !== shell.cwd) shell.execute(`cd ${JSON.stringify(cwd)}`);
+  }, () => { textLoading = undefined; });
+}
 const history = { entries: [], index: 0 };
 let snapshot;
 // While true (after `su`), the next line is a password: never echoed or kept.
@@ -97,6 +106,7 @@ function renderTerminal() {
   });
   const pets = output().querySelectorAll('.tty-pet');
   mountPet(pets[pets.length - 1]);
+  loadArticleText();
 }
 
 async function submit() {
@@ -146,6 +156,7 @@ async function trySu(candidate) {
   revealPrompt();
   let opened = false;
   try {
+    const { unlockRoom } = await import('../vault/crypto.js');
     const content = await unlockRoom(candidate, { signal: controller.signal });
     candidate = '';
     if (controller.signal.aborted || app.view !== 'terminal') return;

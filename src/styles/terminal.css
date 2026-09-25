@@ -1,10 +1,12 @@
-/* Terminus TTF 4.49.3 is bundled unmodified; see public/fonts/Terminus-COPYING.txt. */
+/* Terminus TTF 4.49.3, subset to what the terminal draws and renamed "Gallery Terminal"
+   (scripts/subset-terminal-font.py; SIL OFL, see public/fonts/Terminus-COPYING.txt).
+   Text shows at once in a fallback monospace and switches when the font arrives. */
 @font-face {
-  font-family: "Terminus";
-  src: url("../fonts/TerminusTTF-4.49.3.ttf") format("truetype");
+  font-family: "Gallery Terminal";
+  src: url("../fonts/terminal-subset.woff") format("woff");
   font-style: normal;
   font-weight: 400;
-  font-display: block;
+  font-display: swap;
 }
 
 /* The terminal is a full-page text console, independent of the blog theme. */
@@ -22,7 +24,7 @@
   --line-soft: #333;
   --shadow: none;
   --radius: 0;
-  --tty-font: "Terminus", "Noto Sans Mono CJK SC", "Sarasa Mono SC", "PingFang SC", monospace;
+  --tty-font: "Gallery Terminal", "Noto Sans Mono CJK SC", "Sarasa Mono SC", "PingFang SC", monospace;
   --tty-cell: 8px;
   --tty-user: #87cbd0;
   --tty-host: #c8afe7;

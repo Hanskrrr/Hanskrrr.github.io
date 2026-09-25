@@ -3,17 +3,13 @@
 // The sl train runs inline in the scrollback instead.
 import { $, announce, el, main, reducedMotion } from '../../core/dom.js';
 import { app } from '../../core/router.js';
-import { mount2048 } from './game-2048.js';
-import { mountGallery } from './gallery.js';
-import { mountPager } from './pager.js';
-import { mountPlayer } from './player.js';
-import { runTrain } from './train.js';
 
+// Each program's code is fetched the first time it runs, so opening the terminal stays light.
 const programs = {
-  player: { mount: mountPlayer, label: 'audio player' },
-  gallery: { mount: mountGallery, label: 'character gallery' },
-  pager: { mount: mountPager, label: 'pager' },
-  '2048': { mount: mount2048, label: '2048' },
+  player: { load: () => import('./player.js').then(module => module.mountPlayer), label: 'audio player' },
+  gallery: { load: () => import('./gallery.js').then(module => module.mountGallery), label: 'character gallery' },
+  pager: { load: () => import('./pager.js').then(module => module.mountPager), label: 'pager' },
+  '2048': { load: () => import('./game-2048.js').then(module => module.mount2048), label: '2048' },
 };
 
 let active;
@@ -45,9 +41,12 @@ export function closeProgram({ restore = true } = {}) {
   }
 }
 
-export function startProgram(name, options = {}) {
+export async function startProgram(name, options = {}) {
   const entry = programs[name];
   if (!entry || app.view !== 'terminal') return;
+  let mount;
+  try { mount = await entry.load(); } catch { hooks.onError('Could not start the program. Try again.'); return; }
+  if (app.view !== 'terminal') return;
   closeProgram({ restore: false });
   stopTrain();
   const shell = $('#main > .tty');
@@ -63,7 +62,7 @@ export function startProgram(name, options = {}) {
   main.append(container);
   window.scrollTo({ top: 0, behavior: 'instant' });
   try {
-    program.dispose = entry.mount(container, {
+    program.dispose = mount(container, {
       ...options,
       signal: program.controller.signal,
       announce,
@@ -81,6 +80,8 @@ export function startProgram(name, options = {}) {
 export function stopTrain() { train?.abort(); }
 
 export async function playTrain() {
+  const { runTrain } = await import('./train.js');
+  if (app.view !== 'terminal') return;
   const controller = new AbortController();
   stopTrain();
   train = controller;

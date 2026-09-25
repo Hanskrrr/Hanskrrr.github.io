@@ -7,7 +7,7 @@
 // No bundling or transpiling: browsers load the same ES modules the tests import.
 import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { articles, topics } from '../src/content/articles.js';
 
 const SITE = 'https://hanskrrr.github.io';
@@ -25,11 +25,27 @@ if (clash.length) throw new Error(`src/ and public/ both contain: ${clash.join('
 await rm(output, { recursive: true, force: true });
 await cp(src, output, { recursive: true });
 await cp(pub, output, { recursive: true });
+// Unbundled modules load in waves (a file's imports are only seen once it arrives). List every
+// module main.js needs up front as <link rel="modulepreload">, so they all download at once.
+// Modules loaded later with import() (room, programs, article text) are left out on purpose.
+async function startupModules(file, seen = new Set()) {
+  if (seen.has(file)) return seen;
+  seen.add(file);
+  const code = await readFile(file, 'utf8');
+  for (const [, spec] of code.matchAll(/^\s*(?:import|export)\s[^'";]*?from\s*['"](\.{1,2}\/[^'"]+)['"]/gm)) {
+    await startupModules(join(dirname(file), spec), seen);
+  }
+  return seen;
+}
+const preloads = [...await startupModules(join(src, 'main.js'))].slice(1)
+  .map(file => `<link rel="modulepreload" href="/${relative(src, file).split('\\').join('/')}">`).join('\n  ');
+const shell = (await readFile(join(src, 'index.html'), 'utf8'))
+  .replace('<script type="module" src="/main.js"></script>', match => `${preloads}\n  ${match}`);
+await writeFile(join(output, 'index.html'), shell);
 await mkdir(join(output, 'terminal'), { recursive: true });
 // The terminal is a hidden extra: reachable, but kept out of search results.
-await writeFile(join(output, 'terminal/index.html'), (await readFile(join(src, 'index.html'), 'utf8')).replace('<head>', '<head>\n  <meta name="robots" content="noindex">'));
+await writeFile(join(output, 'terminal/index.html'), shell.replace('<head>', '<head>\n  <meta name="robots" content="noindex">'));
 
-const shell = await readFile(join(src, 'index.html'), 'utf8');
 for (const article of articles) {
   const url = `${SITE}/articles/${article.id}/`;
   const [genreId, subId] = article.topic.split('/');

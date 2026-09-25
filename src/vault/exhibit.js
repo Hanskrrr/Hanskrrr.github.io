@@ -2,8 +2,8 @@
 // page (lockContent) aborts pending unlocks, revokes media URLs and drops the content.
 import { $, el, main, reducedMotion } from '../core/dom.js';
 import { renderView, swapPage } from '../core/router.js';
-import { decryptMedia, mergeInner, unlockInner } from './crypto.js';
-import { mountRoom } from './room.js';
+// The decryption code and the room itself load only when someone actually unlocks it.
+const loadCrypto = () => import('./crypto.js');
 
 let unlockController;
 let decrypted = null;
@@ -39,7 +39,7 @@ export function lockContent() {
 /** Inline media is decoded; separately encrypted files are fetched and decrypted. */
 async function mediaUrl(ref) {
   const { signal } = mediaController;
-  const bytes = ref.data !== undefined ? Uint8Array.from(atob(ref.data), character => character.charCodeAt(0)) : await decryptMedia(ref, { signal });
+  const bytes = ref.data !== undefined ? Uint8Array.from(atob(ref.data), character => character.charCodeAt(0)) : await (await loadCrypto()).decryptMedia(ref, { signal });
   if (signal.aborted) throw new DOMException('Locked', 'AbortError');
   const url = URL.createObjectURL(new Blob([bytes], { type: ref.mime }));
   mediaUrls.push(url);
@@ -49,6 +49,7 @@ async function mediaUrl(ref) {
 async function openInner(passphrase, panel) {
   const { signal } = mediaController;
   try {
+    const { mergeInner, unlockInner } = await loadCrypto();
     const inner = await unlockInner(passphrase, { signal });
     if (signal.aborted || !decrypted) return false;
     decrypted = mergeInner(decrypted, inner);
@@ -69,7 +70,12 @@ function renderExhibit(start) {
   const room = el('div','room');
   container.append(room);
   main.replaceChildren(container);
-  disposeRoom = mountRoom(room, decrypted, { mediaUrl, onUnlock: openInner, start: typeof start === 'string' ? start : 'intro', reducedMotion: reducedMotion.matches });
+  const content = decrypted;
+  import('./room.js').then(({ mountRoom }) => {
+    // Still the same unlocked room on screen (not locked or redrawn meanwhile)?
+    if (decrypted !== content || !room.isConnected) return;
+    disposeRoom = mountRoom(room, content, { mediaUrl, onUnlock: openInner, start: typeof start === 'string' ? start : 'intro', reducedMotion: reducedMotion.matches });
+  });
 }
 
 export const exhibitPage = { title: '内容展示', render: renderExhibit };

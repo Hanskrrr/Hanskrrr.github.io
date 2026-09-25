@@ -22,7 +22,13 @@
       const query = new URLSearchParams(location.search);
       const terminal = /^\/terminal\/?$/.test(location.pathname) ||
         (location.pathname === '/' && !query.has('view') && !query.has('article') && config.defaultView === 'terminal');
-      if (terminal) root.dataset.view = 'terminal';
+      if (terminal) {
+        root.dataset.view = 'terminal';
+        // Fetch the terminal font alongside the stylesheets instead of after them.
+        const font = document.createElement('link');
+        Object.assign(font, { rel: 'preload', as: 'font', type: 'font/woff', crossOrigin: 'anonymous', href: '/fonts/terminal-subset.woff' });
+        document.head.append(font);
+      }
     })();
   </script>
   <link rel="stylesheet" href="/styles/blog.css">
