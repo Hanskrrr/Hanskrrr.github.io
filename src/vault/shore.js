@@ -1,12 +1,14 @@
 // The shore (shore-level.js), where an address that doesn't exist leads when it is typed from inside
 // the pixel world (blog/lost.js decides). No words and no music: the sea comes up the sand and breaks
 // on the rocks, mist drifts past, and the only sound is the waves. In the far corner is a way out,
-// drawn not in pixels but as something with more dimensions than the rest: a flickering fractal of
-// dimension 6.7 (below); walking into it leads back to the blog.
+// drawn not in pixels but as something with more dimensions than the rest: a tear in the world onto a
+// slice of a fractal of dimension 6.7 (rift.js; without WebGL, the older point cloud below). Walking
+// into it leads back to the blog.
 import { CRITTER } from '../blog/pixel-art.js';
 import { el } from '../core/dom.js';
 import { BOX, createGame, H, W } from './world-level.js';
 import { palette, paint } from './world.js';
+import { createRift } from './rift.js';
 import { buildShore, SHORE, SPLASH, SURFACE, TUNNEL } from './shore-level.js';
 
 const KEYS = { ArrowLeft: -1, a: -1, A: -1, ArrowRight: 1, d: 1, D: 1 };
@@ -15,11 +17,15 @@ const KEYS = { ArrowLeft: -1, a: -1, A: -1, ArrowRight: 1, d: 1, D: 1 };
 function waves() {
   let ctx = null;
   let master;
+  let muffler;
   const build = () => {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     master = ctx.createGain();
     master.gain.value = 0;
-    master.connect(ctx.destination);
+    muffler = ctx.createBiquadFilter();
+    muffler.type = 'lowpass';
+    muffler.frequency.value = 18000;
+    master.connect(muffler).connect(ctx.destination);
     master.gain.linearRampToValueAtTime(0.9, ctx.currentTime + 3);
     const noise = ctx.createBuffer(1, ctx.sampleRate * 3, ctx.sampleRate);
     const data = noise.getChannelData(0);
@@ -71,6 +77,10 @@ function waves() {
       thud.start(now);
       thud.stop(now + 0.4);
     },
+    /** From 0 (clear) to 1 (as if from under water). */
+    muffle(amount) { if (ctx) muffler.frequency.setTargetAtTime(18000 * (250 / 18000) ** amount, ctx.currentTime, 0.15); },
+    /** Fade to silence. */
+    hush(seconds) { if (ctx) { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(master.gain.value, ctx.currentTime); master.gain.linearRampToValueAtTime(0, ctx.currentTime + seconds); } },
     stop() { if (ctx) { master.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.6); const c = ctx; setTimeout(() => c.close?.(), 800); ctx = null; } },
   };
 }
@@ -120,8 +130,12 @@ export function mountShore(page) {
   before.height = H;
   const glass = el('canvas', 'shore-glass');                 // the tunnel, drawn at full resolution
   glass.setAttribute('aria-hidden', 'true');
-  const g = glass.getContext('2d');
-  stage.append(canvas, glass);
+  const riftCanvas = el('canvas', 'shore-glass');
+  riftCanvas.setAttribute('aria-hidden', 'true');
+  const rift = createRift(riftCanvas);
+  const g = rift ? null : glass.getContext('2d');
+  stage.append(canvas, rift ? riftCanvas : glass);
+  const LEAVE = rift ? 2.4 : 1.6;
   const pad = el('div', 'world-pad');
   pad.innerHTML = '<button class="button" data-pad="-1" aria-label="←">◀</button><button class="button" data-pad="jump" aria-label="↑">▲</button><button class="button" data-pad="1" aria-label="→">▶</button>';
   page.classList.add('shore-page');
@@ -288,10 +302,11 @@ export function mountShore(page) {
       if (event.type === 'room' && !still) { before.getContext('2d').drawImage(canvas, 0, 0); slide = { dx: event.dx, t: 0 }; }
       if (event.type === 'exit' && !leaving) {
         leaving = { t: 0 };
+        sound.hush(LEAVE * 0.8);
         try { sessionStorage.removeItem('gallery-shore'); } catch { /* nothing to forget */ }
       }
     }
-    if (leaving) { leaving.t += dt; if (leaving.t > 1.6) { location.href = '/'; return; } }
+    if (leaving) { leaving.t += dt; if (leaving.t > LEAVE) { location.href = '/'; return; } }
     const room = p.room;
     const art = layerOf(room);
     ctx.clearRect(0, 0, W, H);
@@ -320,7 +335,14 @@ export function mountShore(page) {
       view.clearRect(0, 0, W, H);
       view.drawImage(frame, 0, 0);
     }
-    drawTunnel(t, dt);
+    const near = Math.max(0, 1 - Math.hypot(p.x + BOX[0] / 2 - TUNNEL.x, p.y - TUNNEL.y) / 110);
+    if (!leaving) sound.muffle(p.room.key === TUNNEL.key ? near * 0.55 : 0);
+    if (!rift) drawTunnel(t, dt);
+    else if ((riftCanvas.hidden = p.room.key !== TUNNEL.key || Boolean(slide)) === false) {
+      const pull = leaving ? Math.min(1, leaving.t / 2) : 0;
+      const white = leaving ? Math.min(1, Math.max(0, (leaving.t - 1.75) / 0.55)) : 0;
+      rift.draw({ scene: canvas, x: TUNNEL.x, y: TUNNEL.y, near, pull, white, t, dt, cam: Math.max(-1, Math.min(1, (p.x - TUNNEL.x) / 80)), still });
+    }
     raf = requestAnimationFrame(tick);
   });
 
