@@ -86,12 +86,12 @@ function roomR(next) {
   // Sand, down into the sea.
   const top = x => (x < 150 ? 118 + Math.round(noise(x, 0, 14, 204) * 2) : Math.min(123, 118 + Math.round((x - 150) / 11)));
   for (let x = 0; x < 222; x++) { const t = top(x); for (let y = t; y < H; y++) c.set(x, y, sand(x, y, y - t, x > 146)); }
-  // Rocks where the waves break, and under the water beyond them.
+  // A headland of rock where the waves break, running on to the edge (nothing to fall behind).
   for (let x = 204; x < W; x++) {
-    const t = x < 226 ? 100 + Math.round(Math.abs(x - 214) * 0.9 + noise(x, 0, 4, 205) * 3) : 126 + Math.round(noise(x, 0, 6, 206) * 3);
+    const t = x < 214 ? 100 + Math.round((214 - x) * 0.9 + noise(x, 0, 4, 205) * 3) : 100 - Math.round((x - 214) * 0.35 - noise(x, 0, 5, 206) * 4);
     for (let y = t; y < H; y++) c.set(x, y, stone(x, y, y === t));
   }
-  [[168, 2], [186, 3]].forEach(([x, h]) => { for (let dx = 0; dx < 4; dx++) for (let y = top(x + dx) - h; y < top(x + dx); y++) c.set(x + dx, y, stone(x + dx, y, y === top(x + dx) - h)); });
+  [[168, 2], [186, 2]].forEach(([x, h]) => { for (let dx = 0; dx < 4; dx++) for (let y = top(x + dx) - h; y < top(x + dx); y++) c.set(x + dx, y, stone(x + dx, y, y === top(x + dx) - h)); });
   // Pebbles and a line of dry seaweed.
   c.on('back');
   for (let x = 6; x < 146; x += 3 + Math.floor(next() * 7)) c.paint(x, top(x) - 1, next() < 0.5 ? 'px-sky1' : 'px-near');

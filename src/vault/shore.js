@@ -1,8 +1,8 @@
 // The shore (shore-level.js), where an address that doesn't exist leads when it is typed from inside
 // the pixel world (blog/lost.js decides). No words and no music: the sea comes up the sand and breaks
 // on the rocks, mist drifts past, and the only sound is the waves. In the far corner is a way out,
-// drawn not in pixels but as something from more dimensions than the rest (a turning tesseract);
-// walking into it leads back to the blog.
+// drawn not in pixels but as something with more dimensions than the rest: a flickering fractal of
+// dimension 6.7 (below); walking into it leads back to the blog.
 import { CRITTER } from '../blog/pixel-art.js';
 import { el } from '../core/dom.js';
 import { BOX, createGame, H, W } from './world-level.js';
@@ -75,20 +75,27 @@ function waves() {
   };
 }
 
-// A tesseract: 16 corners of a 4-cube, edges between corners that differ in one coordinate.
-const CORNERS = Array.from({ length: 16 }, (_, i) => [i & 1 ? 1 : -1, i & 2 ? 1 : -1, i & 4 ? 1 : -1, i & 8 ? 1 : -1]);
-const EDGES = [];
-for (let a = 0; a < 16; a++) for (let b = a + 1; b < 16; b++) if ([1, 2, 4, 8].includes(a ^ b)) EDGES.push([a, b]);
-function project([x, y, z, w], t) {
-  const rot = (u, v, angle) => [u * Math.cos(angle) - v * Math.sin(angle), u * Math.sin(angle) + v * Math.cos(angle)];
-  [x, w] = rot(x, w, t * 0.7);
-  [y, z] = rot(y, z, t * 0.45);
-  [z, w] = rot(z, w, t * 0.3);
-  const k = 1 / (2.4 - w);
-  [x, y, z] = [x * k, y * k, z * k];
-  const k2 = 1 / (2.2 - z);
-  return [x * k2, y * k2];
-}
+// The way out: a fractal of dimension 6.7. Eight maps in seven dimensions, each shrinking everything
+// towards one corner of a seven-dimensional simplex by 0.733, have similarity dimension
+// log 8 / log(1 / 0.733) ≈ 6.7. Its points are found by the chaos game, the whole shape turns slowly
+// through seven dimensions, and what shows is its shadow on the screen, flickering.
+const DIM = 7;
+const MAPS = 8;
+const RATIO = 0.733;
+const CORNERS = (() => {
+  // Eight corners of a regular 7-simplex: the unit vectors of 8 dimensions, centred and turned into 7.
+  const rows = Array.from({ length: MAPS }, (_, i) => Array.from({ length: MAPS }, (_, j) => (i === j ? 1 : 0) - 1 / MAPS));
+  const basis = [];
+  for (let k = 0; k < DIM; k++) {                           // Gram–Schmidt on differences of the corners
+    let v = rows[k + 1].map((x, j) => x - rows[0][j]);
+    for (const b of basis) { const d = v.reduce((sum, x, j) => sum + x * b[j], 0); v = v.map((x, j) => x - d * b[j]); }
+    const n = Math.hypot(...v);
+    basis.push(v.map(x => x / n));
+  }
+  return rows.map(row => basis.map(b => row.reduce((sum, x, j) => sum + x * b[j], 0) * 1.6));
+})();
+// Planes to turn in, each at its own speed: (axis a, axis b, speed).
+const TURNS = [[0, 3, 0.31], [1, 4, 0.23], [2, 5, 0.17], [0, 6, 0.13], [3, 5, 0.29], [1, 2, 0.11], [4, 6, 0.19]];
 
 export function mountShore(page) {
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -206,50 +213,65 @@ export function mountShore(page) {
     ctx.globalAlpha = 1;
   }
 
-  // The tunnel: a tesseract turning in the mouth of the cave, pulling faint light into itself.
+  // The tunnel: the fractal's shadow in the mouth of the cave, pulling faint light into itself.
   const motes = Array.from({ length: 40 }, () => ({ a: rand(0, Math.PI * 2), d: rand(0.2, 1), s: rand(0.2, 0.6) }));
+  let point = Array(DIM).fill(0);
+  let glitch = 0;
   function drawTunnel(t, dt) {
-    g.clearRect(0, 0, glass.width, glass.height);
-    if (p.room.key !== TUNNEL.key || slide) return;
+    if (p.room.key !== TUNNEL.key || slide) { g.clearRect(0, 0, glass.width, glass.height); return; }
     const px = glass.width / W;
     const cx = TUNNEL.x * px;
     const cy = TUNNEL.y * px;
     const near = Math.max(0, 1 - Math.hypot(p.x + BOX[0] / 2 - TUNNEL.x, p.y - TUNNEL.y) / 110);
     const pull = leaving ? Math.min(1, leaving.t / 1.4) : 0;
-    const size = px * (15 + near * 3 + pull * 60);
-    const spin = t * (0.6 + near * 1.2 + pull * 5);
-    g.save();
+    const size = px * (11 + near * 3 + pull * 60);
+    // Let the last frames fade rather than vanish: it shimmers instead of redrawing cleanly.
+    g.globalCompositeOperation = 'destination-out';
+    g.fillStyle = `rgba(0,0,0,${still ? 1 : 0.35})`;
+    g.fillRect(0, 0, glass.width, glass.height);
     g.globalCompositeOperation = 'lighter';
-    // A soft light, as if the cave went somewhere brighter.
-    const halo = g.createRadialGradient(cx, cy, 0, cx, cy, size * 1.9);
-    halo.addColorStop(0, `hsla(${(t * 30) % 360}, 90%, 70%, ${0.18 + near * 0.12 + pull * 0.5})`);
+    const halo = g.createRadialGradient(cx, cy, 0, cx, cy, size * 2.4);
+    halo.addColorStop(0, `hsla(${(t * 23) % 360}, 80%, 65%, ${0.05 + near * 0.05 + pull * 0.3})`);
     halo.addColorStop(1, 'hsla(0, 0%, 0%, 0)');
     g.fillStyle = halo;
-    g.fillRect(cx - size * 2, cy - size * 2, size * 4, size * 4);
-    const points = CORNERS.map(corner => project(corner, spin)).map(([x, y]) => [cx + x * size * 1.6, cy + y * size * 1.6]);
-    // Each edge twice: a wide faint glow, then a thin bright line.
-    EDGES.forEach(([a, b], i) => {
-      const hue = (t * 40 + i * 11) % 360;
-      g.beginPath();
-      g.moveTo(points[a][0], points[a][1]);
-      g.lineTo(points[b][0], points[b][1]);
-      g.lineWidth = px * 0.9;
-      g.strokeStyle = `hsla(${hue}, 95%, 60%, ${0.1 + near * 0.08})`;
-      g.stroke();
-      g.lineWidth = Math.max(1, px * 0.18);
-      g.strokeStyle = `hsla(${hue}, 95%, ${62 + near * 12}%, ${0.55 + near * 0.3})`;
-      g.stroke();
-    });
+    g.fillRect(cx - size * 3, cy - size * 3, size * 6, size * 6);
+    // Now and then it flickers: a dropped frame, a slice slipping sideways, the colours jumping.
+    if (!still && Math.random() < 0.05 + near * 0.06) glitch = Math.floor(rand(1, 5));
+    const skip = glitch > 0 && Math.random() < 0.5;
+    const slip = glitch > 0 ? rand(-1, 1) * size * 0.4 : 0;
+    const band = glitch > 0 ? [rand(-1, 1) * size, rand(0.1, 0.5) * size] : null;
+    const shift = glitch > 0 ? rand(40, 160) : 0;
+    if (glitch > 0) glitch--;
+    if (!skip) {
+      const angles = TURNS.map(([, , speed], i) => t * speed * (1 + near * 1.5 + pull * 4) + i);
+      const cos = angles.map(Math.cos);
+      const sin = angles.map(Math.sin);
+      const count = 900 + Math.round(near * 900);
+      const dot = Math.max(1, px * 0.22);
+      for (let n = 0; n < count; n++) {
+        const k = Math.floor(Math.random() * MAPS);
+        const corner = CORNERS[k];
+        for (let d = 0; d < DIM; d++) point[d] = point[d] * RATIO + corner[d] * (1 - RATIO);
+        const v = point.slice();
+        TURNS.forEach(([a, b], i) => { const va = v[a]; const vb = v[b]; v[a] = va * cos[i] - vb * sin[i]; v[b] = va * sin[i] + vb * cos[i]; });
+        const depth = 1 / (2.6 - v[2] * 0.5 - v[3] * 0.3);
+        let x = cx + v[0] * size * depth * 1.4;
+        const y = cy + v[1] * size * depth * 1.4;
+        if (band && Math.abs(y - cy - band[0]) < band[1]) x += slip;
+        g.fillStyle = `hsla(${(t * 50 + k * 45 + shift) % 360}, 90%, ${55 + depth * 18}%, ${0.25 + near * 0.25})`;
+        g.fillRect(x, y, dot, dot);
+      }
+    }
     // Motes drawn in, faster when the creature is near.
     for (const mote of motes) {
       mote.d -= dt * mote.s * (0.3 + near * 1.4 + pull * 3);
       mote.a += dt * (1 + near);
       if (mote.d < 0.05) { mote.d = 1; mote.a = rand(0, Math.PI * 2); }
-      const r = mote.d * size * 2.6;
-      g.fillStyle = `hsla(${(t * 60 + mote.a * 57) % 360}, 90%, 75%, ${0.2 + (1 - mote.d) * 0.6})`;
-      g.fillRect(cx + Math.cos(mote.a) * r, cy + Math.sin(mote.a) * r * 0.8, px * 0.35, px * 0.35);
+      const r = mote.d * size * 3;
+      g.fillStyle = `hsla(${(t * 60 + mote.a * 57) % 360}, 90%, 75%, ${0.15 + (1 - mote.d) * 0.5})`;
+      g.fillRect(cx + Math.cos(mote.a) * r, cy + Math.sin(mote.a) * r * 0.8, px * 0.3, px * 0.3);
     }
-    g.restore();
+    g.globalCompositeOperation = 'source-over';
     if (pull > 0) { g.fillStyle = `rgba(255,255,255,${pull ** 3})`; g.fillRect(0, 0, glass.width, glass.height); }
   }
 
