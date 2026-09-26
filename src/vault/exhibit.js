@@ -119,7 +119,7 @@ function renderExhibit(start) {
 
 export const exhibitPage = { title: '内容展示', render: renderExhibit };
 
-/** The pixel world west of the homepage picture, with the letter at its far end. */
+/** The world inside the homepage picture, with the letter at its end. */
 function renderWorld() {
   if (!decrypted) { renderView('blog'); return; }
   const container = el('section', 'world-page');
@@ -131,7 +131,7 @@ function renderWorld() {
   const content = decrypted;
   import('./world.js').then(({ mountWorld }) => {
     if (decrypted !== content || !stage.isConnected) return;
-    disposeRoom = mountWorld(stage, { letter: content.letter, onLeave: toPicture });
+    disposeRoom = mountWorld(stage, { letter: content.letter, onLeave: toPicture, session: content });
   });
 }
 export const worldPage = { title: '像素世界', render: renderWorld };

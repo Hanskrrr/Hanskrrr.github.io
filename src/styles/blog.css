@@ -149,7 +149,7 @@ img { image-rendering: pixelated; }
 
 /* ---------- Pixel frame: notched corners + hard drop shadow ---------- */
 .button, .style-trigger, .brand-symbol, .search-field, .filter[aria-pressed="true"], .tag,
-.hero-art, .profile-card, .project-card, .room-stage, .room-panel,
+.hero-art, .world-stage, .profile-card, .project-card, .room-stage, .room-panel,
 .room-photos figure, dialog, .icon-button, .count, .term-card, .return-chip {
   --fc: var(--line);
   --dc: var(--drop);
@@ -471,13 +471,16 @@ main:focus, main:focus-visible { outline: none; }
 /* The room replaces the site layout: no header or footer, the scene starts at the very top. */
 :root[data-view="exhibit"] .site-header, :root[data-view="exhibit"] .site-footer { display: none; }
 .exhibit-leave { display: flex; justify-content: center; margin-top: 40px; }
-/* The pixel world (vault/world.js): like the room, a scene of its own across the window. */
+/* The world inside the picture (vault/world.js): one screen, framed and shaped like the picture. */
 :root[data-view="world"] .site-header, :root[data-view="world"] .site-footer { display: none; }
-body:has(.world-page) { overflow-x: clip; }
-.world-stage { position: relative; width: min(100vw, 1600px); margin-left: 50%; transform: translateX(-50%); overflow: hidden; line-height: 0; }
-.world-scene { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; }
-.world-say { font-size: 3.6px; }
-.world-land .px-window.world-light { filter: drop-shadow(0 0 1px var(--window)); }
+.world-stage { position: relative; width: min(100%, 960px, calc((100dvh - 190px) * 1.5)); aspect-ratio: 3 / 2; margin: 32px auto 0; overflow: hidden; line-height: 0; background: var(--sky3); --d: 8px; }
+.world-scene { display: block; width: 100%; height: 100%; }
+.world-say { font-size: 3.4px; }
+.world-z { font-size: 2.6px; }
+.w-dark { fill: #05041a; opacity: .97; }
+.world-hud { display: flex; justify-content: center; gap: 14px; margin-top: 20px; }
+.world-slot { width: 30px; height: 30px; padding: 5px; background: var(--bg-deep); box-shadow: 0 0 0 var(--px) var(--line); opacity: .25; filter: grayscale(1); transition: opacity .3s steps(3); }
+.world-slot.found { opacity: 1; filter: none; }
 .world-pad { display: none; }
 @media (pointer: coarse) {
   .world-pad { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px 0; line-height: normal; }

@@ -1,42 +1,61 @@
-// The pixel world (world-level.js), played: the homepage critter as a small platformer.
-// ←/→ or A/D walk, ↑/W/Space jump (a little higher than on the homepage), E/Enter opens the letter
-// again; on touch screens three buttons do the same. Walking back off the right end returns to the
-// homepage picture (onLeave). Reaching the letter opens it: the letter comes from the room's own
-// encrypted content (room/letter.md in the vault), so it exists only once the room is unlocked.
+// The world inside the homepage picture (world-level.js), drawn one screen at a time in a frame
+// shaped like the picture. ←/→ or A/D walk, ↑/W/Space jump, E/Enter reads the letter again; touch
+// screens get three buttons. Walking back off the first screen's right edge returns to the
+// picture (onLeave). What has been found stays found until the page is reloaded or the room
+// is locked. The letter comes from the room's encrypted content (room/letter.md in the vault).
 import { gridToPaths, sprite } from '../blog/pixel-art.js';
 import { CRITTER } from '../blog/scene.js';
 import { el } from '../core/dom.js';
-import { buildWorld, HEIGHT, PARALLAX, VIEW, WIDTH } from './world-level.js';
+import { BOX, buildWorld, createGame, H, ITEMS, newProgress, W } from './world-level.js';
 
-const SPEED = 24;        // pixels per second
-const GRAVITY = 260;
-const JUMP = 74;         // about 10 pixels high
-const COYOTE = 0.1;      // a jump still counts this long after walking off an edge
-const BUFFER = 0.12;     // and this long before landing
-const BOX = [6, 5];
-const LANTERN = ['.c.', 'lll', 'lll', '.t.', '.t.', '.t.', '.t.'];
-const ENVELOPE = sprite(['ooooooooo', 'oSmmmmmSo', 'omSmmmSmo', 'ommShSmmo', 'ommmmmmmo', 'ooooooooo'], { o: 'px-moon-shade', m: 'px-moon', S: 'px-moon-shade', h: 'px-heart' });
+const SPRITES = {
+  lantern: sprite(['.h.', 'oLo', 'oLo', 'ooo'], { h: 'px-far-light', o: 'px-trunk', L: 'px-window' }),
+  seed: sprite(['.g.', 'gGg', '.g.'], { g: 'px-grass-light', G: 'px-flower' }),
+  key: sprite(['mm...', 'm.mmm', 'mm.m.'], { m: 'px-moon' }),
+  letter: sprite(['ooooooooo', 'oSmmmmmSo', 'omSmmmSmo', 'ommShSmmo', 'ommmmmmmo', 'ooooooooo'], { o: 'px-moon-shade', m: 'px-moon', S: 'px-moon-shade', h: 'px-heart' }),
+};
+const NAMES = { lantern: '灯', seed: '种子', key: '钥匙' };
 const KEYS = { ArrowLeft: -1, a: -1, A: -1, ArrowRight: 1, d: 1, D: 1 };
+const at = (grid, x, y) => `<g transform="translate(${x} ${y})">${gridToPaths(grid)}</g>`;
+const icon = grid => `<svg class="pixel-art" viewBox="0 0 ${grid[0].length} ${grid.length}" shape-rendering="crispEdges" aria-hidden="true">${gridToPaths(grid)}</svg>`;
 
-export function mountWorld(stage, { letter, onLeave }) {
+let saved = { session: null, progress: null };
+
+export function mountWorld(stage, { letter, onLeave, session = null }) {
+  if (saved.session !== session) saved = { session, progress: newProgress() };
+  const progress = saved.progress;
   const world = buildWorld();
-  const lanterns = world.checkpoints.map(({ x, y }) => `<g transform="translate(${x - 1} ${y})">${gridToPaths(sprite(LANTERN, { c: 'px-trunk', l: 'px-window-off world-light', t: 'px-trunk' }))}</g>`).join('');
-  const L = world.letter;
-  stage.innerHTML = `<svg class="pixel-art world-scene" viewBox="0 0 ${VIEW} ${HEIGHT}" shape-rendering="crispEdges" aria-hidden="true">`
-    + `<rect class="px-sky3" width="${VIEW}" height="${HEIGHT}"/>${gridToPaths(world.sky)}`
-    + `<g class="world-far">${gridToPaths(world.far)}</g><g class="world-near">${gridToPaths(world.near)}</g>`
-    + `<g class="world-land">${gridToPaths(world.land)}${lanterns}<g transform="translate(${L.x} ${L.y})">${gridToPaths(ENVELOPE)}</g><rect class="px-twinkle world-sparkle" x="${L.x + 4}" y="${L.y - 3}" width="1" height="1"/></g>`
-    + '<g class="world-critter"></g><text class="scene-icon-label world-say" text-anchor="middle"></text></svg>'
-    + '<p class="room-hint">←/→ 走 · ↑ 跳</p>'
-    + '<div class="world-pad"><button class="button" data-pad="-1" aria-label="向左">◀</button><button class="button" data-pad="jump" aria-label="跳">▲</button><button class="button" data-pad="1" aria-label="向右">▶</button></div>';
-  const $ = selector => stage.querySelector(selector);
-  const layers = { far: $('.world-far'), near: $('.world-near'), land: $('.world-land') };
-  const body = $('.world-critter');
-  const bubble = $('.world-say');
-  const sparkle = $('.world-sparkle');
-  const lights = [...stage.querySelectorAll('.world-light')];
+  const game = createGame(world, progress);
+  const { p } = game;
 
-  // The letter, over the page (the stage is too small for it on a phone).
+  stage.innerHTML = `<svg class="pixel-art world-scene" viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges" aria-hidden="true">`
+    + '<defs><radialGradient id="w-hole"><stop offset="0" stop-color="#000"/><stop offset=".45" stop-color="#000"/><stop offset=".8" stop-color="#000" stop-opacity=".45"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>'
+    + `<mask id="w-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="#fff"/><g class="w-holes"></g></mask></defs>`
+    + '<g class="w-room"></g><g class="w-dyn"></g><g class="w-critter"></g>'
+    + `<rect class="w-dark" width="${W}" height="${H}" mask="url(#w-mask)"/>`
+    + '<text class="scene-icon-label world-say" text-anchor="middle"></text></svg>'
+    + '<p class="room-hint">←/→ 走 · ↑ 跳</p>';
+  const $ = selector => stage.querySelector(selector);
+  const roomLayer = $('.w-room');
+  const dynLayer = $('.w-dyn');
+  const body = $('.w-critter');
+  const dark = $('.w-dark');
+  const holes = $('.w-holes');
+  const bubble = $('.world-say');
+
+  // Below the frame: what has been found, and (on touch screens) the buttons.
+  const hud = el('div', 'world-hud');
+  hud.setAttribute('aria-label', '找到的东西');
+  const slots = Object.fromEntries(ITEMS.map(id => {
+    const slot = el('span', 'world-slot');
+    slot.innerHTML = icon(SPRITES[id]);
+    slot.title = NAMES[id];
+    hud.append(slot);
+    return [id, slot];
+  }));
+  const pad = el('div', 'world-pad');
+  pad.innerHTML = '<button class="button" data-pad="-1" aria-label="向左">◀</button><button class="button" data-pad="jump" aria-label="跳">▲</button><button class="button" data-pad="1" aria-label="向右">▶</button>';
+  // The letter, over the page.
   const panel = el('div', 'world-letter');
   panel.hidden = true;
   panel.setAttribute('role', 'dialog');
@@ -49,129 +68,119 @@ export function mountWorld(stage, { letter, onLeave }) {
   const close = el('button', 'button', '收好信');
   paper.append(text, el('p', 'world-letter-end', '— 未完待续 —'), close);
   panel.append(paper);
-  stage.after(panel);
+  stage.after(hud, pad, panel);
 
-  // --- the creature -----------------------------------------------------------------------
-  const hits = (x, y) => {
-    for (let dy = 0; dy < BOX[1]; dy++) for (let dx = 0; dx < BOX[0]; dx++) {
-      const X = x + dx;
-      const Y = y + dy;
-      if (X < 0 || X >= WIDTH) return true;
-      if (Y >= 0 && Y < HEIGHT && world.solid[Y * WIDTH + X]) return true;
-    }
-    return false;
+  // --- drawing ------------------------------------------------------------------------------
+  let grow = progress.planted ? 1 : 0;      // the vine, growing (0 → 1)
+  let lift = progress.gateOpen ? 24 : 0;    // the gate's bars, rising (0 → 24)
+  const drawRoom = () => {
+    roomLayer.innerHTML = gridToPaths(p.room.cells);
+    dark.style.display = p.room.dark ? '' : 'none';
+    ITEMS.forEach(id => slots[id].classList.toggle('found', progress[id]));
   };
-  const standAt = x => { for (let y = 0; y < HEIGHT; y++) if (!hits(x, y) && hits(x, y + 1)) return y; return 0; };   // on the first thing below
-  const s = { x: WIDTH - BOX[0], y: 0, fx: 0, fy: 0, vy: 0, face: -1, ground: true, coyote: 0, buffer: 0, clock: 0 };
-  s.y = standAt(s.x);
-  let spawn = world.checkpoints[0];
-  let auto = -1;           // walking in by itself
-  let held = 0;
-  let reading = false;
-  let readOnce = false;
-  let wondered = false;
-  let gone = false;
-  let cam = WIDTH - VIEW;
-  let sayUntil = 0;
+  function drawDyn(now) {
+    const bob = Math.floor(now / 500) % 2;
+    let out = '';
+    for (const dyn of p.room.dyn) {
+      if (dyn.kind === 'vine' && grow > 0) {
+        const [sx, top, bottom] = dyn.stem;
+        const reach = bottom - (bottom - top) * (p.room.key === '2,0' ? Math.min(1, grow * 1.6) : Math.max(0, grow * 1.6 - 0.6) / 1);
+        out += `<rect class="px-grass" x="${sx}" y="${Math.round(reach)}" width="1" height="${bottom - Math.round(reach)}"/>`;
+        for (const [x, y, w] of dyn.rects) {
+          if (y < reach) continue;
+          out += `<rect class="px-grass-light" x="${x}" y="${y}" width="${w}" height="1"/><rect class="px-grass" x="${x + 1}" y="${y + 1}" width="${w - 2}" height="1"/>`;
+        }
+        if (dyn.flower && reach <= dyn.stem[1]) out += `<rect class="px-flower" x="${dyn.flower[0]}" y="${dyn.flower[1]}" width="1" height="1"/><rect class="px-flower-alt" x="${dyn.flower[0] - 1}" y="${dyn.flower[1] + 1}" width="3" height="1"/>`;
+      }
+      if (dyn.kind === 'gate' && lift < 24) {
+        const [x, y, w, h] = dyn.rects[0];
+        for (let row = y + 4; row < y + h; row++) {
+          const shown = row - lift;
+          if (shown < y + 1) continue;
+          for (const bx of [x, x + 2, x + 4]) out += `<rect class="px-trunk" x="${bx}" y="${shown}" width="1" height="1"/>`;
+          if ((row - y) % 9 === 4) out += `<rect class="px-near-light" x="${x}" y="${shown}" width="${w}" height="1"/>`;
+        }
+      }
+    }
+    for (const t of p.room.things) {
+      if (t.kind === 'item' && !progress[t.id]) {
+        out += at(SPRITES[t.id], t.x, t.y - bob);
+        if (Math.floor(now / 350) % 5 === 0) out += `<rect class="px-twinkle" x="${t.x + Math.floor(t.w / 2)}" y="${t.y - 3}" width="1" height="1"/>`;
+      }
+      if (t.kind === 'letter') {
+        out += at(SPRITES.letter, t.x, t.y);
+        if (Math.floor(now / 400) % 3 === 0) out += `<rect class="px-twinkle" x="${t.x + 4}" y="${t.y - 3}" width="1" height="1"/>`;
+      }
+      if (t.kind === 'friend') {
+        out += at(CRITTER.blink, t.x, t.y);
+        const z = Math.floor(now / 700) % 3;
+        out += `<text class="scene-icon-label world-z" x="${t.x + 6 + z}" y="${t.y - 1 - z}">z</text>`;
+      }
+    }
+    (p.room.fireflies || []).forEach(([x, y], i) => { if ((Math.floor(now / 300) + i * 3) % 7 < 4) out += `<rect class="px-firefly" x="${x + ((Math.floor(now / 900) + i) % 3) - 1}" y="${y}" width="1" height="1"/>`; });
+    dynLayer.innerHTML = out;
+  }
   let frame = '';
-
-  function say(words, ms = 2200) { bubble.textContent = words; sayUntil = performance.now() + ms; }
-  function openLetter() {
-    reading = true;
-    held = 0;
-    panel.hidden = false;
-    close.focus({ preventScroll: true });
-  }
-  function closeLetter() {
-    reading = false;
-    panel.hidden = true;
-    say('……', 1200);
-  }
-  close.addEventListener('click', closeLetter);
-  const nearLetter = () => s.x + BOX[0] > L.x - 2 && s.x < L.x + L.w + 2 && s.y + BOX[1] > L.y - 2 && s.y < L.y + L.h + 2;
-
-  function step(dt, now) {
-    const dir = reading ? 0 : auto || held;
-    if (auto && s.x <= WIDTH - 22) auto = 0;
-    s.fx += dir * SPEED * dt;
-    while (Math.abs(s.fx) >= 1) {
-      const d = Math.sign(s.fx);
-      s.fx -= d;
-      if (!hits(s.x + d, s.y)) s.x += d;
-      else if (s.ground && !hits(s.x + d, s.y - 1)) { s.x += d; s.y -= 1; }
-      else if (s.ground && !hits(s.x + d, s.y - 2)) { s.x += d; s.y -= 2; }
-      else { s.fx = 0; break; }
-    }
-    if (dir) s.face = dir;
-    if (dir > 0 && !auto && s.x >= WIDTH - BOX[0]) { gone = true; onLeave(); return; }
-
-    s.coyote = s.ground ? COYOTE : s.coyote - dt;
-    s.buffer -= dt;
-    if (s.buffer > 0 && s.coyote > 0) { s.vy = -JUMP; s.buffer = 0; s.coyote = 0; }
-    s.vy = Math.min(s.vy + GRAVITY * dt, 160);
-    s.fy += s.vy * dt;
-    while (Math.abs(s.fy) >= 1) {
-      const d = Math.sign(s.fy);
-      s.fy -= d;
-      if (!hits(s.x, s.y + d)) s.y += d;
-      else { s.vy = 0; s.fy = 0; break; }
-    }
-    s.ground = hits(s.x, s.y + 1);
-    s.clock = dir && s.ground ? s.clock + dt : 0;
-
-    if (s.y > HEIGHT + 6) {                    // fell: back to the last lantern
-      Object.assign(s, { x: spawn.x - 3, fx: 0, fy: 0, vy: 0 });
-      s.y = standAt(s.x);
-      say('……呼。');
-    }
-    world.checkpoints.forEach((point, index) => {
-      if (point.lit || Math.abs(s.x + 3 - point.x) > 3) return;
-      point.lit = true;
-      spawn = point;
-      lights[index]?.setAttribute('class', 'px-window world-light');
-    });
-    if (!wondered && s.x < L.x + 40) { wondered = true; say('……有一封信？'); }
-    if (!readOnce && nearLetter()) { readOnce = true; openLetter(); }
-    if (now > sayUntil) bubble.textContent = '';
-  }
-
-  function draw(dt, now) {
-    const target = Math.max(0, Math.min(WIDTH - VIEW, s.x + 3 - VIEW / 2 + s.face * 14));
-    cam += (target - cam) * Math.min(1, dt * 4);
-    const at = Math.round(cam);
-    layers.land.setAttribute('transform', `translate(${-at} 0)`);
-    layers.far.setAttribute('transform', `translate(${-Math.round(at * PARALLAX.far)} 0)`);
-    layers.near.setAttribute('transform', `translate(${-Math.round(at * PARALLAX.near)} 0)`);
-    const side = s.face > 0 ? 'right' : 'left';
-    const idle = now % 4000 < 150 ? 'blink' : 'front';
-    const pose = !s.ground ? `${side}2` : s.clock ? (Math.floor(s.clock / 0.15) % 2 ? `${side}2` : side) : idle;
+  function drawCritter(now) {
+    const side = p.face > 0 ? 'right' : 'left';
+    const pose = !p.ground ? `${side}2` : p.clock ? (Math.floor(p.clock / 0.15) % 2 ? `${side}2` : side) : now % 4000 < 150 ? 'blink' : 'front';
     if (pose !== frame) { body.innerHTML = gridToPaths(CRITTER[pose]); frame = pose; }
-    body.setAttribute('transform', `translate(${s.x - at} ${s.y})`);
-    bubble.setAttribute('x', s.x - at + 3);
-    bubble.setAttribute('y', s.y - 2);
-    sparkle.style.display = Math.floor(now / 400) % 3 ? 'none' : '';
+    body.setAttribute('transform', `translate(${p.x} ${p.y})`);
+    bubble.setAttribute('x', Math.max(8, Math.min(W - 8, p.x + 3)));
+    bubble.setAttribute('y', Math.max(4, p.y - 2));
+    if (p.room.dark) {
+      const r = (progress.lantern ? 24 : 8) + (Math.floor(now / 180) % 3 === 0 ? 0.6 : 0);
+      holes.innerHTML = [{ x: p.x + BOX[0] / 2, y: p.y + BOX[1] / 2, r }, ...p.room.lights]
+        .map(light => `<circle cx="${light.x}" cy="${light.y}" r="${light.r}" fill="url(#w-hole)"/>`).join('');
+    }
   }
 
+  // --- the letter and words ------------------------------------------------------------------
+  let reading = false;
+  let sayUntil = 0;
+  const say = (words, ms = 2400) => { bubble.textContent = words; sayUntil = performance.now() + ms; };
+  function openLetter() { reading = true; held = 0; panel.hidden = false; close.focus({ preventScroll: true }); }
+  function closeLetter() { reading = false; panel.hidden = true; say('……', 1200); }
+  close.addEventListener('click', closeLetter);
+
+  // --- the loop -----------------------------------------------------------------------------
+  let held = 0;
+  let jump = false;
+  let gone = false;
   let last = 0;
+  let lastDyn = 0;
+  drawRoom();
   let raf = requestAnimationFrame(function tick(now) {
     const dt = Math.min(0.05, (now - last) / 1000 || 0);
     last = now;
-    step(dt, now);
-    if (gone) return;
-    draw(dt, now);
+    const events = game.step(dt, { dir: reading ? 0 : held, jump: jump && !reading });
+    jump = false;
+    let redraw = false;
+    for (const event of events) {
+      if (event.type === 'leave') { gone = true; onLeave(); return; }
+      if (event.type === 'room') { drawRoom(); redraw = true; }
+      if (event.type === 'say') say(event.text);
+      if (event.type === 'take' || event.type === 'open' || event.type === 'plant') { drawRoom(); redraw = true; }
+      if (event.type === 'letter') openLetter();
+    }
+    if (progress.planted && grow < 1) { grow = Math.min(1, grow + dt / 1.6); redraw = true; }
+    if (progress.gateOpen && lift < 24) { lift = Math.min(24, lift + dt * 20); redraw = true; }
+    if (redraw || now - lastDyn > 120) { drawDyn(now); lastDyn = now; }
+    drawCritter(now);
+    if (now > sayUntil) bubble.textContent = '';
     raf = requestAnimationFrame(tick);
   });
-  say('……这是哪里？', 2600);
+  if (!saved.arrived) { saved.arrived = true; say('……原来画里面是这样。', 3000); }
 
-  // --- input ------------------------------------------------------------------------------
+  // --- input --------------------------------------------------------------------------------
   const typing = event => event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]');
   function onKey(event) {
     if (event.metaKey || event.ctrlKey || event.altKey || typing(event)) return;
     if (reading) { if (event.key === 'Escape') { event.preventDefault(); closeLetter(); } return; }
     if (KEYS[event.key]) held = KEYS[event.key];
-    else if (['ArrowUp', 'w', 'W', ' '].includes(event.key)) s.buffer = BUFFER;
-    else if (['e', 'E', 'Enter'].includes(event.key) && nearLetter()) openLetter();
-    else return;
+    else if (['ArrowUp', 'w', 'W', ' '].includes(event.key)) { if (!event.repeat) jump = true; }
+    else if (['e', 'E', 'Enter'].includes(event.key) && game.nearLetter()) openLetter();
+    else if (event.key !== 'ArrowDown') return;
     event.preventDefault();
   }
   const onKeyUp = event => { if (KEYS[event.key] === held) held = 0; };
@@ -179,16 +188,15 @@ export function mountWorld(stage, { letter, onLeave }) {
   addEventListener('keydown', onKey);
   addEventListener('keyup', onKeyUp);
   addEventListener('blur', onBlur);
-  // Touch buttons: hold ◀/▶, tap ▲.
-  for (const button of stage.querySelectorAll('[data-pad]')) {
-    const pad = button.dataset.pad;
+  for (const button of pad.querySelectorAll('[data-pad]')) {
+    const which = button.dataset.pad;
     button.addEventListener('pointerdown', event => {
       event.preventDefault();
       button.setPointerCapture?.(event.pointerId);
-      if (pad === 'jump') s.buffer = BUFFER;
-      else held = Number(pad);
+      if (which === 'jump') jump = true;
+      else held = Number(which);
     });
-    const release = () => { if (pad !== 'jump' && held === Number(pad)) held = 0; };
+    const release = () => { if (which !== 'jump' && held === Number(which)) held = 0; };
     button.addEventListener('pointerup', release);
     button.addEventListener('pointercancel', release);
     button.addEventListener('contextmenu', event => event.preventDefault());
@@ -200,6 +208,8 @@ export function mountWorld(stage, { letter, onLeave }) {
     removeEventListener('keydown', onKey);
     removeEventListener('keyup', onKeyUp);
     removeEventListener('blur', onBlur);
+    hud.remove();
+    pad.remove();
     panel.remove();
   };
 }
