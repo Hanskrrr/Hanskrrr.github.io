@@ -15,6 +15,8 @@ import { attachDepth } from './room-depth.js';
 import { audience, closeUp, curtains, DUST, RECORD_WINDOW } from './room-closeups.js';
 import { animateRoom } from './room-life.js';
 
+// Things with words to read: double-click (or use twice) to walk up and read them beside it.
+const READABLE = ['intro', 'journal', 'serials', 'books', 'photos', 'thoughts', 'timeline', 'letter'];
 const LABELS = { letter: '信', lamp: '台灯', intro: '窗外', journal: '日记', serials: '手稿', books: '书架', photos: '照片', thoughts: '便签', timeline: '时间线', films: '放映机', music: '点唱机', creature: '小生物' };
 
 function el(tag, className, text) {
@@ -145,7 +147,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     hotspot.dataset.depth = HOTSPOT_DEPTH[name] || 'mid';
     hotspot.setAttribute('aria-label', LABELS[name]);
     Object.assign(hotspot.style, { left: `${(x / WORLD_WIDTH) * 100}%`, top: `${(y / ROOM_HEIGHT) * 100}%`, width: `${(w / WORLD_WIDTH) * 100}%`, height: `${(h / ROOM_HEIGHT) * 100}%` });
-    hotspot.append(el('span', 'room-tip', name === 'films' || name === 'music' ? `${LABELS[name]} · 双击走近` : LABELS[name]));
+    hotspot.append(el('span', 'room-tip', name === 'films' || name === 'music' || READABLE.includes(name) ? `${LABELS[name]} · 双击走近` : LABELS[name]));
     viewLayer.append(hotspot);
     if (name === 'creature') creatureSpot = hotspot;
     if (name !== 'creature' && name !== 'lamp') {
@@ -303,19 +305,42 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     sync();
   };
 
+  // Reading up close: the panel itself moves into a reader beside the object (over the page on
+  // narrow screens), so everything in it keeps working, and goes back below when you step away.
+  const reader = el('div', 'room-reader');
+  reader.hidden = true;
+  const readerBack = el('button', 'room-choice room-reader-back', '← 退后');
+  readerBack.type = 'button';
+  readerBack.addEventListener('click', () => zoom(null));
+  reader.append(readerBack);
+  const panelSlot = document.createComment('room panel');
+  const narrow = matchMedia('(max-width: 720px)');
+
   let closeup = null;
   let zoomTimer;
-  function zoom(name) {
+  function zoom(name, { fill = true } = {}) {
     closeup = name === 'screen' && !projector.url ? null : name;
-    const view = closeUp(closeup, camera);
+    const item = closeup?.startsWith('item:') ? closeup.slice(5) : null;
+    const view = closeUp(item ? 'item' : closeup, camera, item ? HOTSPOTS[item] : null);
     // Animate only this change (the camera moves the view every frame without transitions).
     stage.classList.add('zooming');
     clearTimeout(zoomTimer);
     zoomTimer = setTimeout(() => stage.classList.remove('zooming'), 500);
     stage.classList.toggle('zoomed', Boolean(closeup));
     depth.enable(!closeup);
-    stage.dataset.closeup = closeup || '';
+    stage.dataset.closeup = item ? 'item' : closeup || '';
     viewLayer.style.transform = view.transform;
+    if (item) {
+      if (fill) open(item, { walk: false });
+      (narrow.matches ? document.body : stage).append(reader);
+      reader.classList.toggle('room-reader-sheet', narrow.matches);
+      if (!reader.contains(panel)) { panel.replaceWith(panelSlot); reader.append(panel); }
+      reader.hidden = false;
+      readerBack.focus({ preventScroll: true });
+    } else if (reader.contains(panel)) {
+      panelSlot.replaceWith(panel);
+      reader.hidden = true;
+    }
     place(screen, view.place(SCREEN));
     place(record, view.place(RECORD_WINDOW));
     syncAll();
@@ -768,6 +793,11 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   function open(name, { walk = true } = {}) {
     if (name === 'creature') return life.pet();
     if (name === 'lamp') return life.toggleLamp();
+    // Reading something up close and picking another thing: walk over to that one instead.
+    if (closeup?.startsWith('item:') && closeup !== `item:${name}`) {
+      if (READABLE.includes(name)) zoom(`item:${name}`, { fill: false });
+      else zoom(null);
+    }
     if (walk) life.goTo(name);
     // A film keeps playing while you look at other things in the room.
     life.setFilm(name === 'films' || Boolean(projector.url));
@@ -786,6 +816,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     openItem(kind, id);
   });
   const onClick = event => {
+    if (event.target.closest('.room-reader')) return;
     const target = event.target.closest('[data-object]');
     if (target) { open(target.dataset.object); return; }
     // Clicking or tapping an empty spot in the room walks the creature there.
@@ -801,6 +832,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   // switches on with your first film (you asked for it, so its player may load).
   stage.addEventListener('dblclick', event => {
     const name = event.target.closest('[data-object]')?.dataset.object;
+    if (READABLE.includes(name)) return zoom(`item:${name}`);
     if (name === 'music') zoom('jukebox');
     if (name !== 'films') return;
     if (!projector.url && !content.films.some(film => !film.locked && playFilm(film))) return;
@@ -833,6 +865,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     if (name === 'switch') return toggleTheme();
     if (name === 'films' && panel.dataset.open === 'films' && projector.url) return zoom('screen');
     if (name === 'music' && panel.dataset.open === 'music') return zoom('jukebox');
+    if (READABLE.includes(name) && panel.dataset.open === name) return zoom(`item:${name}`);
     open(name, { walk: false });
   }
   let nearName = null;
@@ -931,5 +964,6 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     deck.audio.load();
     depth.dispose();
     life.dispose();
+    reader.remove();
   };
 }

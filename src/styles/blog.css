@@ -652,6 +652,12 @@ button.note-card { display: flex; flex-direction: column; gap: 4px; cursor: poin
 .room-stage.zoomed .room-hotspot, .room-stage.zoomed .room-bubble { visibility: hidden; }
 .closeup-dim, .cinema, .jukebox-strips { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .4s steps(4); }
 .closeup-dim { z-index: 1; }
+/* Reading up close (room.js zoom('item:…')): the thing on the left, its panel in a reader on the right. */
+.room-stage[data-closeup="item"] .closeup-dim { background: linear-gradient(90deg, rgb(4 3 12 / .15) 30%, rgb(4 3 12 / .7) 55%); }
+.room-reader { position: absolute; z-index: 5; top: 5%; bottom: 5%; right: 3%; width: 50%; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; line-height: normal; }
+.room-reader[hidden] { display: none; }
+.room-reader .room-panel { align-self: stretch; flex: 0 1 auto; min-height: 0; max-height: 100%; overflow: auto; box-shadow: 0 0 0 var(--px) var(--line), 6px 6px 0 var(--drop); }
+.room-reader-sheet { position: fixed; inset: 0; z-index: 45; width: auto; padding: 16px; background: var(--bg-deep); }
 .room-stage[data-closeup] .closeup-dim { opacity: 1; }
 .room-stage[data-closeup="screen"] .closeup-dim { background: rgb(3 2 10 / .9); }
 .room-stage[data-closeup="jukebox"] .closeup-dim { background: radial-gradient(ellipse 22% 60% at 76% 50%, transparent 70%, rgb(4 3 12 / .82) 100%); }

@@ -1,4 +1,5 @@
-// Close-ups in the room: "walk up" to the projector screen or the jukebox. The room view is
+// Close-ups in the room: "walk up" to the projector screen, the jukebox, or anything else there
+// is to read (its words then open beside it, room.js). The room view is
 // scaled so the object lands on a chosen frame of the stage, and the overlays (curtains,
 // audience, the CD) are drawn at stage resolution on top. Pure data and markup, no DOM.
 import { creatureGrid, ROOM_HEIGHT as H, ROOM_WIDTH as W, SCREEN, WORLD_WIDTH } from './room-art.js';
@@ -15,14 +16,21 @@ const FRAMES = {
   jukebox: { object: JUKEBOX, left: 0.62, top: 0.05, height: 0.9 },
 };
 
+/** Any other object: on the left part of the stage, as large as fits (at most 4×), beside the reader. */
+function besideReader(object) {
+  const [, , ow, oh] = object;
+  const scale = Math.max(1.5, Math.min(4, 0.36 / (ow / W), 0.7 / (oh / H)));
+  return { object, left: 0.05 + (0.38 - (ow / W) * scale) / 2, top: (1 - (oh / H) * scale) / 2, width: (ow / W) * scale };
+}
+
 /**
  * The view for a close-up, or (name = null) for the camera at world column `camera`:
  * { scale, x, y } moves a world point (X, Y), in stage widths/heights, to (x + X·scale, y + Y·scale);
  * place(rect) gives a world rect's frame on the stage; transform is the CSS for the view element,
  * which is as wide as the whole world.
  */
-export function closeUp(name, camera = 0) {
-  const frame = FRAMES[name];
+export function closeUp(name, camera = 0, object = null) {
+  const frame = FRAMES[name] || (object && besideReader(object));
   let scale = 1, x = -camera / W, y = 0;
   if (frame) {
     const [ox, oy, ow, oh] = frame.object;
