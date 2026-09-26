@@ -1,36 +1,53 @@
-// The world inside the homepage picture (world.js draws it). A handful of screens, each 320×180
+// The world inside the homepage picture (world.js draws it). A handful of screens, each 256×144
 // pixels at the picture's own pixel size, joined edge to edge: walk off one side and the next
-// screen takes its place. The first screen is the land just west of the picture, drawn with the
-// picture's colours, hills and mountains, only wider and taller. Three small things open the way:
+// screen slides in. The first screen is the land just west of the picture, drawn with the
+// picture's colours, meadow and mountains, only wider and taller. Three small things open the way:
 //
 //                 [G sky ]
 //   [E hill]-[D ruins]-[C tree ]-[A well ]-(the picture)
 //                      [F roots]-[B below]
 //
-//   C: climb the old tree for the lantern · A: down the well · B: the dark tunnel needs the lantern
-//   F: the glowing seed · C: plant it, a vine grows up the cliff (→ D) and into the sky (G: the key)
-//   D: the key opens the gate · E: the letter. A secret sleeps behind a wall in B.
+//   C: climb the old tree for the lantern · A: climb down the well's rope · B: the dark tunnel needs
+//   the lantern · F: the glowing seed · C: plant it, a vine grows up the cliff (→ D) and into the
+//   sky (G: the key) · D: the key opens the gate · E: the letter. A secret sleeps behind a wall in B.
 //
-// Each screen is a stack of layers (sky, distant range, the picture's mountains, a tree line, the
-// land, and grass in front), so world.js can move them a little apart as the creature walks.
+// Each screen is a stack of layers (sky, distant range, the picture's mountains, the back, the land,
+// and grass in front). Shapes come from smooth noise, so cliffs, ledges and caves are uneven.
 // Everything here is plain data and rules (no page), so the level can be checked by a script
 // (scripts/check-world.mjs).
 import { random, seasonOf } from '../blog/pixel-art.js';
 
-export const W = 320;
-export const H = 180;
+export const W = 256;
+export const H = 144;
 export const BOX = [6, 5];
 export const ITEMS = ['lantern', 'seed', 'key'];
-/** How far each layer drifts (per pixel the creature is from the middle of the screen). */
-export const PARALLAX = { sky: 0.012, dist: 0.025, hills: 0.05, back: 0.08 };
-export const MARGIN = 14;                // extra columns on each side of the drifting layers
-const SPEED = 42;                        // pixels per second
+const SPEED = 40;                        // pixels per second, reached after a short speed-up
+const ACCEL = 420;
 const GRAVITY = 420;
-const JUMP = 116;                        // about 16 pixels high
+const JUMP = 110;                        // about 14 pixels high
+const CLIMB = 34;
 const COYOTE = 0.1;
 const BUFFER = 0.12;
-const PY = 99;                           // picture row y is world row y + PY: the meadow lines up
+const PY = 69;                           // picture row y is world row y + PY: the meadow lines up
+const GROUND = 120;
 const LEAVES = { spring: ['px-blossom', 'px-blossom-light'], summer: ['px-leaf', 'px-leaf-light'], autumn: ['px-leaf-autumn', 'px-leaf-autumn-light'], winter: ['px-snow', 'px-snow'] };
+
+// --- noise ------------------------------------------------------------------------------------
+/** A fixed pseudo-random number in [0, 1) for a pixel, so textures have no visible stripes. */
+const hash = (X, Y, salt = 0) => {
+  let h = (X * 374761393 + Y * 668265263 + salt * 2147483647) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+};
+const smooth = t => t * t * (3 - 2 * t);
+/** Smooth value noise in [0, 1). */
+function noise(x, y, scale, salt = 0) {
+  const gx = x / scale; const gy = y / scale;
+  const x0 = Math.floor(gx); const y0 = Math.floor(gy);
+  const fx = smooth(gx - x0); const fy = smooth(gy - y0);
+  const a = hash(x0, y0, salt); const b = hash(x0 + 1, y0, salt); const c = hash(x0, y0 + 1, salt); const d = hash(x0 + 1, y0 + 1, salt);
+  return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+}
 
 // The picture's meadow and mountains (pixel-art.js), carried on to the west.
 const meadow = x => PY + 51 + Math.round(2.5 * Math.sin(x / 8) + 1.5 * Math.sin(x / 3.3 + 1));
@@ -39,71 +56,43 @@ const peaksWest = (start, count, step, low, high, seed) => {
   const next = random(seed);
   return Array.from({ length: count }, (_, i) => [start - i * step - Math.floor(next() * step * 0.5), low + Math.floor(next() * (high - low))]);
 };
-const FAR = ridge([[6, 33], [29, 26], [50, 35], [77, 29], [101, 34], ...peaksWest(-24, 60, 26, 24, 34, 7)].map(([x, y]) => [x, y + PY]), 0.85);
-const NEAR = ridge([[-8, 40], [24, 37], [50, 43], [72, 38], [100, 41], ...peaksWest(-36, 60, 30, 36, 43, 11)].map(([x, y]) => [x, y + PY]), 0.8);
-const DISTANT = ridge(peaksWest(120, 70, 44, 72, 104, 23), 0.6);
+const FAR = ridge([[6, 33], [29, 26], [50, 35], [77, 29], [101, 34], ...peaksWest(-24, 50, 26, 24, 34, 7)].map(([x, y]) => [x, y + PY]), 0.85);
+const NEAR = ridge([[-8, 40], [24, 37], [50, 43], [72, 38], [100, 41], ...peaksWest(-36, 50, 30, 36, 43, 11)].map(([x, y]) => [x, y + PY]), 0.8);
+const DISTANT = ridge(peaksWest(120, 50, 40, 56, 84, 23), 0.62);
 
 // --- a screen under construction -----------------------------------------------------------
 function canvas() {
-  const grid = width => Array.from({ length: H }, () => Array(width).fill(''));
-  const grids = { sky: grid(W + 2 * MARGIN), dist: grid(W + 2 * MARGIN), hills: grid(W + 2 * MARGIN), back: grid(W + 2 * MARGIN), land: grid(W), fore: grid(W) };
+  const grid = () => Array.from({ length: H }, () => Array(W).fill(''));
+  const grids = { sky: grid(), dist: grid(), hills: grid(), back: grid(), land: grid(), fore: grid() };
   const solid = new Uint8Array(W * H);
   let layer = 'land';
-  const pick = (name, ...args) => (typeof name === 'function' ? name(...args) : name);
-  const at = (x, y) => {
-    const g = grids[layer];
-    const X = g[0].length === W ? x : x + MARGIN;
-    return X >= 0 && X < g[0].length && y >= 0 && y < H ? [g, X] : null;
-  };
   const inside = (x, y) => x >= 0 && x < W && y >= 0 && y < H;
+  const pick = (name, ...args) => (typeof name === 'function' ? name(...args) : name);
   const c = {
     grids,
     solid,
-    /** Draw on this layer from now on (scenery only; block/carve always work on the land). */
+    /** Draw scenery on this layer from now on (block/carve always work on the land). */
     on(name) { layer = name; return c; },
-    paint(x, y, name) { const hit = at(x, y); if (hit && name !== undefined) hit[0][y][hit[1]] = name; },
+    paint(x, y, name) { if (inside(x, y) && name !== undefined) grids[layer][y][x] = name; },
     rect(x, y, w, h, name) { for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) c.paint(x + dx, y + dy, pick(name, x + dx, y + dy, dy, dx)); },
-    block(x, y, w, h, name) {
-      for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) {
-        const X = x + dx; const Y = y + dy;
-        if (!inside(X, Y)) continue;
-        grids.land[Y][X] = pick(name, X, Y, dy, dx);
-        solid[Y * W + X] = 1;
-      }
-    },
-    carve(x, y, w, h, name = '') {
-      for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) {
-        const X = x + dx; const Y = y + dy;
-        if (!inside(X, Y)) continue;
-        grids.land[Y][X] = pick(name, X, Y, dy, dx);
-        solid[Y * W + X] = 0;
-      }
-    },
+    set(x, y, name) { if (inside(x, y)) { grids.land[y][x] = name; solid[y * W + x] = 1; } },
+    clear(x, y, name = '') { if (inside(x, y)) { grids.land[y][x] = name; solid[y * W + x] = 0; } },
+    block(x, y, w, h, name) { for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) c.set(x + dx, y + dy, pick(name, x + dx, y + dy, dy, dx)); },
     isSolid: (x, y) => inside(x, y) && solid[y * W + x] === 1,
   };
   return c;
 }
 
 // --- materials --------------------------------------------------------------------------------
-/** A fixed pseudo-random number in [0, 1) for a pixel, so textures have no visible stripes. */
-const hash = (X, Y, salt = 0) => {
-  let h = (X * 374761393 + Y * 668265263 + salt * 2147483647) >>> 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-};
-const stoneTop = (X, Y, dy) => (dy === 0 ? 'px-near-light' : hash(X, Y, 1) < 0.08 ? 'px-far' : 'px-near');
-const wood = (X, Y, dy) => (dy === 0 ? 'px-roof' : (X % 4 === 0 ? 'px-door' : 'px-trunk'));
-const hollow = (X, Y) => { const r = hash(X, Y, 2); return r < 0.015 ? 'px-far' : r < 0.04 ? 'px-sky1' : 'px-sky0'; };
-/** Rock: seams, specks and a few paler stones, so big walls aren't flat. */
-const ROCK = new Set(['px-near', 'px-far', 'px-sky2', 'px-sky1']);
+const ROCK = new Set(['px-near', 'px-far', 'px-sky2']);
+/** Rock: wavy layers, cracks, specks and the odd paler stone. */
 const rock = (X, Y) => {
-  // Layers of stone, a little wavy, with cracks, specks and the odd paler stone.
-  const band = Math.floor((Y + 3 * Math.sin(X / 17)) / 7);
+  const wave = Math.round(3 * Math.sin(X / 17) + 2 * noise(X, Y, 9, 3));
   const r = hash(X, Y, 3);
   if (hash(Math.floor(X / 3), Math.floor(Y / 2), 4) < 0.03) return 'px-near-light';
   if (r < 0.05) return 'px-far';
-  if ((Y + Math.round(3 * Math.sin(X / 17))) % 7 === 0 && hash(Math.floor(X / 5), band, 5) < 0.6) return 'px-sky2';
-  return band % 2 && r < 0.35 ? 'px-sky2' : 'px-near';
+  if ((Y + wave) % 7 === 0 && noise(X, Y, 6, 5) < 0.55) return 'px-sky2';
+  return Math.floor((Y + wave) / 7) % 2 && r < 0.3 ? 'px-sky2' : 'px-near';
 };
 function earth(season) {
   const top = season === 'winter' ? 'px-snow' : 'px-grass-light';
@@ -111,114 +100,143 @@ function earth(season) {
     if (dy === 0) return top;
     const r = hash(X, Y, 6);
     if (dy < 3) return r < 0.1 ? 'px-grass-light' : 'px-grass';
-    if (dy < 6) return (X + Y) % 2 === 0 ? 'px-grass-dark' : r < 0.3 ? 'px-grass-dark' : 'px-grass';
-    if (r < 0.025) return 'px-far';                                        // pebbles
-    if (dy < 18 && hash(Math.floor(X / 4), Y, 7) < 0.02) return 'px-trunk';  // old roots
-    if (dy > 14 && r > 0.96) return 'px-near';
+    if (dy < 6) return (X + Y) % 2 === 0 || r < 0.3 ? 'px-grass-dark' : 'px-grass';
+    if (r < 0.025) return 'px-far';
+    if (dy < 16 && hash(Math.floor(X / 4), Y, 7) < 0.02) return 'px-trunk';
+    if (dy > 12 && hash(Math.floor(X / 2), Math.floor(Y / 2), 8) < 0.02) return 'px-near';   // small stones
     return 'px-grass-dark';
   };
 }
-const cloudRow = (X, Y, dy) => (dy === 0 ? 'px-far-light' : (X + Y) % 3 ? 'px-cloud' : 'px-far');
+/** The cave's back wall: darker than the rock in front, with seams, so the space has depth. */
+const backWall = (X, Y) => {
+  const n = noise(X, Y, 11, 12);
+  const r = hash(X, Y, 13);
+  if (r < 0.012) return 'px-far';
+  if (n > 0.62) return (X + Y) % 2 ? 'px-sky1' : 'px-sky0';
+  if (n > 0.5 && r < 0.4) return 'px-sky1';
+  return 'px-sky0';
+};
+
+/** Finish a rock or earth mass: round off its outer corners and light, moss or shade its edges. */
+function finish(c, { moss = true, region = [0, 0, W, H] } = {}) {
+  const [x0, y0, w, h] = region;
+  const within = (x, y) => x >= x0 && x < x0 + w && y >= y0 && y < y0 + h;
+  for (let pass = 0; pass < 2; pass++) {
+    const cut = [];
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+      if (!c.isSolid(x, y)) continue;
+      const up = c.isSolid(x, y - 1) || y === 0; const down = c.isSolid(x, y + 1) || y === H - 1;
+      const left = c.isSolid(x - 1, y) || x === 0; const right = c.isSolid(x + 1, y) || x === W - 1;
+      if ((!up && (!left || !right)) || (!down && (!left || !right) && hash(x, y, pass) < 0.7)) cut.push([x, y]);
+    }
+    cut.forEach(([x, y]) => { if (within(x, y)) c.clear(x, y, c.grids.land[y][x] === '' ? '' : undefined); });
+  }
+  const land = c.grids.land;
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    if (!c.isSolid(x, y)) { if (land[y][x] && !['px-sky0', 'px-sky1', 'px-far', ''].includes(land[y][x])) land[y][x] = ''; continue; }
+    if (!ROCK.has(land[y][x]) && land[y][x] !== 'px-near-light') continue;
+    if (!c.isSolid(x, y - 1)) land[y][x] = moss && hash(x, y, 20) < 0.55 ? 'px-grass' : 'px-near-light';
+    else if (!c.isSolid(x, y + 1)) land[y][x] = 'px-sky2';
+    else if (!c.isSolid(x - 1, y) || !c.isSolid(x + 1, y)) land[y][x] = hash(x, y, 21) < 0.5 ? 'px-far' : land[y][x];
+  }
+  if (!moss) return;
+  // Moss hanging under ledges, in front.
+  c.on('fore');
+  for (let y = y0 + 1; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    if (c.isSolid(x, y - 1) && !c.isSolid(x, y) && hash(x, y, 22) < 0.12) {
+      const length = 1 + Math.floor(hash(x, y, 23) * 4);
+      for (let i = 0; i < length && !c.isSolid(x, y + i); i++) c.paint(x, y + i, i === length - 1 ? 'px-grass' : 'px-grass-dark');
+    }
+  }
+  c.on('land');
+}
 
 // --- scenery ----------------------------------------------------------------------------------
-/** Sky: the picture's bands (drawn taller), stars, a faint band of the Milky Way, thin clouds. */
+/** Sky: the picture's bands (drawn taller), stars, a faint Milky Way, thin clouds. */
 function sky(c, next, { high = false } = {}) {
   c.on('sky');
-  const bands = high ? [[0, 'px-sky0'], [110, 'px-sky1'], [150, 'px-sky2']] : [[0, 'px-sky0'], [58, 'px-sky1'], [100, 'px-sky2'], [128, 'px-sky3']];
+  const bands = high ? [[0, 'px-sky0'], [90, 'px-sky1'], [122, 'px-sky2']] : [[0, 'px-sky0'], [46, 'px-sky1'], [80, 'px-sky2'], [102, 'px-sky3']];
   for (let y = 0; y < H; y++) {
     const index = bands.findLastIndex(([start]) => y >= start);
     const after = bands[index + 1];
-    for (let x = -MARGIN; x < W + MARGIN; x++) {
+    for (let x = 0; x < W; x++) {
       const dither = after && y >= after[0] - 3 && ((x + y) % 2 === 0 || (y >= after[0] - 1 && x % 2));
       c.paint(x, y, dither ? after[1] : bands[index][1]);
     }
   }
   const tilt = next() * 0.3 - 0.15;
-  const band = x => (high ? 60 : 30) + x * tilt;
-  for (let x = -MARGIN; x < W + MARGIN; x++) for (let y = 0; y < (high ? 150 : 110); y++) {
+  const band = x => (high ? 50 : 24) + x * tilt;
+  for (let x = 0; x < W; x++) for (let y = 0; y < (high ? 120 : 86); y++) {
     const d = Math.abs(y - band(x));
-    if (d < 14 && next() < (14 - d) / 260) c.paint(x, y, 'px-star-dim');
-    else if (d < 9 && (x + y) % 5 === 0 && next() < 0.08) c.paint(x, y, 'px-sky1');
+    if (d < 12 && hash(x, y, 30) < (12 - d) / 220) c.paint(x, y, 'px-star-dim');
+    else if (d < 8 && (x + y) % 2 === 0 && hash(x, y, 31) < (8 - d) / 30) c.paint(x, y, 'px-sky1');
   }
   const stars = [];
-  for (let i = 0; i < (high ? 150 : 90); i++) {
+  for (let i = 0; i < (high ? 110 : 64); i++) {
     const x = Math.floor(next() * W);
-    const y = Math.floor(next() * (high ? 150 : 104));
+    const y = Math.floor(next() * (high ? 120 : 82));
     c.paint(x, y, next() < 0.3 ? 'px-star' : 'px-star-dim');
-    if (next() < 0.25) stars.push([x, y]);
+    if (next() < 0.3) stars.push([x, y]);
   }
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 3; i++) {
     const x = Math.floor(next() * W);
-    const y = 8 + Math.floor(next() * (high ? 120 : 70));
+    const y = 6 + Math.floor(next() * (high ? 100 : 56));
     c.paint(x, y, 'px-star');
     [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => c.paint(x + dx, y + dy, 'px-star-dim'));
-  }
-  for (let i = 0; i < 3; i++) {            // thin clouds, lit along their top
-    const x = Math.floor(next() * W);
-    const y = 36 + Math.floor(next() * (high ? 110 : 50));
-    const w = 18 + Math.floor(next() * 30);
-    c.rect(x, y, w, 1, 'px-cloud');
-    c.rect(x + 3, y - 1, w - 8, 1, 'px-far');
-    c.rect(x + 6, y + 1, w - 14, 1, 'px-cloud');
   }
   c.on('land');
   return stars;
 }
 
-/** The distant range (hazy, almost the sky's colour), then the picture's two ranges. */
+/** The distant range (shifting slower than the land from screen to screen), then the picture's. */
 function mountains(c, gx0) {
   c.on('dist');
-  for (let x = -MARGIN; x < W + MARGIN; x++) {
-    const top = DISTANT(gx0 + x);
-    for (let y = top; y < H; y++) c.paint(x, y, y === top ? 'px-far' : (y === top + 1 && x % 3 === 0) ? 'px-far' : 'px-sky3');
+  for (let x = 0; x < W; x++) {
+    const top = DISTANT(Math.round(gx0 * 0.45) + x);
+    for (let y = top; y < H; y++) c.paint(x, y, y === top || (y === top + 1 && hash(x, y, 32) < 0.35) ? 'px-far' : 'px-sky3');
   }
   c.on('hills');
-  for (let x = -MARGIN; x < W + MARGIN; x++) {
+  for (let x = 0; x < W; x++) {
     const far = FAR(gx0 + x);
     const near = NEAR(gx0 + x);
-    for (let y = far; y < H; y++) c.paint(x, y, y === far ? 'px-far-light' : (y - far) % 7 === 3 && x % 5 === 0 ? 'px-far-light' : 'px-far');
+    for (let y = far; y < H; y++) c.paint(x, y, y === far ? 'px-far-light' : noise(x, y, 4, 33) > 0.78 ? 'px-far-light' : 'px-far');
     for (let y = near; y < H; y++) c.paint(x, y, y <= near + (x % 7 === 0 ? 1 : 0) ? 'px-near-light' : 'px-near');
   }
   c.on('land');
 }
 
-/** A line of small dark trees and bushes on the far edge of the meadow. */
+/** Small dark trees and bushes along the far edge of the meadow. */
 function treeLine(c, next, from, to, base) {
   c.on('back');
-  for (let x = from; x < to; x += 5 + Math.floor(next() * 9)) {
-    const h = 5 + Math.floor(next() * 9);
+  for (let x = from; x < to; x += 4 + Math.floor(next() * 8)) {
+    const h = 3 + Math.floor(next() * 8);
     const r = 2 + Math.floor(next() * 3);
-    const b = base(x) - 1;
+    const b = base(Math.max(0, Math.min(W - 1, x))) - 1;
     for (let y = b - h; y <= b; y++) c.paint(x, y, 'px-near');
     for (let dy = -r - 2; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       if (dx * dx + (dy * 0.7) ** 2 > r * r + 1) continue;
-      const edge = dx * dx + ((dy - 1) * 0.7) ** 2 > r * r + 1;   // the rim that faces the sky
-      c.paint(x + dx, b - h + dy, edge && dx < 1 ? 'px-grass-dark' : 'px-near');
+      const rim = dx * dx + ((dy - 1) * 0.7) ** 2 > r * r + 1;
+      c.paint(x + dx, b - h + dy, rim && dx < 1 ? 'px-grass-dark' : 'px-near');
     }
   }
   c.on('land');
 }
 
-/**
- * A crown of leaves: many round clumps inside an ellipse, each lit on its upper left and shaded
- * on its lower right, so it reads as foliage rather than a flat shape.
- */
+/** A crown of leaf clumps, each lit on its upper left and shaded on its lower right. */
 function crown(c, season, cx, cy, rx, ry, seed) {
   const [leaf, light] = LEAVES[season] || LEAVES.summer;
   const next = random(seed);
   const clumps = [];
-  const count = Math.round((rx * ry) / 14);
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < Math.round((rx * ry) / 14); i++) {
     const a = next() * Math.PI * 2;
     const d = Math.sqrt(next());
     const r = 3 + Math.floor(next() * Math.min(rx, ry) * 0.45);
     clumps.push([cx + Math.cos(a) * d * (rx - r), cy + Math.sin(a) * d * (ry - r), r]);
   }
-  clumps.sort((a, b) => a[1] - b[1]);       // the top clumps first; lower ones overlap them
+  clumps.sort((a, b) => a[1] - b[1]);
   for (const [x0, y0, r] of clumps) {
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-      const d = dx * dx + dy * dy;
-      if (d > r * r + (hash(x0 + dx, y0 + dy, 8) < 0.4 ? r : 0)) continue;
+      if (dx * dx + dy * dy > r * r + (hash(Math.round(x0 + dx), Math.round(y0 + dy), 8) < 0.4 ? r : 0)) continue;
       const lit = dx + dy < -r * 0.6;
       const dark = dx + dy > r * 0.7 || y0 + dy > cy + ry * 0.45;
       const n = hash(Math.round(x0 + dx), Math.round(y0 + dy), 9);
@@ -226,32 +244,28 @@ function crown(c, season, cx, cy, rx, ry, seed) {
     }
   }
 }
-
-/** A tree with a crown of leaf clumps in the season's colours. */
-function tree(c, season, x, base, height, rx, ry, layer = 'back') {
-  c.on(layer);
-  for (let y = base - height; y < base; y++) {
-    c.paint(x, y, 'px-trunk'); c.paint(x + 1, y, 'px-trunk'); c.paint(x + 2, y, y % 5 ? 'px-door' : 'px-trunk');
-  }
+function tree(c, season, x, base, height, rx, ry) {
+  c.on('back');
+  for (let y = base - height; y < base; y++) { c.paint(x, y, 'px-trunk'); c.paint(x + 1, y, 'px-door'); c.paint(x + 2, y, y % 4 ? 'px-trunk' : 'px-door'); }
   c.paint(x - 1, base - 1, 'px-trunk'); c.paint(x + 3, base - 1, 'px-trunk');
-  // A few branches reaching into the crown.
   for (let i = 1; i <= 3; i++) { c.paint(x - i, base - height + 4 - i, 'px-trunk'); c.paint(x + 2 + i, base - height + 2 - i, 'px-trunk'); }
   crown(c, season, x + 1, base - height, rx, ry, x * 31 + base);
   c.on('land');
 }
 
 /** Grass tufts and flowers in front of the creature, along the ground's top. */
-function grassFront(c, next, season, from, to, top) {
+function grassFront(c, next, season, from, to) {
   c.on('fore');
-  const count = { spring: 26, summer: 20, autumn: 10, winter: 0 }[season] ?? 16;
+  const flowers = { spring: 34, summer: 26, autumn: 12, winter: 0 }[season] ?? 20;
   for (let x = from; x < to; x++) {
-    const t = top(x);
-    if (t >= H || !c.isSolid(x, t)) continue;
+    let t = 0;
+    while (t < H && !c.isSolid(x, t)) t++;
+    if (t >= H || t < 2 || !['px-grass-light', 'px-snow', 'px-grass'].includes(c.grids.land[t][x])) continue;
     const r = next();
-    if (season !== 'winter' && r < 0.34) {
+    if (season !== 'winter' && r < 0.36) {
       const h = 1 + Math.floor(next() * 3);
       for (let dy = 1; dy <= h; dy++) c.paint(x, t - dy, dy === h ? 'px-grass-light' : 'px-grass');
-    } else if (r > 1 - count / 400) {
+    } else if (r > 1 - flowers / 400) {
       c.paint(x, t - 1, 'px-grass'); c.paint(x, t - 2, 'px-grass');
       c.paint(x, t - 3, next() < 0.5 ? 'px-flower' : 'px-flower-alt');
     }
@@ -259,20 +273,100 @@ function grassFront(c, next, season, from, to, top) {
   c.on('land');
 }
 
-/** Rock rooms: after carving, light the top edge of every rock under open space. */
-function lightEdges(c) {
-  const land = c.grids.land;
-  for (let y = 1; y < H; y++) for (let x = 0; x < W; x++) {
-    if (c.isSolid(x, y) && !c.isSolid(x, y - 1) && ROCK.has(land[y][x])) land[y][x] = 'px-near-light';
-    else if (c.isSolid(x, y) && y + 1 < H && !c.isSolid(x, y + 1) && ROCK.has(land[y][x])) land[y][x] = 'px-sky2';
+/** A heap of fallen stones at the foot of a rock face: [x0, x1) along the ground at `base`. */
+function rubble(c, x0, x1, base, height) {
+  const mid = (x0 + x1) / 2;
+  for (let x = x0; x < x1; x++) {
+    const h = Math.round(height * (1 - ((x - mid) / ((x1 - x0) / 2)) ** 2) + noise(x, base, 3, 120) * 2 - 1);
+    for (let y = base - h; y < base; y++) c.set(x, y, hash(x, y, 121) < 0.25 ? 'px-far' : y === base - h ? 'px-near-light' : 'px-near');
   }
 }
 
-const done = (c, extra) => ({ layers: c.grids, solid: c.solid, things: [], dyn: [], lights: [], dark: false, ...extra });
+/** Ground: a column of earth from a top that wanders a little. */
+function groundColumns(c, from, to, top, style) {
+  for (let x = from; x < to; x++) { const t = top(x); for (let y = t; y < H; y++) c.set(x, y, style(x, y, y - t)); }
+}
+
+// --- caves ------------------------------------------------------------------------------------
+/** Dig open space: shapes are ellipses [cx, cy, rx, ry] and tunnels [x1, y1, x2, y2, r], blurred by noise. */
+function dig(c, shapes, salt) {
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let v = -1;
+    for (const s of shapes) {
+      if (s.length === 4) { const [cx, cy, rx, ry] = s; v = Math.max(v, 1 - Math.hypot((x - cx) / rx, (y - cy) / ry)); }
+      else {
+        const [x1, y1, x2, y2, r] = s;
+        const t = Math.max(0, Math.min(1, ((x - x1) * (x2 - x1) + (y - y1) * (y2 - y1)) / ((x2 - x1) ** 2 + (y2 - y1) ** 2 || 1)));
+        v = Math.max(v, 1 - Math.hypot(x - (x1 + t * (x2 - x1)), y - (y1 + t * (y2 - y1))) / r);
+      }
+    }
+    if (v + (noise(x, y, 7, salt) - 0.5) * 0.45 > 0) c.clear(x, y);
+  }
+}
+/** Walkable floors: solid below floor(x), and at least `room` rows kept open above it. */
+function floors(c, from, to, floor, style = rock, room = 15) {
+  for (let x = from; x < to; x++) {
+    const f = floor(x);
+    for (let y = Math.max(0, f - room); y < f; y++) c.clear(x, y);
+    for (let y = f; y < H; y++) c.set(x, y, style(x, y));
+  }
+}
+/** The cave's back wall and its decorations: rock pillars, crystals, glowworms, pebbles. */
+function caveBack(c, next, { pillars = 3, crystals = 5 } = {}) {
+  c.on('sky');
+  c.rect(0, 0, W, H, (X, Y) => (hash(X, Y, 40) < 0.02 ? 'px-sky1' : 'px-sky0'));
+  c.on('back');
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (!c.isSolid(x, y)) c.paint(x, y, backWall(x, y));
+  // Far pillars and hanging rock, a shade lighter than the wall.
+  for (let i = 0; i < pillars; i++) {
+    const x = 20 + Math.floor(next() * (W - 40));
+    const w = 5 + Math.floor(next() * 6);
+    for (let y = 0; y < H; y++) {
+      const edge = Math.round(noise(x, y, 6, 41 + i) * 3);
+      for (let dx = edge; dx < w - edge + 1; dx++) if (!c.isSolid(x + dx, y) && hash(x + dx, y, 42) < 0.85) c.paint(x + dx, y, dx === edge ? 'px-sky2' : 'px-sky1');
+    }
+  }
+  const lights = [];
+  for (let i = 0; i < crystals; i++) {
+    const x = 10 + Math.floor(next() * (W - 20));
+    let y = 10 + Math.floor(next() * (H - 30));
+    while (y < H - 2 && !c.isSolid(x, y + 1)) y++;
+    if (y >= H - 2 || c.isSolid(x, y)) continue;
+    const glow = next() < 0.5 ? 'px-window' : 'px-flower-alt';
+    [[0, 0], [0, -1], [0, -2], [-1, 0], [-1, -1], [1, 0], [2, 0], [2, -1]].forEach(([dx, dy]) => { if (!c.isSolid(x + dx, y + dy)) c.paint(x + dx, y + dy, dy === -2 || (dx === 2 && dy === -1) ? 'px-far-light' : glow); });
+    lights.push({ x, y: y - 1, r: 10 });
+  }
+  const worms = [];
+  for (let i = 0; i < 26; i++) {
+    const x = Math.floor(next() * W); const y = Math.floor(next() * (H - 30));
+    if (!c.isSolid(x, y) && c.isSolid(x, y - 1)) worms.push([x, y]);
+  }
+  c.on('land');
+  return { lights, worms };
+}
+function stalactites(c, next, from, to) {
+  c.on('back');
+  for (let x = from; x < to; x += 5 + Math.floor(next() * 9)) {
+    let y = 0;
+    while (y < H - 1 && c.isSolid(x, y)) y++;
+    if (y >= H - 20 || y === 0) continue;
+    const length = 2 + Math.floor(next() * 7);
+    for (let dy = 0; dy < length && !c.isSolid(x, y + dy); dy++) c.paint(x, y + dy, dy === length - 1 ? 'px-far-light' : 'px-near');
+  }
+  c.on('land');
+}
+
+/** Finish a screen: no stray single pixels of rock left floating anywhere. */
+function done(c, extra) {
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (c.isSolid(x, y) && !c.isSolid(x - 1, y) && !c.isSolid(x + 1, y) && !c.isSolid(x, y - 1) && !c.isSolid(x, y + 1) && x > 0 && x < W - 1 && y > 0 && y < H - 1) c.clear(x, y);
+  }
+  return { layers: c.grids, solid: c.solid, things: [], dyn: [], climbs: [], lights: [], dark: false, ...extra };
+}
 
 // --- the screens ------------------------------------------------------------------------------
 
-/** A: just west of the picture. A stone well leads down. */
+/** A: just west of the picture. A stone well with a rope leads down. */
 function roomA(next, season) {
   const c = canvas();
   const gx0 = -W;
@@ -280,118 +374,123 @@ function roomA(next, season) {
   mountains(c, gx0);
   const top = x => {
     const t = meadow(gx0 + x);
-    if (x >= 168 && x <= 216) return 150;
-    if (x >= 160 && x < 168) return Math.round(t + ((x - 160) / 8) * (150 - t));
-    if (x > 216 && x <= 224) return Math.round(150 + ((x - 216) / 8) * (t - 150));
+    if (x >= 104 && x <= 156) return GROUND;
+    if (x >= 96 && x < 104) return Math.round(t + ((x - 96) / 8) * (GROUND - t));
+    if (x > 156 && x <= 164) return Math.round(GROUND + ((x - 156) / 8) * (t - GROUND));
     return t;
   };
-  treeLine(c, next, -MARGIN, W + MARGIN, x => Math.min(top(Math.max(0, Math.min(W - 1, x))), 150) - 2);
+  treeLine(c, next, -8, W + 8, x => Math.min(top(x), GROUND) - 2);
+  tree(c, season, 34, top(34), 16, 11, 8);
   const ground = earth(season);
-  for (let x = 0; x < W; x++) if (x < 184 || x > 199) c.block(x, top(x), 1, H - top(x), ground);
-  // The well: a stone rim, the roof on two posts, a rope and bucket, and ledges down the shaft.
-  c.carve(184, 150, 16, H - 150, hollow);
-  for (let y = 150; y < H; y++) { c.paint(183, y, y % 3 ? 'px-near' : 'px-near-light'); c.paint(200, y, y % 3 ? 'px-near-light' : 'px-near'); }
-  c.block(180, 148, 4, 2, stoneTop);
-  c.block(200, 148, 4, 2, stoneTop);
+  groundColumns(c, 0, 124, top, ground);
+  groundColumns(c, 136, W, top, ground);
+  // The well: stones round its mouth and down its throat, a roof on two posts, and the rope.
+  for (let y = GROUND; y < H; y++) { c.set(123, y, y % 3 ? 'px-near' : 'px-near-light'); c.set(136, y, y % 3 ? 'px-near-light' : 'px-near'); }
+  for (let y = GROUND; y < H; y++) for (let x = 124; x < 136; x++) c.clear(x, y, hash(x, y, 50) < 0.03 ? 'px-sky1' : 'px-sky0');
+  [[119, 119, 5], [120, 118, 3], [136, 119, 5], [137, 118, 3]].forEach(([x, y, w]) => c.block(x, y, w, 1, (X) => (y === 118 ? 'px-near-light' : hash(X, y, 51) < 0.4 ? 'px-far' : 'px-near')));
   c.on('back');
-  c.rect(181, 128, 1, 20, 'px-trunk'); c.rect(202, 128, 1, 20, 'px-trunk');
-  for (let i = 0; i < 7; i++) c.rect(176 + i * 2, 127 - i, 32 - i * 4, 1, i % 2 ? 'px-door' : 'px-roof');
-  c.rect(181, 128, 22, 1, 'px-trunk');
-  c.rect(191, 129, 1, 12, 'px-far-light');
-  c.rect(189, 141, 5, 3, (X, Y, dy) => (dy === 0 ? 'px-door' : 'px-trunk'));
+  c.rect(121, 98, 1, 20, 'px-trunk'); c.rect(138, 98, 1, 20, 'px-trunk');
+  for (let i = 0; i < 6; i++) c.rect(115 + i * 2, 97 - i, 30 - i * 4, 1, i % 2 ? 'px-door' : 'px-roof');
+  c.rect(121, 98, 18, 1, 'px-trunk');
+  c.rect(129, 99, 1, 21, 'px-far-light');
   c.on('land');
-  c.block(184, 170, 4, 2, stoneTop);
-  c.block(196, 158, 4, 2, stoneTop);
-  // A signpost pointing west, and a few stones.
+  for (let y = GROUND; y < H; y++) c.paint(129, y, 'px-far-light');
+  // A signpost pointing west, and a few stones in the grass.
   c.on('back');
-  c.rect(268, top(268) - 12, 1, 12, 'px-trunk');
-  c.rect(262, top(268) - 12, 10, 3, (X, Y, dy) => (dy === 1 && X > 263 && X < 270 && X % 2 ? 'px-trunk' : 'px-door'));
-  c.paint(261, top(268) - 11, 'px-door');
+  const sy = top(212);
+  c.rect(214, sy - 11, 1, 11, 'px-trunk');
+  c.rect(208, sy - 11, 10, 3, (X, Y, dy) => (dy === 1 && X > 209 && X < 216 && X % 2 ? 'px-trunk' : 'px-door'));
+  c.paint(207, sy - 10, 'px-door');
+  [[60, 1], [182, 2], [236, 1]].forEach(([x, w]) => c.rect(x, top(x) - 1, w + 1, 1, 'px-near-light'));
   c.on('land');
-  grassFront(c, next, season, 0, W, top);
-  return done(c, { stars, fireflies: { count: 8, area: [0, 110, W, 40] }, mist: 138, top, mood: 'meadow' });
+  grassFront(c, next, season, 0, W);
+  return done(c, { stars, climbs: [[124, 98, 12, 46]], fireflies: { count: 7, area: [0, 88, W, 30] }, clouds: 2, top, mood: 'meadow' });
 }
 
-/** B: under the well. Moonlight falls down the shaft; a tunnel goes west into the dark. */
+/** B: under the well. Moonlight comes down the shaft; a tunnel goes west into the dark. */
 function roomB(next) {
   const c = canvas();
   c.block(0, 0, W, H, rock);
-  const roof = x => 46 + Math.round(5 * Math.sin(x / 13) + 2 * Math.sin(x / 4));
-  c.carve(184, 0, 16, 50, hollow);                                          // the shaft
-  for (let x = 100; x <= 290; x++) c.carve(x, roof(x), 1, 166 - roof(x), hollow);   // the chamber
-  c.carve(0, 150, 106, 16, hollow);                                         // the tunnel west
-  c.carve(295, 150, 25, 16, hollow);                                        // a nook behind…
-  c.carve(291, 150, 4, 16, (X, Y) => ((X + Y) % 6 === 0 ? 'px-far' : 'px-near'));   // …a wall that isn't one
-  c.block(176, 158, 32, 8, stoneTop);                                       // a mound under the shaft
-  [[196, 146], [184, 134], [196, 122], [184, 110], [196, 98], [184, 86], [196, 74], [184, 62], [196, 50], [184, 38], [196, 26], [184, 14], [196, 2]]
-    .forEach(([x, y]) => c.block(x, y, 4, 2, stoneTop));
-  lightEdges(c);
-  // Stalactites, a still pool, pebbles and a few crystals.
-  for (let x = 108; x < 286; x += 6 + Math.floor(next() * 10)) {
-    if (x > 176 && x < 208) continue;
-    const length = 2 + Math.floor(next() * 7);
-    for (let dy = 0; dy < length; dy++) c.paint(x, roof(x) + dy, dy === length - 1 ? 'px-far-light' : 'px-near');
-  }
-  c.carve(226, 162, 40, 4, (X, Y) => (Y === 162 ? ((X * 3) % 7 ? 'px-sky1' : 'px-star') : 'px-sky2'));
-  c.block(226, 166, 40, 1, 'px-near');
-  [[128, 165], [141, 165], [150, 165], [280, 165], [270, 165]].forEach(([x, y]) => c.paint(x, y, 'px-far-light'));
-  [[118, 60], [262, 58], [140, 70]].forEach(([x, y]) => { c.paint(x, y, 'px-window'); c.paint(x + 1, y + 1, 'px-flower-alt'); });
+  dig(c, [[124, 0, 136, 30, 7], [128, 76, 62, 36], [86, 96, 38, 24], [176, 94, 44, 28], [0, 116, 70, 115, 8], [178, 116, 224, 116, 7]], 60);
+  for (let y = 0; y < 60; y++) for (let x = 124; x < 136; x++) c.clear(x, y);           // the shaft, down into the chamber
+  floors(c, 18, 226, x => 124 + Math.round(1.5 * Math.sin(x / 19)));
+  for (let x = 0; x < 72; x++) { for (let y = 107; y < 124; y++) c.clear(x, y); for (let y = 124; y < H; y++) c.set(x, y, rock(x, y)); }
+  for (let x = 222; x < 226; x++) for (let y = 108; y < 124; y++) c.clear(x, y, hash(x, y, 61) < 0.2 ? 'px-far' : 'px-near');   // a wall that isn't one
+  for (let x = 226; x < 252; x++) { for (let y = 108; y < 124; y++) c.clear(x, y); for (let y = 124; y < H; y++) c.set(x, y, rock(x, y)); }
+  finish(c, { region: [0, 0, 222, H] });
+  finish(c, { region: [226, 0, 30, H] });
+  const { lights, worms } = caveBack(c, next, { pillars: 3, crystals: 4 });
+  stalactites(c, next, 60, 220);
+  // A still pool, pebbles, the end of the rope with its bucket.
+  for (let x = 150; x < 180; x++) { const f = 124 + Math.round(1.5 * Math.sin(x / 19)); c.clear(x, f - 1, (x * 3) % 7 ? 'px-sky1' : 'px-star'); c.set(x, f, 'px-sky2'); }
+  c.on('back');
+  for (let y = 0; y < 116; y++) c.paint(129, y, 'px-far-light');
+  c.rect(127, 116, 5, 3, (X, Y, dy) => (dy === 0 ? 'px-door' : 'px-trunk'));
+  c.on('land');
   return done(c, {
-    things: [{ kind: 'friend', x: 305, y: 161, w: 6, h: 5 }],
-    lights: [...[4, 24, 44, 64, 84, 104, 124, 144, 160].map((y, i) => ({ x: 191 + i * 0.6, y, r: 22 - i * 0.6 })), { x: 246, y: 162, r: 14 }, { x: 118, y: 60, r: 7 }, { x: 262, y: 58, r: 7 }],
+    things: [{ kind: 'friend', x: 238, y: 119, w: 6, h: 5 }],
+    climbs: [[124, 0, 12, H]],
+    lights: [...[4, 20, 36, 52, 68, 84, 100, 114].map((y, i) => ({ x: 130 + i * 0.5, y, r: 20 - i * 0.7 })), { x: 165, y: 122, r: 12 }, ...lights],
+    worms,
     dark: true,
-    fear: 120,       // without a light the creature won't go further west than this
-    drips: [[150, roof(150)], [236, roof(236)], [270, roof(270)]],
+    fear: 72,      // without a light the creature won't go further west than this
+    drips: [[100, 60], [160, 50], [196, 70]],
     mood: 'cave',
   });
 }
 
-/** C: the old tree (the lantern at the top of its branches), and a cliff too high to climb… until the vine. */
+/** C: the old tree (the lantern at the top of its boughs), and a cliff too high to climb… until the vine. */
 function roomC(next, season) {
   const c = canvas();
   const gx0 = -2 * W;
   const stars = sky(c, next);
   mountains(c, gx0);
-  const top = x => {
-    if (x < 70) return 70;
-    const t = meadow(gx0 + x);
-    if (x <= 132) return 150;
-    return x <= 140 ? Math.round(150 + ((x - 132) / 8) * (t - 150)) : t;
+  // The cliff's face: rounded at its brow, leaning and eroded lower down, with a ledge or two.
+  const face = y => {
+    const d = y - 52;
+    const brow = d < 7 ? Math.round((7 - d) ** 2 / 7) : 0;
+    return 55 + Math.round(noise(0, y, 9, 70) * 7 - 3 + noise(0, y, 3, 75) * 2) - brow + (d > 30 ? Math.round((d - 30) / 9) : 0);
   };
-  treeLine(c, next, 60, W + MARGIN, x => Math.min(top(Math.max(0, Math.min(W - 1, x))), 150) - 2);
+  const top = x => {
+    const t = meadow(gx0 + x);
+    if (x <= 110) return GROUND;
+    return x <= 118 ? Math.round(GROUND + ((x - 110) / 8) * (t - GROUND)) : t;
+  };
+  treeLine(c, next, 60, W + 8, x => Math.min(top(x), GROUND) - 2);
   const ground = earth(season);
-  // The cliff: grass on top, rock below, with ivy hanging over its face.
-  c.block(0, 70, 70, H - 70, (X, Y, dy) => (dy === 0 ? ground(X, Y, 0) : dy < 3 ? 'px-grass' : X === 69 ? 'px-near-light' : rock(X, Y)));
-  c.on('back');
-  for (let x = 58; x < 70; x += 3) for (let y = 71; y < 71 + 6 + ((x * 7) % 13); y++) c.paint(x + (y % 2), y, (x + y) % 4 ? 'px-grass-dark' : 'px-grass');
+  groundColumns(c, 0, W, top, ground);
+  // The cliff: grassy on top, rock with ivy below, its face uneven.
+  for (let y = 52; y < H; y++) for (let x = 0; x < face(y); x++) c.set(x, y, y < 55 + noise(x, 1, 4, 72) * 2 ? 'px-grass' : rock(x, y));
+  for (let x = 0; x < 64; x++) { let y = 0; while (y < H && !c.isSolid(x, y)) y++; if (y < GROUND - 2) c.grids.land[y][x] = 'px-grass-light'; }
+  rubble(c, 46, 72, GROUND, 5);
+  finish(c, { region: [0, 50, 76, 70] });
+  c.on('fore');
+  for (let x = 44; x < 58; x += 2) for (let y = 55; y < 55 + 4 + Math.floor(hash(x, 0, 73) * 14); y++) if (!c.isSolid(x, y)) c.paint(x, y, (x + y) % 3 ? 'px-grass-dark' : 'px-grass');
   c.on('land');
-  for (let x = 70; x < W; x++) c.block(x, top(x), 1, H - top(x), ground);
   // Soft earth at the foot of the cliff, with a dry little stalk.
-  for (let x = 74; x <= 100; x++) { c.paint(x, 150, (x % 3) ? 'px-trunk' : 'px-grass-dark'); c.paint(x, 151, 'px-trunk'); c.paint(x, 152, x % 2 ? 'px-trunk' : 'px-grass-dark'); }
-  c.on('back'); c.rect(88, 146, 1, 4, 'px-grass-dark'); c.paint(87, 146, 'px-grass-dark'); c.on('land');
-  // The old tree: a wide trunk with roots, a great crown, and branches to climb.
-  const [leaf, light] = LEAVES[season] || LEAVES.summer;
+  for (let x = 56; x <= 76; x++) { c.grids.land[GROUND][x] = x % 3 ? 'px-trunk' : 'px-grass-dark'; c.grids.land[GROUND + 1][x] = 'px-trunk'; }
+  c.on('back'); c.rect(64, 116, 1, 4, 'px-grass-dark'); c.paint(63, 116, 'px-grass-dark'); c.on('land');
+  // The old tree: a wide trunk with roots and big boughs, a great crown.
   c.on('back');
-  for (let y = 50; y < 150; y++) for (let x = 197; x <= 208; x++) c.paint(x, y, x === 197 || x === 208 ? 'px-trunk' : (x * 3 + y) % 11 === 0 ? 'px-trunk' : 'px-door');
-  [[193, 3], [195, 2], [210, 2], [212, 3], [190, 1], [215, 1]].forEach(([x, h]) => c.rect(x, 150 - h, 2, h, 'px-trunk'));
-  // Big boughs from the trunk into the crown, then the crown itself.
-  for (let i = 0; i < 26; i++) { c.rect(196 - i, 58 - Math.round(i * 0.6), 3, 2, 'px-trunk'); c.rect(208 + i, 56 - Math.round(i * 0.55), 3, 2, 'px-trunk'); }
-  crown(c, season, 203, 38, 64, 34, 4242);
+  for (let y = 40; y < GROUND; y++) for (let x = 150; x <= 158; x++) c.paint(x, y, x === 150 || x === 158 || hash(x, y, 74) < 0.1 ? 'px-trunk' : 'px-door');
+  [[146, 3], [148, 2], [160, 2], [162, 3]].forEach(([x, h]) => c.rect(x, GROUND - h, 2, h, 'px-trunk'));
+  for (let i = 0; i < 20; i++) { c.rect(149 - i, 46 - Math.round(i * 0.6), 2, 2, 'px-trunk'); c.rect(158 + i, 44 - Math.round(i * 0.55), 2, 2, 'px-trunk'); }
+  crown(c, season, 154, 30, 54, 26, 4242);
   c.on('land');
-  [[180, 138], [205, 126], [180, 114], [205, 102], [180, 90], [205, 78]].forEach(([x, y]) => c.block(x, y, 15, 2, wood));
-  c.on('fore');   // a few leaves in front of the branches
-  for (let i = 0; i < 40; i++) { const x = 176 + Math.floor(next() * 50); const y = 74 + Math.floor(next() * 66); c.paint(x, y, next() < 0.5 ? leaf : light); }
+  const bough = (x, y, w) => { c.block(x + 1, y, w - 2, 1, 'px-roof'); c.block(x, y + 1, w, 1, (X) => (X % 4 ? 'px-trunk' : 'px-door')); c.on('back'); c.paint(x + 1, y + 2, 'px-trunk'); c.paint(x + w - 2, y + 2, 'px-trunk'); c.on('land'); };
+  bough(133, 108, 14); bough(160, 96, 14); bough(133, 84, 14); bough(160, 72, 14);
+  c.on('fore');
+  const [leaf, light] = LEAVES[season] || LEAVES.summer;
+  for (let i = 0; i < 30; i++) c.paint(128 + Math.floor(next() * 52), 66 + Math.floor(next() * 50), next() < 0.5 ? leaf : light);
   c.on('land');
-  grassFront(c, next, season, 70, W, top);
-  grassFront(c, next, season, 0, 70, top);
-  const leaves = [[78, 138], [91, 126], [78, 114], [91, 102], [78, 90], [91, 78], [78, 66], [91, 54], [78, 42], [91, 30], [78, 18], [91, 6]].map(([x, y]) => [x, y, 8, 1]);
+  grassFront(c, next, season, 0, W);
   return done(c, {
     stars,
-    things: [{ kind: 'item', id: 'lantern', x: 212, y: 73, w: 3, h: 5 }, { kind: 'soil', x: 72, y: 140, w: 32, h: 10 }],
-    dyn: [{ kind: 'vine', rects: leaves, stem: [88, 0, 150] }],
-    fireflies: { count: 10, area: [100, 90, 220, 60] },
-    falling: { from: [150, 20, 110, 50], count: 5 },
-    mist: 140,
+    things: [{ kind: 'item', id: 'lantern', x: 166, y: 67, w: 3, h: 5 }, { kind: 'soil', x: 54, y: 110, w: 26, h: 10 }],
+    dyn: [{ kind: 'vine', climb: [57, 0, 10, GROUND], stem: [61, 0, GROUND] }],
+    fireflies: { count: 8, area: [80, 76, 170, 40] },
+    falling: { from: [110, 16, 90, 36], count: 5 },
+    clouds: 2,
     top,
     mood: 'meadow',
   });
@@ -401,32 +500,42 @@ function roomC(next, season) {
 function roomF(next) {
   const c = canvas();
   c.block(0, 0, W, H, rock);
-  const roof = x => 40 + Math.round(6 * Math.sin(x / 17) + 2 * Math.sin(x / 5));
-  for (let x = 20; x <= 250; x++) c.carve(x, roof(x), 1, 166 - roof(x), hollow);
-  c.carve(250, 150, 70, 16, hollow);                                        // from B's tunnel
-  c.carve(160, 166, 41, H - 166, hollow);                                   // a pit, open below
-  c.block(60, 154, 100, 12, stoneTop);                                      // a raised floor
-  c.block(186, 160, 7, 2, wood);                                            // roots across the pit
-  c.block(170, 158, 7, 2, wood);
-  [[46, 142], [60, 130], [46, 118], [60, 106]].forEach(([x, y]) => c.block(x, y, 8, 2, stoneTop));
-  c.block(20, 94, 32, 4, stoneTop);                                         // the seed's shelf
-  lightEdges(c);
-  // Roots hanging from the roof (the old tree above), with little side roots.
-  for (let x = 30; x < 246; x += 5 + Math.floor(next() * 8)) {
-    const length = 6 + Math.floor(next() * 30);
+  dig(c, [[256, 116, 186, 116, 8], [122, 82, 78, 40], [48, 70, 40, 40], [30, 104, 26, 18]], 80);
+  floors(c, 140, W, x => 124 + Math.round(noise(x, 0, 12, 81) * 2));
+  for (let x = 118; x < 140; x++) for (let y = 110; y < H; y++) c.clear(x, y);            // a pit, open below
+  floors(c, 40, 118, x => 114 + Math.round(noise(x, 0, 10, 82) * 2));
+  floors(c, 6, 40, () => 124, rock, 12);
+  finish(c);
+  c.block(129, 117, 8, 2, (X, Y, dy) => (dy === 0 ? 'px-roof' : 'px-trunk'));            // roots across the pit
+  c.block(120, 112, 6, 2, (X, Y, dy) => (dy === 0 ? 'px-roof' : 'px-trunk'));
+  const shelf = (x, y, w) => { c.block(x + 1, y, w - 2, 1, 'px-grass'); c.block(x, y + 1, w, 2, rock); c.block(x + 2, y + 3, w - 4, 1, 'px-sky2'); };
+  shelf(30, 103, 9); shelf(46, 92, 9); shelf(28, 81, 9); shelf(4, 70, 20);
+  const { lights, worms } = caveBack(c, next, { pillars: 4, crystals: 3 });
+  stalactites(c, next, 50, 240);
+  // Roots hanging from the roof (the old tree is above), with side roots.
+  c.on('back');
+  for (let x = 60; x < 200; x += 4 + Math.floor(next() * 7)) {
+    let y = 0;
+    while (y < H - 1 && c.isSolid(x, y)) y++;
+    const length = 6 + Math.floor(next() * 26);
     for (let dy = 0; dy < length; dy++) {
       const wobble = Math.round(Math.sin((x + dy) / 4));
-      c.paint(x + wobble, roof(x) + dy, 'px-trunk');
-      if (dy > 3 && (x + dy) % 9 === 0) c.paint(x + wobble + 1, roof(x) + dy + 1, 'px-trunk');
+      if (!c.isSolid(x + wobble, y + dy)) c.paint(x + wobble, y + dy, 'px-trunk');
+      if (dy > 3 && (x + dy) % 9 === 0) c.paint(x + wobble + 1, y + dy + 1, 'px-trunk');
     }
   }
-  const mushrooms = [[90, 153], [118, 153], [140, 153], [230, 165], [36, 165], [26, 93], [212, 165]];
+  c.on('land');
+  const mushrooms = [[70, 113], [96, 113], [150, 123], [200, 123], [16, 123], [10, 69]];
+  c.on('back');
   mushrooms.forEach(([x, y]) => { c.paint(x, y, 'px-flower-alt'); c.paint(x - 1, y - 1, 'px-window'); c.paint(x, y - 1, 'px-window'); c.paint(x + 1, y - 1, 'px-window'); });
+  c.on('land');
   return done(c, {
-    things: [{ kind: 'item', id: 'seed', x: 30, y: 91, w: 3, h: 3 }],
-    lights: [{ x: 31, y: 92, r: 28 }, ...mushrooms.map(([x, y]) => ({ x, y: y - 1, r: 9 }))],
+    things: [{ kind: 'item', id: 'seed', x: 12, y: 67, w: 3, h: 3 }],
+    lights: [{ x: 13, y: 68, r: 26 }, ...mushrooms.map(([x, y]) => ({ x, y: y - 1, r: 8 })), ...lights],
+    worms,
     dark: true,
-    spores: { count: 14, area: [20, 40, 230, 120] },
+    spores: { count: 12, area: [10, 30, 200, 90] },
+    drips: [[110, 50], [160, 44]],
     mood: 'cave',
   });
 }
@@ -436,63 +545,85 @@ function roomG(next) {
   const c = canvas();
   const stars = sky(c, next, { high: true });
   c.on('back');
-  for (let x = -MARGIN; x < W + MARGIN; x++) for (let y = 164 + Math.round(3 * Math.sin(x / 9) + Math.sin(x / 3)); y < H; y++) c.paint(x, y, (x + y) % 2 ? 'px-cloud' : 'px-far');
+  for (let x = 0; x < W; x++) for (let y = 130 + Math.round(3 * Math.sin(x / 9) + 2 * noise(x, 0, 6, 90)); y < H; y++) c.paint(x, y, (x + y) % 2 ? 'px-cloud' : 'px-far');
   c.on('land');
-  const cloud = (x, y, w) => { c.block(x + 2, y, w - 4, 1, cloudRow); c.block(x, y + 1, w, 2, cloudRow); c.rect(x + 3, y + 3, w - 6, 1, 'px-cloud'); };
-  cloud(104, 128, 22);
-  cloud(140, 118, 22);
-  cloud(176, 108, 22);
-  cloud(212, 98, 28);
-  c.block(220, 94, 11, 4, (X, Y, dy) => (dy === 0 && X % 2 ? 'px-door' : dy === 3 ? 'px-door' : 'px-trunk'));   // the nest
-  const leaves = [[78, 174], [91, 162], [78, 150], [91, 138]].map(([x, y]) => [x, y, 8, 1]);
+  const cloud = (x, y, w) => {
+    for (let dx = 0; dx < w; dx++) {
+      const bump = Math.round(noise(x + dx, y, 4, 91) * 2);
+      const edge = dx < 2 || dx > w - 3;
+      c.block(x + dx, y + (edge ? 1 : 0) - (edge ? 0 : bump - 1), 1, 1, 'px-far-light');
+      c.block(x + dx, y + 1, 1, edge ? 1 : 2, (X, Y) => (hash(X, Y, 92) < 0.3 ? 'px-far' : 'px-cloud'));
+    }
+    c.rect(x + 3, y + 3, w - 6, 1, 'px-cloud');
+  };
+  cloud(70, 96, 20);
+  cloud(98, 86, 20);
+  cloud(126, 76, 20);
+  cloud(156, 66, 24);
+  c.block(163, 62, 11, 4, (X, Y, dy) => (dy === 0 && X % 2 ? 'px-door' : dy === 3 ? 'px-door' : 'px-trunk'));   // the nest
   return done(c, {
     stars,
-    things: [{ kind: 'item', id: 'key', x: 223, y: 90, w: 5, h: 3 }],
-    dyn: [{ kind: 'vine', rects: leaves, stem: [88, 136, H], flower: [90, 134] }],
+    things: [{ kind: 'item', id: 'key', x: 166, y: 58, w: 5, h: 3 }],
+    dyn: [{ kind: 'vine', climb: [57, 90, 10, H - 90], stem: [61, 90, H], flower: [63, 88] }],
     meteor: true,
+    clouds: 3,
     mood: 'sky',
   });
 }
 
-/** D: an old stair of ruins down from the cliff, and a gate that needs the key. */
+/** D: rocky terraces down from the cliff, old ruins, and a gate that needs the key. */
 function roomD(next, season) {
   const c = canvas();
   const gx0 = -3 * W;
   const stars = sky(c, next);
   mountains(c, gx0);
-  const top = x => (x >= 250 ? 70 : x >= 178 ? 142 - Math.floor((x - 178) / 12) * 12 : 150);
-  treeLine(c, next, -MARGIN, 190, () => 148);
+  treeLine(c, next, -8, 120, () => GROUND - 2);
   const ground = earth(season);
-  c.block(250, 70, 70, H - 70, (X, Y, dy) => (dy === 0 ? ground(X, Y, 0) : dy < 3 ? 'px-grass' : X === 250 ? 'px-near-light' : rock(X, Y)));
-  for (let x = 178; x < 250; x += 12) c.block(x, top(x), 12, H - top(x), (X, Y, dy) => (dy === 0 ? 'px-near-light' : X === x ? 'px-far' : stoneTop(X, Y, dy)));
-  c.block(0, 150, 178, H - 150, (X, Y, dy) => (dy === 0 ? ((X % 8) ? 'px-far-light' : 'px-far') : dy === 1 ? 'px-far' : (X % 8 === 0 && dy < 5) ? 'px-near' : ground(X, Y, dy + 5)));
-  // Ruins: broken columns, a fallen one, an arch without a wall, moss and ivy.
-  c.on('back');
-  [[84, 112], [112, 124], [140, 104], [160, 132]].forEach(([x, y]) => {
-    c.rect(x, y, 5, 150 - y, (X) => (X === x ? 'px-far-light' : X === x + 4 ? 'px-near' : 'px-far'));
-    c.rect(x - 1, y, 7, 2, 'px-near-light');
-    c.rect(x - 1, 148, 7, 2, 'px-near-light');
-    for (let yy = y + 3; yy < 148; yy += 7) c.paint(x + ((yy * 3) % 5), yy, 'px-grass');
+  // Terraces of rock stepping down from the cliff (its top is at 52, like C's).
+  const steps = [[200, 52], [180, 63], [158, 74], [136, 85], [114, 96], [92, 108]];
+  steps.forEach(([x0, y0], i) => {
+    const x1 = i === 0 ? W : steps[i - 1][0];
+    for (let x = x0 - 3; x < x1; x++) {
+      const d = x - x0;                                   // the shoulder: the front edge rounds down
+      const shoulder = d < 4 ? Math.round((4 - d) ** 2 / 3) : 0;
+      const t = y0 + shoulder + (i === 0 ? 0 : Math.round(noise(x, y0, 5, 100 + i)));
+      for (let y = t; y < H; y++) if (!c.isSolid(x, y) || y > t) c.set(x, y, y === t ? 'px-grass-light' : y < t + 3 ? 'px-grass' : rock(x, y));
+    }
   });
-  c.rect(96, 145, 14, 5, (X, Y, dy) => (dy === 0 ? 'px-far-light' : (X % 5 === 0 ? 'px-near' : 'px-far')));
-  for (let x = 118; x <= 150; x++) { const y = 96 + Math.round(((x - 134) / 16) ** 2 * 8); c.paint(x, y, 'px-near-light'); c.paint(x, y + 1, 'px-far'); }
-  // The gate: an arch on two pillars; its bars (drawn by world.js) block the way until opened.
-  c.rect(33, 104, 7, 46, (X) => (X === 33 ? 'px-near-light' : stoneTop(X, 0, 1)));
-  c.rect(48, 104, 7, 46, (X) => (X === 54 ? 'px-near' : stoneTop(X, 0, 1)));
-  c.rect(31, 98, 26, 6, (X, Y, dy) => (dy === 0 ? 'px-near-light' : dy === 5 ? 'px-far' : 'px-near'));
-  c.rect(43, 99, 2, 3, 'px-window');
-  for (let y = 104; y < 150; y += 5) { c.paint(34 + (y % 3), y, 'px-grass'); c.paint(52 - (y % 3), y + 2, 'px-grass'); }
+  steps.slice(1).forEach(([x0, y0], i) => rubble(c, x0 - 7, x0 + 1, i === steps.length - 2 ? GROUND : steps[i + 2][1], 3));
+  groundColumns(c, 0, 92, () => GROUND, (X, Y, dy) => (dy === 0 ? (X % 7 ? 'px-far-light' : 'px-far') : dy === 1 ? 'px-far' : ground(X, Y, dy + 5)));
+  finish(c, { region: [88, 44, W - 88, 80] });
+  c.on('fore');
+  for (let x = 96; x < W; x += 3) {
+    let y = 0;
+    while (y < H - 1 && !c.isSolid(x, y)) y++;
+    if (!c.isSolid(x + 3, y) || hash(x, 0, 101) < 0.5) for (let i = 1; i < 3 + hash(x, 1, 102) * 8; i++) if (!c.isSolid(x + 1, y + i)) c.paint(x + 1, y + i, i % 3 ? 'px-grass-dark' : 'px-grass');   // ivy over the edges
+  }
   c.on('land');
-  tree(c, season, 290, 70, 18, 14, 10);
-  grassFront(c, next, season, 0, 178, top);
-  grassFront(c, next, season, 250, W, top);
+  // Ruins: broken columns, a fallen one, an arch without a wall, moss.
+  c.on('back');
+  [[56, 86], [72, 96], [88, 82]].forEach(([x, y]) => {
+    c.rect(x, y, 4, GROUND - y, (X) => (X === x ? 'px-far-light' : X === x + 3 ? 'px-near' : 'px-far'));
+    c.rect(x - 1, y, 6, 2, 'px-near-light');
+    for (let yy = y + 3; yy < GROUND - 1; yy += 6) c.paint(x + Math.floor(hash(x, yy, 103) * 4), yy, 'px-grass');
+  });
+  c.rect(60, 116, 12, 4, (X, Y, dy) => (dy === 0 ? 'px-far-light' : X % 5 === 0 ? 'px-near' : 'px-far'));
+  for (let x = 62; x <= 90; x++) { const y = 72 + Math.round(((x - 76) / 14) ** 2 * 7); c.paint(x, y, 'px-near-light'); c.paint(x, y + 1, 'px-far'); }
+  // The gate: an arch on two pillars; its bars (drawn by world.js) block the way until opened.
+  c.rect(24, 80, 6, 40, (X, Y) => (X === 24 ? 'px-near-light' : hash(X, Y, 104) < 0.1 ? 'px-far' : 'px-near'));
+  c.rect(37, 80, 6, 40, (X, Y) => (X === 42 ? 'px-far' : hash(X, Y, 105) < 0.1 ? 'px-far' : 'px-near'));
+  c.rect(22, 74, 23, 6, (X, Y, dy) => (dy === 0 ? 'px-near-light' : dy === 5 ? 'px-far' : 'px-near'));
+  c.rect(32, 75, 2, 3, 'px-window');
+  for (let y = 80; y < GROUND; y += 4) { c.paint(25 + (y % 3), y, 'px-grass'); c.paint(41 - (y % 3), y + 2, 'px-grass'); }
+  c.on('land');
+  tree(c, season, 228, 52, 16, 12, 9);
+  grassFront(c, next, season, 0, W);
   return done(c, {
     stars,
-    things: [{ kind: 'gate', x: 40, y: 104, w: 8, h: 46 }],
-    dyn: [{ kind: 'gate', rects: [[40, 104, 8, 46]] }],
-    fireflies: { count: 6, area: [60, 100, 120, 50] },
-    mist: 142,
-    top,
+    things: [{ kind: 'gate', x: 30, y: 80, w: 7, h: 40 }],
+    dyn: [{ kind: 'gate', rects: [[30, 80, 7, 40]] }],
+    fireflies: { count: 6, area: [40, 80, 100, 36] },
+    clouds: 2,
     mood: 'meadow',
   });
 }
@@ -502,42 +633,41 @@ function roomE(next, season) {
   const c = canvas();
   const gx0 = -4 * W;
   const stars = sky(c, next);
-  // The moon, low and large, with a soft ring.
   c.on('sky');
-  const [mx, my, r] = [244, 50, 15];
-  for (let y = my - r - 6; y <= my + r + 6; y++) for (let x = mx - r - 6; x <= mx + r + 6; x++) {
+  const [mx, my, r] = [196, 40, 13];
+  for (let y = my - r - 5; y <= my + r + 5; y++) for (let x = mx - r - 5; x <= mx + r + 5; x++) {
     const d = Math.hypot(x - mx, y - my);
-    if (d <= r) c.paint(x, y, x - mx + (y - my) > 8 || (x - mx + (y - my) > 5 && (x + y) % 2) ? 'px-moon-shade' : 'px-moon');
-    else if (d <= r + 5 && (x + y) % 3 === 0) c.paint(x, y, 'px-sky1');
+    if (d <= r) c.paint(x, y, x - mx + (y - my) > 7 || (x - mx + (y - my) > 4 && (x + y) % 2) ? 'px-moon-shade' : 'px-moon');
+    else if (d <= r + 4 && (x + y) % 3 === 0) c.paint(x, y, 'px-sky1');
   }
-  [[-5, -4], [-4, -4], [3, 2], [4, 2], [3, 3], [-7, 4], [6, -7]].forEach(([dx, dy]) => c.paint(mx + dx, my + dy, 'px-moon-shade'));
+  [[-4, -3], [-3, -3], [3, 2], [4, 2], [3, 3], [-6, 3], [5, -6]].forEach(([dx, dy]) => c.paint(mx + dx, my + dy, 'px-moon-shade'));
   c.on('land');
   mountains(c, gx0);
-  const top = x => (x >= 280 ? 150 : x >= 200 ? 150 - Math.round((280 - x) * 0.4) : x >= 60 ? 118 + Math.round(((x - 130) / 70) ** 2 * 2) : 120 + Math.round((60 - x) * 0.15));
-  treeLine(c, next, 180, W + MARGIN, x => Math.min(top(Math.max(0, Math.min(W - 1, x))), 150) - 2);
+  const top = x => Math.round(x >= 224 ? GROUND : x >= 160 ? GROUND - (224 - x) * 0.375 + noise(x, 0, 8, 110) : x >= 40 ? 96 + ((x - 100) / 60) ** 2 * 2 : 98 + (40 - x) * 0.2);
+  treeLine(c, next, 150, W + 8, x => Math.min(top(x), GROUND) - 2);
   const ground = earth(season);
-  for (let x = 0; x < W; x++) c.block(x, top(x), 1, H - top(x), ground);
-  tree(c, season, 150, top(150), 30, 26, 16);
-  // A bench under the tree, and the letter on its stone.
+  groundColumns(c, 0, W, top, ground);
+  tree(c, season, 118, top(118), 26, 22, 14);
   c.on('back');
-  c.rect(112, 110, 16, 1, 'px-door'); c.rect(112, 112, 16, 1, 'px-door');
-  c.rect(113, 113, 1, 5, 'px-trunk'); c.rect(126, 113, 1, 5, 'px-trunk'); c.rect(112, 106, 16, 1, 'px-trunk'); c.rect(113, 107, 1, 3, 'px-trunk'); c.rect(126, 107, 1, 3, 'px-trunk');
+  c.rect(88, 88, 14, 1, 'px-door'); c.rect(88, 90, 14, 1, 'px-door');
+  c.rect(89, 91, 1, 5, 'px-trunk'); c.rect(100, 91, 1, 5, 'px-trunk'); c.rect(88, 84, 14, 1, 'px-trunk'); c.rect(89, 85, 1, 3, 'px-trunk'); c.rect(100, 85, 1, 3, 'px-trunk');
   c.on('land');
-  c.block(86, 114, 16, 4, stoneTop);
-  grassFront(c, next, season, 0, W, top);
+  c.block(66, 92, 14, 4, (X, Y, dy) => (dy === 0 ? 'px-near-light' : hash(X, Y, 111) < 0.2 ? 'px-far' : 'px-near'));
+  c.clear(66, 92); c.clear(79, 92);
+  grassFront(c, next, season, 0, W);
   return done(c, {
     stars,
-    things: [{ kind: 'letter', x: 90, y: 108, w: 9, h: 6 }],
-    fireflies: { count: 16, area: [20, 70, 260, 70] },
-    falling: { from: [124, 60, 54, 30], count: 4 },
-    mist: 132,
+    things: [{ kind: 'letter', x: 68, y: 86, w: 9, h: 6 }],
+    fireflies: { count: 14, area: [10, 56, 220, 50] },
+    falling: { from: [100, 44, 40, 24], count: 4 },
+    clouds: 2,
     top,
     mood: 'hill',
   });
 }
 
 export function buildWorld({ season = seasonOf() } = {}) {
-  const next = random(20260926);
+  const next = random(20260927);
   const layout = { '3,0': roomA(next, season), '3,1': roomB(next), '2,0': roomC(next, season), '2,1': roomF(next), '2,-1': roomG(next), '1,0': roomD(next, season), '0,0': roomE(next, season) };
   const rooms = new Map(Object.entries(layout).map(([key, room]) => {
     const [x, y] = key.split(',').map(Number);
@@ -558,15 +688,17 @@ export function buildWorld({ season = seasonOf() } = {}) {
 export const newProgress = () => ({ lantern: false, seed: false, key: false, planted: false, gateOpen: false, letter: false });
 
 /**
- * The creature and the rules. step(dt, { dir, jump }) moves it one frame and returns what
- * happened: { type: 'room' | 'say' | 'take' | 'plant' | 'open' | 'letter' | 'leave' | 'fall', … }.
+ * The creature and the rules. step(dt, { dir, jump, up, down }) moves it one frame and returns
+ * what happened: { type: 'room' | 'say' | 'take' | 'plant' | 'open' | 'letter' | 'leave' | 'fall' |
+ * 'jump' | 'land', … }. Holding up or down on a rope or the vine climbs it.
  */
 export function createGame(world, progress, { from = 'picture' } = {}) {
-  const p = { room: world.start.room, x: world.start.x, y: world.start.y, fx: 0, fy: 0, vy: 0, face: -1, ground: true, coyote: 0, buffer: 0, clock: 0, time: 0, auto: from === 'picture' ? -1 : 0 };
+  const p = { room: world.start.room, x: world.start.x, y: world.start.y, fx: 0, fy: 0, vx: 0, vy: 0, face: -1, ground: true, climbing: false, coyote: 0, buffer: 0, clock: 0, time: 0, auto: from === 'picture' ? -1 : 0 };
   p.entry = { x: p.x, y: p.y };
   const said = {};
 
   const on = dyn => (dyn.kind === 'vine' ? progress.planted : dyn.kind === 'gate' ? !progress.gateOpen : false);
+  const climbsOf = room => [...room.climbs, ...room.dyn.filter(dyn => dyn.climb && on(dyn)).map(dyn => dyn.climb)];
   /** Solid at (X, Y) of a room; past its edges, the neighbouring room decides. */
   function solidAt(room, X, Y) {
     if (X < 0) return room.left ? room.left !== 'picture' && solidAt(room.left, X + W, Y) : true;
@@ -574,52 +706,64 @@ export function createGame(world, progress, { from = 'picture' } = {}) {
     if (Y < 0) return room.up ? solidAt(room.up, X, Y + H) : true;
     if (Y >= H) return room.down ? solidAt(room.down, X, Y - H) : false;
     if (room.solid[Y * W + X]) return true;
-    return room.dyn.some(dyn => on(dyn) && dyn.rects.some(([x, y, w, h]) => X >= x && X < x + w && Y >= y && Y < y + h));
+    return room.dyn.some(dyn => dyn.rects && on(dyn) && dyn.rects.some(([x, y, w, h]) => X >= x && X < x + w && Y >= y && Y < y + h));
   }
   const hits = (x, y) => {
     for (let dy = 0; dy < BOX[1]; dy++) for (let dx = 0; dx < BOX[0]; dx++) if (solidAt(p.room, x + dx, y + dy)) return true;
     return false;
   };
   const touching = (t, pad = 0) => p.x + BOX[0] > t.x - pad && p.x < t.x + t.w + pad && p.y + BOX[1] > t.y - pad && p.y < t.y + t.h + pad;
+  // On a rope: its middle column within the rope's area (a little of it may stick out at the top).
+  const onRope = () => climbsOf(p.room).some(([x, y, w, h]) => p.x + 3 >= x && p.x + 3 < x + w && p.y + 4 >= y && p.y < y + h);
 
-  function step(dt, { dir = 0, jump = false } = {}) {
+  function step(dt, { dir = 0, jump = false, up = false, down = false } = {}) {
     const events = [];
     const say = (text, gap = 5) => { if ((said[text] ?? -99) + gap < p.time) { said[text] = p.time; events.push({ type: 'say', text }); } };
     p.time += dt;
-    if (jump) p.buffer = BUFFER;
-    if (p.auto && p.x <= W - 24) p.auto = 0;
+    if (p.auto && p.x <= W - 22) p.auto = 0;
     const move = p.auto || dir;
+    const rope = onRope();
+    if (!rope) p.climbing = false;
+    else if ((up || down) && !p.climbing && !(p.ground && !up)) { p.climbing = true; p.vy = 0; p.fy = 0; }
+    if (jump && !(p.climbing && up)) p.buffer = BUFFER;
 
-    p.fx += move * SPEED * dt;
+    // Walking eases in and out; on a rope it is slower.
+    const target = move * SPEED * (p.climbing ? 0.5 : 1);
+    const rate = (p.ground || p.climbing ? ACCEL : ACCEL * 0.6) * dt;
+    p.vx += Math.max(-rate, Math.min(rate, target - p.vx));
+    p.fx += p.vx * dt;
     while (Math.abs(p.fx) >= 1) {
       const d = Math.sign(p.fx);
       p.fx -= d;
       if (!hits(p.x + d, p.y)) p.x += d;
       else if (p.ground && !hits(p.x + d, p.y - 1)) { p.x += d; p.y -= 1; }
       else if (p.ground && !hits(p.x + d, p.y - 2)) { p.x += d; p.y -= 2; }
-      else { p.fx = 0; break; }
+      else { p.fx = 0; p.vx = 0; break; }
     }
     if (move) p.face = move;
     if (p.room.fear !== undefined && !progress.lantern && p.x < p.room.fear) {
       p.x = p.room.fear;
       p.fx = 0;
+      p.vx = 0;
       say('……好黑，不敢过去。');
     }
 
-    p.coyote = p.ground ? COYOTE : p.coyote - dt;
+    p.coyote = p.ground || p.climbing ? COYOTE : p.coyote - dt;
     p.buffer -= dt;
-    if (p.buffer > 0 && p.coyote > 0) { p.vy = -JUMP; p.buffer = 0; p.coyote = 0; events.push({ type: 'jump' }); }
-    p.vy = Math.min(p.vy + GRAVITY * dt, 220);
+    if (p.buffer > 0 && p.coyote > 0) { p.vy = -JUMP * (p.climbing ? 0.8 : 1); p.buffer = 0; p.coyote = 0; p.climbing = false; events.push({ type: 'jump' }); }
+    if (p.climbing) p.vy = (down ? 1 : up ? -1 : 0) * CLIMB;
+    else p.vy = Math.min(p.vy + GRAVITY * dt, 220);
     p.fy += p.vy * dt;
     const wasGround = p.ground;
     while (Math.abs(p.fy) >= 1) {
       const d = Math.sign(p.fy);
       p.fy -= d;
       if (!hits(p.x, p.y + d)) p.y += d;
-      else { p.vy = 0; p.fy = 0; break; }
+      else { p.vy = 0; p.fy = 0; if (p.climbing && d > 0) p.climbing = false; break; }
     }
+    if (p.climbing && up && !onRope()) { p.y += 1; }        // the top of the rope: hold on there
     p.ground = hits(p.x, p.y + 1);
-    if (p.ground && !wasGround) events.push({ type: 'land' });
+    if (p.ground && !wasGround && !p.climbing) events.push({ type: 'land' });
     p.clock = move && p.ground ? p.clock + dt : 0;
 
     // Off an edge: the next screen.
@@ -635,9 +779,9 @@ export function createGame(world, progress, { from = 'picture' } = {}) {
         p.x -= dx * W;
         p.y -= dy * H;
         p.entry = { x: Math.max(1, Math.min(W - BOX[0] - 1, p.x)), y: p.y };
-        events.push({ type: 'room' });
+        events.push({ type: 'room', dx, dy });
       } else if (dy > 0) {                     // fell out of the world: back to where it came in
-        Object.assign(p, { x: p.entry.x, y: p.entry.y, fx: 0, fy: 0, vy: 0 });
+        Object.assign(p, { x: p.entry.x, y: p.entry.y, fx: 0, fy: 0, vx: 0, vy: 0, climbing: false });
         events.push({ type: 'fall' });
         say('……呼。', 1);
       }
@@ -664,5 +808,5 @@ export function createGame(world, progress, { from = 'picture' } = {}) {
   }
 
   const nearLetter = () => p.room.things.some(t => t.kind === 'letter' && touching(t, 2));
-  return { p, step, hits, nearLetter };
+  return { p, step, hits, nearLetter, onRope };
 }

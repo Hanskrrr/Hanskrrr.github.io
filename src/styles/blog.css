@@ -471,7 +471,7 @@ main:focus, main:focus-visible { outline: none; }
 /* The room replaces the site layout: no header or footer, the scene starts at the very top. */
 :root[data-view="exhibit"] .site-header, :root[data-view="exhibit"] .site-footer { display: none; }
 .exhibit-leave { display: flex; justify-content: center; margin-top: 40px; }
-/* The world inside the picture (vault/world.js): a 320×180 canvas scaled by whole pixels to fill the window. */
+/* The world inside the picture (vault/world.js): a 256×144 canvas scaled by whole pixels to fill the window. */
 :root[data-view="world"] .site-header, :root[data-view="world"] .site-footer { display: none; }
 .world-page { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-deep); }
 .world-stage { position: relative; line-height: 0; background: var(--bg-deep); }   /* size set by world.js */
@@ -489,6 +489,7 @@ main:focus, main:focus-visible { outline: none; }
 @media (pointer: coarse) {
   .world-pad { position: absolute; left: 16px; right: 16px; bottom: 16px; display: flex; justify-content: space-between; gap: 12px; line-height: normal; pointer-events: none; }
   .world-pad .button { pointer-events: auto; opacity: .8; }
+  .world-pad-mid { display: flex; gap: 12px; }
   .world-page .exhibit-leave { top: 16px; right: 16px; bottom: auto; }
   .world-pad .button { min-width: 64px; min-height: 52px; justify-content: center; font-size: 22px; touch-action: none; user-select: none; -webkit-user-select: none; }
 }

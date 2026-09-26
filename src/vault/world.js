@@ -1,15 +1,15 @@
 // The world inside the homepage picture (world-level.js), drawn on a canvas at its own size
-// (320×180) and scaled up by whole pixels, so it has the homepage picture's pixel size and fills
-// the window. The layers drift a little apart as the creature walks; fireflies, falling leaves,
-// spores and mist move on top, darkness closes in underground, and quiet music plays
-// (world-sound.js). ←/→ or A/D walk, ↑/W/Space jump, E/Enter reads the letter again; touch
-// screens get three buttons. Walking back off the first screen's right edge returns to the
+// (256×144) and scaled up by whole pixels, so it has the homepage picture's pixel size and fills
+// the window. Screens slide into each other; clouds drift, fireflies, leaves, spores and drips
+// move, glowworms shine in the dark underground, and quiet music plays (world-sound.js).
+// ←/→ or A/D walk, ↑/W/Space jump, ↑/↓ climb a rope or the vine, E/Enter reads the letter again;
+// touch screens get buttons. Walking back off the first screen's right edge returns to the
 // picture (onLeave). Found things stay found until the page is reloaded or the room is locked.
 import { sprite } from '../blog/pixel-art.js';
 import { CRITTER } from '../blog/scene.js';
 import { el } from '../core/dom.js';
 import { letterRead } from '../core/portal.js';
-import { BOX, buildWorld, createGame, H, ITEMS, MARGIN, newProgress, PARALLAX, W } from './world-level.js';
+import { BOX, buildWorld, createGame, H, ITEMS, newProgress, W } from './world-level.js';
 import { createSound } from './world-sound.js';
 
 const SPRITES = {
@@ -65,14 +65,23 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
   canvas.width = W;
   canvas.height = H;
   canvas.setAttribute('aria-hidden', 'true');
-  const ctx = canvas.getContext('2d');
+  const screen = canvas.getContext('2d');
+  // Each frame is drawn off screen first, so a new screen can slide in over the old one.
+  const frameCanvas = document.createElement('canvas');
+  frameCanvas.width = W;
+  frameCanvas.height = H;
+  const ctx = frameCanvas.getContext('2d');
+  const before = document.createElement('canvas');
+  before.width = W;
+  before.height = H;
+  let slide = null;
   const shade = document.createElement('canvas');
   shade.width = W;
   shade.height = H;
   const sctx = shade.getContext('2d');
   const bubble = el('p', 'room-bubble world-bubble');
   bubble.hidden = true;
-  const hint = el('p', 'room-hint', '←/→ 走 · ↑ 跳');
+  const hint = el('p', 'room-hint', '←/→ 走 · ↑ 跳 · 绳子上 ↑/↓ 爬');
   stage.replaceChildren(canvas, bubble, hint);
 
   // Whole-pixel scaling where there is room for it, so every pixel stays square and sharp.
@@ -106,7 +115,7 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
   music.addEventListener('click', () => { sound.toggle(); showMusic(); });
   hud.append(music);
   const pad = el('div', 'world-pad');
-  pad.innerHTML = '<button class="button" data-pad="-1" aria-label="向左">◀</button><button class="button" data-pad="jump" aria-label="跳">▲</button><button class="button" data-pad="1" aria-label="向右">▶</button>';
+  pad.innerHTML = '<button class="button" data-pad="-1" aria-label="向左">◀</button><span class="world-pad-mid"><button class="button" data-pad="up" aria-label="跳 / 向上爬">▲</button><button class="button" data-pad="down" aria-label="向下爬">▼</button></span><button class="button" data-pad="1" aria-label="向右">▶</button>';
   const panel = el('div', 'world-letter');
   panel.hidden = true;
   panel.setAttribute('role', 'dialog');
@@ -141,6 +150,7 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
   let spores = [];
   let drops = [];
   let meteor = null;
+  let clouds = [];
   const rand = (a, b) => a + Math.random() * (b - a);
   function enterRoom() {
     const room = p.room;
@@ -150,6 +160,7 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
     spores = still ? [] : Array.from({ length: room.spores?.count || 0 }, () => ({ x: rand(sx, sx + sw), y: rand(sy, sy + sh), phase: rand(0, 6), area: [sx, sy, sw, sh] }));
     falling = [];
     drops = [];
+    clouds = still ? [] : Array.from({ length: room.clouds || 0 }, (_, i) => ({ x: rand(-40, W), y: rand(10, room.meteor ? 110 : 60), w: 16 + Math.floor(rand(0, 26)), speed: rand(1.2, 2.6) * (i % 2 ? 1 : 0.7) }));
     sound.setMood(room.mood);
   }
   enterRoom();
@@ -167,22 +178,19 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
 
   function drawVine(dyn) {
     const [sx, top, bottom] = dyn.stem;
-    const reach = bottom - (bottom - top) * (p.room.key === '2,0' ? Math.min(1, grow * 1.5) : Math.max(0, grow * 1.5 - 0.5) * 2);
+    const first = p.room.key === '2,0';
+    const reach = bottom - (bottom - top) * (first ? Math.min(1, grow * 1.5) : Math.max(0, grow * 1.5 - 0.5) * 2);
     if (reach >= bottom) return;
-    ctx.fillStyle = color('px-grass');
-    ctx.fillRect(sx, Math.round(reach), 1, bottom - Math.round(reach));
-    ctx.fillStyle = color('px-grass-dark');
-    for (let y = Math.ceil(reach); y < bottom; y += 4) ctx.fillRect(sx + (y % 8 ? 1 : -1), y, 1, 1);
-    for (const [x, y, w] of dyn.rects) {
-      if (y < reach) continue;
-      ctx.fillStyle = color('px-grass-light'); ctx.fillRect(x, y, w, 1);
-      ctx.fillStyle = color('px-grass'); ctx.fillRect(x + 1, y + 1, w - 2, 1);
-      ctx.fillStyle = color('px-grass-dark'); ctx.fillRect(x + 2, y + 2, w - 4, 1);
+    for (let y = Math.ceil(reach); y < bottom; y++) {
+      const wobble = Math.round(Math.sin(y / 6));
+      ctx.fillStyle = color('px-grass'); ctx.fillRect(sx + wobble, y, 2, 1);
+      if (y % 6 === 0) { ctx.fillStyle = color('px-grass-light'); ctx.fillRect(sx + wobble + (y % 12 ? 2 : -3), y, 3, 1); ctx.fillStyle = color('px-grass-dark'); ctx.fillRect(sx + wobble + (y % 12 ? 2 : -2), y + 1, 2, 1); }
+      if (y % 17 === 0) { ctx.fillStyle = color('px-flower-alt'); ctx.fillRect(sx + wobble + (y % 34 ? 3 : -2), y - 1, 1, 1); }
     }
     if (dyn.flower && reach <= top + 1) {
       const [x, y] = dyn.flower;
-      ctx.fillStyle = color('px-flower'); ctx.fillRect(x, y, 1, 1);
-      ctx.fillStyle = color('px-flower-alt'); ctx.fillRect(x - 1, y + 1, 3, 1);
+      ctx.fillStyle = color('px-flower'); ctx.fillRect(x - 1, y - 1, 3, 3);
+      ctx.fillStyle = color('px-flower-alt'); ctx.fillRect(x, y, 1, 1);
     }
   }
   function drawGate(dyn) {
@@ -197,18 +205,25 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
       if (row === h - 12) { ctx.fillStyle = color('px-window'); ctx.fillRect(x + 3, shown, 2, 2); }
     }
   }
-  function draw(now) {
+  function draw(now, dt) {
     const room = p.room;
     const art = layerOf(room);
     const t = now / 1000;
-    const shift = name => (still ? 0 : Math.round(-(p.x + BOX[0] / 2 - W / 2) * PARALLAX[name]));
     ctx.clearRect(0, 0, W, H);
-    for (const name of ['sky', 'dist', 'hills', 'back']) ctx.drawImage(art[name], -MARGIN + shift(name), 0);
-    // Twinkling stars and, high up, now and then a shooting star.
+    ctx.drawImage(art.sky, 0, 0);
+    // Twinkling stars, clouds drifting with the wind, and high up now and then a shooting star.
     if (!still && room.stars) {
       ctx.fillStyle = color('px-twinkle');
-      room.stars.forEach(([x, y], i) => { if ((t * 0.9 + i * 1.7) % 7 < 0.35) ctx.fillRect(x + shift('sky'), y, 1, 1); });
+      room.stars.forEach(([x, y], i) => { if ((t * 0.9 + i * 1.7) % 7 < 0.35) ctx.fillRect(x, y, 1, 1); });
     }
+    for (const cloud of clouds) {
+      cloud.x += cloud.speed * dt;
+      if (cloud.x > W + 4) { cloud.x = -cloud.w - 4; cloud.y = rand(10, room.meteor ? 110 : 60); }
+      const x = Math.round(cloud.x);
+      ctx.fillStyle = color('px-cloud'); ctx.fillRect(x, cloud.y, cloud.w, 1); ctx.fillRect(x + 5, cloud.y + 1, cloud.w - 12, 1);
+      ctx.fillStyle = color('px-far'); ctx.fillRect(x + 3, cloud.y - 1, cloud.w - 8, 1);
+    }
+    for (const name of ['dist', 'hills', 'back']) ctx.drawImage(art[name], 0, 0);
     if (!still && room.meteor) {
       if (!meteor && Math.random() < 0.004) meteor = { x: rand(120, 320), y: rand(10, 60), age: 0 };
       if (meteor) {
@@ -252,7 +267,7 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
     }
     // The creature.
     const side = p.face > 0 ? 'right' : 'left';
-    const pose = !p.ground ? `${side}2` : p.clock ? (Math.floor(p.clock / 0.13) % 2 ? `${side}2` : side) : now % 4200 < 150 ? 'blink' : 'front';
+    const pose = p.climbing ? (Math.floor(p.y / 3) % 2 ? 'front' : 'blink') : !p.ground ? `${side}2` : p.clock ? (Math.floor(p.clock / 0.13) % 2 ? `${side}2` : side) : now % 4200 < 150 ? 'blink' : 'front';
     ctx.drawImage(picture(CRITTER[pose], `creature-${pose}`), p.x, p.y);
     if (progress.lantern && room.dark) { ctx.fillStyle = color('px-window'); ctx.fillRect(p.x + (p.face > 0 ? 6 : -1), p.y + 1, 1, 2); }
     ctx.drawImage(art.fore, 0, 0);
@@ -305,11 +320,11 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
     if (room.dark) {
       sctx.globalCompositeOperation = 'source-over';
       sctx.clearRect(0, 0, W, H);
-      sctx.fillStyle = 'rgba(5, 4, 26, 0.97)';
+      sctx.fillStyle = 'rgba(5, 4, 26, 0.9)';
       sctx.fillRect(0, 0, W, H);
       sctx.globalCompositeOperation = 'destination-out';
       const flicker = still ? 0 : Math.sin(t * 7) * 0.8 + Math.sin(t * 13) * 0.4;
-      const lights = [{ x: p.x + BOX[0] / 2, y: p.y + BOX[1] / 2, r: (progress.lantern ? 52 : 14) + flicker }, ...room.lights];
+      const lights = [{ x: p.x + BOX[0] / 2, y: p.y + BOX[1] / 2, r: (progress.lantern ? 58 : 16) + flicker }, ...room.lights];
       for (const light of lights) {
         const glow = sctx.createRadialGradient(light.x, light.y, 0, light.x, light.y, light.r);
         glow.addColorStop(0, 'rgba(0,0,0,1)');
@@ -320,6 +335,27 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
       }
       ctx.drawImage(shade, 0, 0);
     }
+    if (room.worms) {
+      room.worms.forEach(([x, y], i) => {
+        const on = still || Math.sin(t * 0.8 + i * 2.3) > -0.2;
+        if (!on) return;
+        ctx.fillStyle = color(i % 3 ? 'px-firefly' : 'px-grass-light');
+        ctx.fillRect(x, y, 1, 1);
+      });
+    }
+    // The finished frame, sliding in over the last screen after a screen change.
+    if (slide) {
+      slide.t += dt;
+      const k = Math.min(1, slide.t / 0.32);
+      const e = 1 - (1 - k) ** 3;
+      screen.clearRect(0, 0, W, H);
+      screen.drawImage(before, Math.round(-slide.dx * W * e), Math.round(-slide.dy * H * e));
+      screen.drawImage(frameCanvas, Math.round(slide.dx * W * (1 - e)), Math.round(slide.dy * H * (1 - e)));
+      if (k >= 1) slide = null;
+    } else {
+      screen.clearRect(0, 0, W, H);
+      screen.drawImage(frameCanvas, 0, 0);
+    }
     if (!bubble.hidden) {
       bubble.style.left = `${(p.x + BOX[0] / 2) * scale}px`;
       bubble.style.top = `${(p.y - 3) * scale}px`;
@@ -329,15 +365,20 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
   // --- the loop -----------------------------------------------------------------------------
   let held = 0;
   let jump = false;
+  let up = false;
+  let down = false;
   let last = 0;
   let raf = requestAnimationFrame(function tick(now) {
     const dt = Math.min(0.05, (now - last) / 1000 || 0);
     last = now;
-    const events = game.step(dt, { dir: reading ? 0 : held, jump: jump && !reading });
+    const events = game.step(dt, { dir: reading ? 0 : held, jump: jump && !reading, up: up && !reading, down: down && !reading });
     jump = false;
     for (const event of events) {
       if (event.type === 'leave') { onLeave(); return; }
-      if (event.type === 'room') enterRoom();
+      if (event.type === 'room') {
+        if (!still) { before.getContext('2d').clearRect(0, 0, W, H); before.getContext('2d').drawImage(canvas, 0, 0); slide = { dx: event.dx, dy: event.dy, t: 0 }; }
+        enterRoom();
+      }
       if (event.type === 'say') say(event.text);
       if (event.type === 'take') { drawSlots(); sound.chime('take'); }
       if (event.type === 'open') sound.chime('open');
@@ -346,7 +387,7 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
     }
     if (progress.planted && grow < 1) grow = Math.min(1, grow + dt / 2);
     if (progress.gateOpen && lift < 46) lift = Math.min(46, lift + dt * 24);
-    draw(now);
+    draw(now, dt);
     if (now > sayUntil) bubble.hidden = true;
     raf = requestAnimationFrame(tick);
   });
@@ -359,13 +400,19 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
     sound.start();
     if (reading) { if (event.key === 'Escape') { event.preventDefault(); closeLetter(); } return; }
     if (KEYS[event.key]) held = KEYS[event.key];
-    else if (['ArrowUp', 'w', 'W', ' '].includes(event.key)) { if (!event.repeat) jump = true; }
+    else if (['ArrowUp', 'w', 'W'].includes(event.key)) { up = true; if (!event.repeat) jump = true; }
+    else if (event.key === ' ') { if (!event.repeat) jump = true; }
+    else if (['ArrowDown', 's', 'S'].includes(event.key)) down = true;
     else if (['e', 'E', 'Enter'].includes(event.key) && game.nearLetter()) openLetter();
-    else if (event.key !== 'ArrowDown') return;
+    else return;
     event.preventDefault();
   }
-  const onKeyUp = event => { if (KEYS[event.key] === held) held = 0; };
-  const onBlur = () => { held = 0; };
+  const onKeyUp = event => {
+    if (KEYS[event.key] === held) held = 0;
+    if (['ArrowUp', 'w', 'W'].includes(event.key)) up = false;
+    if (['ArrowDown', 's', 'S'].includes(event.key)) down = false;
+  };
+  const onBlur = () => { held = 0; up = false; down = false; };
   const onPointer = () => sound.start();
   addEventListener('keydown', onKey);
   addEventListener('keyup', onKeyUp);
@@ -376,10 +423,14 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
     button.addEventListener('pointerdown', event => {
       event.preventDefault();
       button.setPointerCapture?.(event.pointerId);
-      if (which === 'jump') jump = true;
+      if (which === 'up') { up = true; jump = true; } else if (which === 'down') down = true;
       else held = Number(which);
     });
-    const release = () => { if (which !== 'jump' && held === Number(which)) held = 0; };
+    const release = () => {
+      if (which === 'up') up = false;
+      else if (which === 'down') down = false;
+      else if (held === Number(which)) held = 0;
+    };
     button.addEventListener('pointerup', release);
     button.addEventListener('pointercancel', release);
     button.addEventListener('contextmenu', event => event.preventDefault());
