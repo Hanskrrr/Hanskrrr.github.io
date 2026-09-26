@@ -76,6 +76,9 @@ function mount(target) {
   }, TICK);
 }
 
+// Developer shortcuts: only on this computer, from a file that is never published (see main.js).
+if (['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) import('../dev/cheats.js').catch(() => {});
+
 function fromTheWorld() {
   try {
     const seen = Number(sessionStorage.getItem('gallery-world'));

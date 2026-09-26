@@ -50,6 +50,8 @@ export function paint(grid, color) {
 const icon = (grid, color) => { const canvas = paint(grid, color); canvas.className = 'world-slot-art'; return canvas; };
 
 let saved = { session: null, progress: null };
+/** The running world, for local developer tools; empty when no world is open. */
+export const live = {};
 
 export function mountWorld(stage, { letter, onLeave, session = null }) {
   if (saved.session !== session) saved = { session, progress: newProgress() };
@@ -395,6 +397,7 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
     if (now > sayUntil) bubble.hidden = true;
     raf = requestAnimationFrame(tick);
   });
+  Object.assign(live, { world, game, progress, refresh: () => { enterRoom(); drawSlots(); }, openLetter: () => { letterRead.set(); openLetter(); } });
   if (!saved.arrived) { saved.arrived = true; say('……原来画里面是这样。', 3200); }
 
   // --- input --------------------------------------------------------------------------------
@@ -441,6 +444,7 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
   }
 
   return () => {
+    Object.keys(live).forEach(key => delete live[key]);
     cancelAnimationFrame(raf);
     clearInterval(noting);
     sound.stop();

@@ -58,6 +58,10 @@ export function openExhibit(content) {
   // Decrypted content has no permanent route or saved unlocked flag.
   swapPage(() => renderView('exhibit'));
 }
+export function openWorld(content) {
+  decrypted = content;
+  swapPage(() => renderView('world'));
+}
 export function lockContent() {
   disposeRoom();
   disposeRoom = () => {};

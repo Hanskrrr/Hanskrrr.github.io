@@ -88,6 +88,9 @@ document.addEventListener('keydown', event => {
   }
 });
 
+// Developer shortcuts: only on this computer, from a file that is never published.
+if (['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) import('./dev/cheats.js').catch(() => {});
+
 // A hello for anyone who opens the developer console.
 console.log(
   '%c   ▘  ▝\n  ▄████▄\n ██▀██▀██\n ████████\n  ▀▀  ▀▀\n%cHi, curious one. try adding /terminal/ to the end of the url and see what happens.=)))',
