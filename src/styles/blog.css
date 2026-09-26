@@ -149,7 +149,7 @@ img { image-rendering: pixelated; }
 
 /* ---------- Pixel frame: notched corners + hard drop shadow ---------- */
 .button, .style-trigger, .brand-symbol, .search-field, .filter[aria-pressed="true"], .tag,
-.hero-art, .world-stage, .profile-card, .project-card, .room-stage, .room-panel,
+.hero-art, .profile-card, .project-card, .room-stage, .room-panel,
 .room-photos figure, dialog, .icon-button, .count, .term-card, .return-chip {
   --fc: var(--line);
   --dc: var(--drop);
@@ -471,19 +471,24 @@ main:focus, main:focus-visible { outline: none; }
 /* The room replaces the site layout: no header or footer, the scene starts at the very top. */
 :root[data-view="exhibit"] .site-header, :root[data-view="exhibit"] .site-footer { display: none; }
 .exhibit-leave { display: flex; justify-content: center; margin-top: 40px; }
-/* The world inside the picture (vault/world.js): one screen, framed and shaped like the picture. */
+/* The world inside the picture (vault/world.js): it fills the window, in the picture's proportions. */
 :root[data-view="world"] .site-header, :root[data-view="world"] .site-footer { display: none; }
-.world-stage { position: relative; width: min(100%, 960px, calc((100dvh - 190px) * 1.5)); aspect-ratio: 3 / 2; margin: 32px auto 0; overflow: hidden; line-height: 0; background: var(--sky3); --d: 8px; }
+.world-page { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-deep); }
+.world-stage { position: relative; width: min(100vw, 150dvh); aspect-ratio: 3 / 2; overflow: hidden; line-height: 0; background: var(--sky3); }
+.world-page .exhibit-leave { position: absolute; right: 16px; bottom: 16px; margin: 0; opacity: .55; transition: opacity .2s steps(2); }
+.world-page .exhibit-leave:hover, .world-page .exhibit-leave:focus-within { opacity: 1; }
 .world-scene { display: block; width: 100%; height: 100%; }
 .world-say { font-size: 3.4px; }
 .world-z { font-size: 2.6px; }
 .w-dark { fill: #05041a; opacity: .97; }
-.world-hud { display: flex; justify-content: center; gap: 14px; margin-top: 20px; }
+.world-hud { position: absolute; top: 16px; left: 16px; display: flex; gap: 10px; }
 .world-slot { width: 30px; height: 30px; padding: 5px; background: var(--bg-deep); box-shadow: 0 0 0 var(--px) var(--line); opacity: .25; filter: grayscale(1); transition: opacity .3s steps(3); }
 .world-slot.found { opacity: 1; filter: none; }
 .world-pad { display: none; }
 @media (pointer: coarse) {
-  .world-pad { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px 0; line-height: normal; }
+  .world-pad { position: absolute; left: 16px; right: 16px; bottom: 16px; display: flex; justify-content: space-between; gap: 12px; line-height: normal; pointer-events: none; }
+  .world-pad .button { pointer-events: auto; opacity: .8; }
+  .world-page .exhibit-leave { top: 16px; right: 16px; bottom: auto; }
   .world-pad .button { min-width: 64px; min-height: 52px; justify-content: center; font-size: 22px; touch-action: none; user-select: none; -webkit-user-select: none; }
 }
 .world-letter { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: rgb(8 6 30 / .55); }
