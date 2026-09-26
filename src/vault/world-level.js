@@ -666,6 +666,9 @@ function roomE(next, season) {
   });
 }
 
+/** The drawing tools, for other small worlds (vault/shore-level.js). */
+export const tools = { canvas, hash, noise, rock, finish, done, rubble };
+
 export function buildWorld({ season = seasonOf() } = {}) {
   const next = random(20260927);
   const layout = { '3,0': roomA(next, season), '3,1': roomB(next), '2,0': roomC(next, season), '2,1': roomF(next), '2,-1': roomG(next), '1,0': roomD(next, season), '0,0': roomE(next, season) };
@@ -802,6 +805,8 @@ export function createGame(world, progress, { from = 'picture' } = {}) {
         if (!progress.letter) { progress.letter = true; events.push({ type: 'letter' }); }
       } else if (t.kind === 'friend' && touching(t, 2)) {
         say('……嘘，它在睡觉。', 10);
+      } else if (t.kind === 'exit' && touching(t)) {
+        events.push({ type: 'exit' });
       }
     }
     return events;

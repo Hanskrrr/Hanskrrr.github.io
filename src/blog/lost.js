@@ -1,6 +1,8 @@
 // The 404 page: a quiet night sea. Wait about ten seconds and a whale leaps out of the
 // water; catch it (click it while it is in the air) and you land in the terminal.
 // With reduced motion the whale just surfaces for a few seconds instead of leaping.
+// But an address typed from inside the pixel world (vault/world.js leaves a note in the tab)
+// leads somewhere else: the shore (vault/shore.js), for as long as this tab stays there.
 import { applyUvText } from '../core/uv.js';
 import { gridToPaths, svg, sprite } from './pixel-art.js';
 
@@ -74,5 +76,23 @@ function mount(target) {
   }, TICK);
 }
 
-applyUvText();
-mount(document.querySelector('.lost-art'));
+function fromTheWorld() {
+  try {
+    const seen = Number(sessionStorage.getItem('gallery-world'));
+    if (seen && Date.now() - seen < 45000) {
+      sessionStorage.removeItem('gallery-world');
+      sessionStorage.setItem('gallery-shore', '1');
+    }
+    return sessionStorage.getItem('gallery-shore') === '1';
+  } catch {
+    return false;
+  }
+}
+
+if (fromTheWorld()) {
+  document.documentElement.classList.add('shore');
+  import('../vault/shore.js').then(({ mountShore }) => mountShore(document.querySelector('.lost-page')));
+} else {
+  applyUvText();
+  mount(document.querySelector('.lost-art'));
+}

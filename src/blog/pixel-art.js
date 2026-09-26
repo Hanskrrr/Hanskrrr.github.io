@@ -220,3 +220,15 @@ export function avatarSprite(rows) {
     h: 'px-av-hair', f: 'px-av-skin', e: 'px-av-eye', k: 'px-av-phones', s: 'px-av-shirt', c: 'px-av-collar',
   }), { className: 'pixel-art pixel-avatar' });
 }
+
+// The creature from the homepage picture (also walks the room's pixel world and the shore).
+const CRITTER_KEYS = { o: 'px-critter-edge', b: 'px-critter-body', e: 'px-critter-eye', g: 'px-grass-light' };
+const critterFrames = {
+  front: ['.g..g.', '.oooo.', 'obebeo', 'obbbbo', '.o..o.'],
+  blink: ['.g..g.', '.oooo.', 'obbbbo', 'obbbbo', '.o..o.'],
+  right: ['.g..g.', '.oooo.', 'obbebo', 'obbbbo', '.o..o.'],
+  right2: ['.g..g.', '.oooo.', 'obbebo', 'obbbbo', '..oo..'],
+  left: ['.g..g.', '.oooo.', 'obebbo', 'obbbbo', '.o..o.'],
+  left2: ['.g..g.', '.oooo.', 'obebbo', 'obbbbo', '..oo..'],
+};
+export const CRITTER = Object.fromEntries(Object.entries(critterFrames).map(([name, rows]) => [name, sprite(rows, CRITTER_KEYS)]));

@@ -5,8 +5,7 @@
 // ←/→ or A/D walk, ↑/W/Space jump, ↑/↓ climb a rope or the vine, E/Enter reads the letter again;
 // touch screens get buttons. Walking back off the first screen's right edge returns to the
 // picture (onLeave). Found things stay found until the page is reloaded or the room is locked.
-import { sprite } from '../blog/pixel-art.js';
-import { CRITTER } from '../blog/scene.js';
+import { CRITTER, sprite } from '../blog/pixel-art.js';
 import { el } from '../core/dom.js';
 import { letterRead } from '../core/portal.js';
 import { BOX, buildWorld, createGame, H, ITEMS, newProgress, W } from './world-level.js';
@@ -23,7 +22,7 @@ const KEYS = { ArrowLeft: -1, a: -1, A: -1, ArrowRight: 1, d: 1, D: 1 };
 const LEAF = { spring: ['px-blossom', 'px-blossom-light'], summer: ['px-leaf-light', 'px-leaf'], autumn: ['px-leaf-autumn', 'px-leaf-autumn-light'], winter: ['px-snow', 'px-snow'] };
 
 /** Colours come from the site's CSS (px-name → --name), so the world follows the style. */
-function palette() {
+export function palette() {
   const style = getComputedStyle(document.documentElement);
   const cache = new Map();
   return name => {
@@ -31,7 +30,7 @@ function palette() {
     return cache.get(name);
   };
 }
-function paint(grid, color) {
+export function paint(grid, color) {
   const canvas = document.createElement('canvas');
   canvas.width = grid[0].length;
   canvas.height = grid.length;
@@ -59,6 +58,11 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
   const game = createGame(world, progress);
   const { p } = game;
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // A note in this tab that the world is open: an address that doesn't exist, typed from here,
+  // leads to the shore (vault/shore.js) instead of the usual 404 page.
+  const note = () => { try { sessionStorage.setItem('gallery-world', String(Date.now())); } catch { /* no storage: no shore */ } };
+  note();
+  const noting = setInterval(note, 2000);
   const sound = createSound();
 
   const canvas = el('canvas', 'world-canvas');
@@ -438,6 +442,7 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
 
   return () => {
     cancelAnimationFrame(raf);
+    clearInterval(noting);
     sound.stop();
     restyle.disconnect();
     removeEventListener('resize', fit);

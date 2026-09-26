@@ -12,7 +12,9 @@
 // stays still with reduced motion.
 import { portal } from '../core/portal.js';
 import { navigate } from '../core/router.js';
-import { gridToPaths, SCENE_HEIGHT, SCENE_WIDTH, sceneLayout, sprite } from './pixel-art.js';
+import { CRITTER, gridToPaths, SCENE_HEIGHT, SCENE_WIDTH, sceneLayout, sprite } from './pixel-art.js';
+
+export { CRITTER };
 
 const TICK = 100;
 const NS = 'http://www.w3.org/2000/svg';
@@ -22,16 +24,6 @@ const CLOUDS = [
   sprite(['...cc.....', '.cccccc.c.', 'cccccccccc'], { c: 'px-cloud' }),
   sprite(['.ccc...', 'ccccccc'], { c: 'px-cloud' }),
 ];
-const CRITTER_KEYS = { o: 'px-critter-edge', b: 'px-critter-body', e: 'px-critter-eye', g: 'px-grass-light' };
-const critterFrames = {
-  front: ['.g..g.', '.oooo.', 'obebeo', 'obbbbo', '.o..o.'],
-  blink: ['.g..g.', '.oooo.', 'obbbbo', 'obbbbo', '.o..o.'],
-  right: ['.g..g.', '.oooo.', 'obbebo', 'obbbbo', '.o..o.'],
-  right2: ['.g..g.', '.oooo.', 'obbebo', 'obbbbo', '..oo..'],
-  left: ['.g..g.', '.oooo.', 'obebbo', 'obbbbo', '.o..o.'],
-  left2: ['.g..g.', '.oooo.', 'obebbo', 'obbbbo', '..oo..'],
-};
-export const CRITTER = Object.fromEntries(Object.entries(critterFrames).map(([name, rows]) => [name, sprite(rows, CRITTER_KEYS)]));
 const LEAP = [0, 2, 4, 5, 5, 4, 2];   // the visitor's jump, by ticks left
 const HEART = sprite(['h.h', 'hhh', '.h.'], { h: 'px-heart' });
 // A terminal app icon (title bar with three dots, a prompt and a blinking cursor),
