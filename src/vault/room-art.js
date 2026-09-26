@@ -25,6 +25,7 @@ export const HOTSPOTS = {
   films: [147, 3, 42, 24],
   music: [221, 21, 18, 26],
   creature: [72, 40, 12, 12],
+  letter: [2, 29, 7, 6],
   lamp: [24, 25, 8, 9],
 };
 /** The projector screen on the wall: where videos play. */
@@ -63,7 +64,7 @@ export function roomGrid(available) {
  * standing against the wall, `fore` is the dark plant, armchair and sofa at the front of the
  * floor, standing on short legs over their shadows (which lie on the floor).
  */
-export function roomLayers({ journal = true, serials = true, photos = true, thoughts = true, timeline = true, books = true, films = true, music = true } = {}) {
+export function roomLayers({ journal = true, serials = true, photos = true, thoughts = true, timeline = true, books = true, films = true, music = true, letter = false } = {}) {
   const W = WORLD_WIDTH;
   const H = ROOM_HEIGHT;
   const blank = () => Array.from({ length: H }, () => Array(W).fill(''));
@@ -124,6 +125,16 @@ export function roomLayers({ journal = true, serials = true, photos = true, thou
     rect(9, 30, 1, 4, 'px-room-edge');
     rect(11, 31, 8, 1, 'px-room-line');
     rect(11, 32, 6, 1, 'px-room-line');
+  }
+
+  // The letter from the end of the world (world.js), once it has been read: at the desk's end.
+  if (letter) {
+    rect(3, 31, 6, 3, 'px-moon');
+    rect(3, 31, 6, 1, 'px-moon-shade');
+    set(4, 32, 'px-moon-shade');
+    set(7, 32, 'px-moon-shade');
+    set(5, 33, 'px-heart');
+    set(6, 33, 'px-heart');
   }
 
   // A drawer under the desk, pulled open to show the manuscripts inside.

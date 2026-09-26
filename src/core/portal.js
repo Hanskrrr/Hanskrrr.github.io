@@ -8,3 +8,10 @@ export const portal = {
   /** Goes on into the pixel world. */
   world: null,
 };
+
+// Once the letter at the end of the world has been read, it also lies on the room's desk (room.js).
+// Only this flag is kept (in this browser); the letter itself stays inside the locked room.
+export const letterRead = {
+  get() { try { return localStorage.getItem('gallery-letter') === '1'; } catch { return false; } },
+  set() { try { localStorage.setItem('gallery-letter', '1'); } catch { /* private mode: just this visit */ } },
+};

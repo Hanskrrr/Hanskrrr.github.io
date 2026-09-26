@@ -8,13 +8,14 @@
 import { gridToPaths } from '../blog/pixel-art.js';
 import { enhance } from '../blog/rich.js';
 import { embedSize, isAllowedEmbed, toScreen } from './embeds.js';
+import { letterRead } from '../core/portal.js';
 import { toggleTheme } from '../core/theme.js';
 import { HOTSPOT_DEPTH, HOTSPOTS, PROJECTOR, ROOM_HEIGHT, ROOM_WIDTH, roomLayers, SCREEN, SWITCH, WORLD_WIDTH } from './room-art.js';
 import { attachDepth } from './room-depth.js';
 import { audience, closeUp, curtains, DUST, RECORD_WINDOW } from './room-closeups.js';
 import { animateRoom } from './room-life.js';
 
-const LABELS = { lamp: '台灯', intro: '窗外', journal: '日记', serials: '手稿', books: '书架', photos: '照片', thoughts: '便签', timeline: '时间线', films: '放映机', music: '点唱机', creature: '小生物' };
+const LABELS = { letter: '信', lamp: '台灯', intro: '窗外', journal: '日记', serials: '手稿', books: '书架', photos: '照片', thoughts: '便签', timeline: '时间线', films: '放映机', music: '点唱机', creature: '小生物' };
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -81,6 +82,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     music: content.music.length > 0,
     creature: true,
     lamp: true,
+    letter: Boolean(content.letter) && letterRead.get(),
   };
   const stage = el('div', 'room-stage');
   // The scene and its hotspots sit in one view, so "walk up to the screen" can zoom it.
@@ -747,6 +749,9 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
         grid.append(figure);
       });
       return [el('h2', '', '照片'), grid];
+    },
+    letter() {
+      return [el('h2', '', content.letter.title || '信'), prose(content.letter.html), el('p', 'world-letter-end', '— 未完待续 —')];
     },
     timeline() {
       const list = el('ol', 'trail');

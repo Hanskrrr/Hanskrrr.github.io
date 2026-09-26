@@ -6,6 +6,7 @@
 import { gridToPaths, sprite } from '../blog/pixel-art.js';
 import { CRITTER } from '../blog/scene.js';
 import { el } from '../core/dom.js';
+import { letterRead } from '../core/portal.js';
 import { BOX, buildWorld, createGame, H, ITEMS, newProgress, W } from './world-level.js';
 
 const SPRITES = {
@@ -161,7 +162,7 @@ export function mountWorld(stage, { letter, onLeave, session = null }) {
       if (event.type === 'room') { drawRoom(); redraw = true; }
       if (event.type === 'say') say(event.text);
       if (event.type === 'take' || event.type === 'open' || event.type === 'plant') { drawRoom(); redraw = true; }
-      if (event.type === 'letter') openLetter();
+      if (event.type === 'letter') { letterRead.set(); openLetter(); }
     }
     if (progress.planted && grow < 1) { grow = Math.min(1, grow + dt / 1.6); redraw = true; }
     if (progress.gateOpen && lift < 24) { lift = Math.min(24, lift + dt * 20); redraw = true; }
