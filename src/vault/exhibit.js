@@ -41,9 +41,10 @@ function toWorld() {
   portal.visitor = null;
   travel(() => renderView('world'));
 }
-/** Off the world's right end: back into the picture, from its left. */
+/** Off the world's right end: back into the picture, from its left (with both ways out open again,
+ * however the world was entered). */
 function toPicture() {
-  portal.visitor = 'left';
+  Object.assign(portal, { visitor: 'left', back: walkBack, world: toWorld });
   travel(() => renderView('blog'));
 }
 
