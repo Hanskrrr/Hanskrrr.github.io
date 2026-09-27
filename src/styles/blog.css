@@ -869,6 +869,9 @@ dialog::backdrop { background: color-mix(in srgb, var(--bg-deep) 80%, transparen
 /* ---------- Topics ---------- */
 .topic-filters { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .sub-filters .filter { font-size: 16px; padding: 4px 8px; }
+.pager { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 24px; }
+.pager:empty { display: none; }
+.pager-gap { color: var(--faint); padding: 6px 2px; }
 .sub-filters::before { content: "└"; color: var(--line); font-family: var(--pixel); padding: 4px 0; }
 .sub-filters[hidden] { display: none; }
 a.tag { text-decoration: none; }
@@ -908,6 +911,19 @@ a.tag:hover { filter: brightness(1.08); }
 .knowledge-graph.is-focused .graph-node:not(.is-near), .knowledge-graph.is-focused .graph-edge:not(.is-near) { opacity: .25; }
 .knowledge-graph.is-focused .graph-node.is-near text { fill: var(--ink); }
 .graph-edge.is-near { stroke: var(--accent); }
+.radial-graph { max-width: 900px; margin: auto; shape-rendering: auto; }
+.radial-graph .graph-edge { fill: none; stroke-width: 1.5; }
+.radial-graph .edge-tree { stroke: var(--line-soft); stroke-dasharray: none; }
+.radial-graph .edge-link { stroke: var(--line); opacity: .35; }
+@media (max-width: 600px) { .graph-frame:has(.radial-graph) { overflow-x: auto; } .radial-graph { min-width: 760px; } }
+.radial-graph text.halo { paint-order: stroke; stroke: var(--bg-deep); stroke-width: 5px; stroke-linejoin: round; }
+.radial-graph.is-focused .graph-edge.is-near { opacity: 1; stroke-width: 2; }
+.radial-graph rect { shape-rendering: crispEdges; }
+.radial-graph text.start { text-anchor: start; }
+.radial-graph text.end { text-anchor: end; }
+.radial-graph .node-article text { font-size: 14px; }
+.radial-graph .node-sub text { font-size: 14px; fill: var(--muted); }
+.radial-graph .node-genre text { font-size: 16px; }
 .graph-legend { display: flex; flex-wrap: wrap; gap: 12px; list-style: none; padding: 0; margin: 0 0 88px; }
 .room-prose { margin-top: 8px; }
 .room-prose h2 { font-size: 20px; line-height: 28px; margin: 24px 0 8px; }

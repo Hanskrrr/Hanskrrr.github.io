@@ -14,6 +14,8 @@ import { animateScene } from './scene.js';
 // '' = everything, 'math' = one genre, 'math/linear-algebra' = one sub-topic.
 let topic = '';
 let search = '';
+const PER_PAGE = 8;
+let page = 1;     // kept in the address (?page=2), so Back returns to it
 let stopScene = () => {};
 const bodies = new Map();
 let stopToc = () => {};
@@ -21,9 +23,16 @@ const wideToc = matchMedia('(min-width: 1240px)');
 
 export function setTopic(value) {
   topic = topics.some(genre => genre.id === value.split('/')[0]) ? value : '';
-  if (app.view === 'blog') renderArticleList();
+  page = 1;
+  if (app.view === 'blog') { showPage(); renderArticleList(); }
 }
-export function setSearch(value) { search = value; renderArticleList(); }
+export function setSearch(value) { search = value; page = 1; showPage(); renderArticleList(); }
+/** Put the page number in the address (none for page 1). */
+function showPage(push = false) {
+  const url = new URL(location.href);
+  if (page > 1) url.searchParams.set('page', page); else url.searchParams.delete('page');
+  if (url.href !== location.href) history[push ? 'pushState' : 'replaceState']({}, '', url);
+}
 
 function tag(article) {
   const { genre, sub } = topicOf(article);
@@ -42,9 +51,18 @@ function sidebar() {
 
 function renderBlog() {
   main.innerHTML = `<section class="hero"><div class="hero-copy"><div class="eyebrow">PERSONAL SITE<span class="slash">/</span>2026</div><h1><span data-uv="handle">${escapeHtml(profile.handle)}</span><span>.</span></h1><h2 data-uv="tagline">${escapeHtml(profile.tagline)}</h2><p data-uv="intro">${escapeHtml(profile.intro)}</p><div class="hero-actions"><button class="button button-primary" data-action="browse">浏览文章 <span aria-hidden="true">↓</span></button><a class="button" href="/?view=graph" data-nav="graph">知识图谱 <span aria-hidden="true">→</span></a></div></div><div class="hero-art">${pixelScene()}</div></section>
-    <div class="content-grid"><section id="articles" aria-labelledby="articles-title"><div class="section-heading"><h2 id="articles-title">文章</h2><span class="count">00</span></div><div class="article-tools"><div class="topic-filters"><div class="filters" id="genre-filters" aria-label="文章分类"></div><div class="filters sub-filters" id="sub-filters" aria-label="子分类"></div></div><label class="search-field"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M5 1h5v1H5zM3 2h2v1H3zM10 2h2v1h-2zM2 3h1v2H2zM12 3h1v2h-1zM1 5h1v5H1zM13 5h1v5h-1zM2 10h1v2H2zM12 10h1v2h-1zM3 12h2v1H3zM10 12h2v1h-2zM5 13h5v1H5zM12 12h1v1h-1zM13 13h1v1h-1zM14 14h1v1h-1z"/></svg><input type="search" id="article-search" placeholder="搜索文章" aria-label="搜索文章"></label></div><div id="article-list"></div></section>
+    <div class="content-grid"><section id="articles" aria-labelledby="articles-title"><div class="section-heading"><h2 id="articles-title">文章</h2><span class="count">00</span></div><div class="article-tools"><div class="topic-filters"><div class="filters" id="genre-filters" aria-label="文章分类"></div><div class="filters sub-filters" id="sub-filters" aria-label="子分类"></div></div><label class="search-field"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M5 1h5v1H5zM3 2h2v1H3zM10 2h2v1h-2zM2 3h1v2H2zM12 3h1v2h-1zM1 5h1v5H1zM13 5h1v5h-1zM2 10h1v2H2zM12 10h1v2h-1zM3 12h2v1H3zM10 12h2v1h-2zM5 13h5v1H5zM12 12h1v1h-1zM13 13h1v1h-1zM14 14h1v1h-1z"/></svg><input type="search" id="article-search" placeholder="搜索文章" aria-label="搜索文章"></label></div><div id="article-list"></div><nav class="pager" id="article-pager" aria-label="分页"></nav></section>
     ${sidebar()}</div>`;
   $('#article-search').value = search;
+  page = Math.max(1, Math.floor(Number(new URLSearchParams(location.search).get('page'))) || 1);
+  $('#article-pager').addEventListener('click', event => {
+    const button = event.target.closest('[data-page]');
+    if (!button) return;
+    page = Number(button.dataset.page);
+    showPage(true);
+    renderArticleList();
+    $('#articles').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth' });
+  });
   renderArticleList();
   stopScene();
   stopScene = animateScene($('.pixel-scene'), { reducedMotion: reducedMotion.matches });
@@ -76,11 +94,22 @@ function renderArticleList() {
     const { genre, sub } = topicOf(article);
     return `${article.title} ${article.summary} ${genre?.name} ${sub?.name}`.toLowerCase().includes(query);
   });
-  $('#article-list').replaceChildren(...filtered.map(articleRow));
+  const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  page = Math.min(page, pages);
+  $('#article-list').replaceChildren(...filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE).map(articleRow));
+  $('#article-pager').innerHTML = pages > 1 ? pagerButtons(pages) : '';
   if (!filtered.length) $('#article-list').append(el('p', 'empty-state', articles.length ? '没有匹配的文章。可以更换关键词或分类。' : '还没有公开的文章。'));
   $('.section-heading .count').textContent = String(filtered.length).padStart(2, '0');
 }
 
+/** ‹ 1 … 4 5 6 … 9 › : first, last, and the pages next to this one. */
+function pagerButtons(pages) {
+  const shown = [...new Set([1, page - 1, page, page + 1, pages])].filter(n => n >= 1 && n <= pages).sort((a, b) => a - b);
+  const button = (n, label, name) => `<button class="filter" data-page="${n}"${name ? ` aria-label="${name}"` : ''}${n === page && !name ? ' aria-pressed="true" aria-current="page"' : ''}>${label}</button>`;
+  const parts = [];
+  shown.forEach((n, i) => { if (i && n - shown[i - 1] > 1) parts.push('<span class="pager-gap" aria-hidden="true">…</span>'); parts.push(button(n, n)); });
+  return `${page > 1 ? button(page - 1, '‹', '上一页') : ''}${parts.join('')}${page < pages ? button(page + 1, '›', '下一页') : ''}`;
+}
 export async function articleBody(article) {
   if (!bodies.has(article.id)) {
     // A prerendered page (/articles/<slug>/) already carries the body.
@@ -175,9 +204,7 @@ function renderArticle(article) {
   });
 }
 function renderGraph() {
-  // Square on phones, so labels stay readable without sideways scrolling.
-  const size = main.clientWidth < 600 ? { width: 440, height: 440 } : { width: 800, height: 560 };
-  main.innerHTML = `${intro(`GRAPH / ${String(articles.length).padStart(2, '0')}`, '知识图谱(still working on it...)', '点一下试试')}<div class="graph-frame">${globalGraph(size)}</div><ul class="graph-legend">${topics.map(genre => `<li><a class="tag tag-${toneOf(genre.id)}" href="/?view=blog" data-topic="${genre.id}">${escapeHtml(genre.name)}</a></li>`).join('')}</ul>`;
+  main.innerHTML = `${intro(`GRAPH / ${String(articles.length).padStart(2, '0')}`, '知识图谱', '指向一篇文章，看它连着哪些')}<div class="graph-frame">${globalGraph()}</div><ul class="graph-legend">${topics.map(genre => `<li><a class="tag tag-${toneOf(genre.id)}" href="/?view=blog" data-topic="${genre.id}">${escapeHtml(genre.name)}</a></li>`).join('')}</ul>`;
   attachHighlight($('.knowledge-graph'));
 }
 function intro(kicker,title,description) {

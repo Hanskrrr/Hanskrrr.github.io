@@ -1,6 +1,6 @@
 // The knowledge graph: articles, their topics, and the [[links]] between them.
 // Topics give the tree (genre → sub-topic → article); links cut across it.
-// Layout is a small deterministic force simulation, so the picture is stable between visits.
+// Layout is a radial tree (deterministic, labels never overlap); links curve through the middle.
 import { articles, topics } from '../content/articles.js';
 
 const TONES = ['blue', 'yellow', 'green', 'purple'];
@@ -47,57 +47,41 @@ export function graphData() {
   return { nodes, edges };
 }
 
-/** Deterministic force layout. Returns Map<id, {x, y}> scaled to fit width × height. */
-export function layout({ nodes, edges }, { width = 800, height = 560, steps = 320 } = {}) {
-  const genres = nodes.filter(node => node.kind === 'genre');
-  const pos = new Map();
-  // Start genres on a circle and everything else near its genre, with a fixed spread.
-  nodes.forEach((node, index) => {
-    const g = Math.max(0, genres.findIndex(item => item.genre === node.genre));
-    const angle = (g / Math.max(1, genres.length)) * Math.PI * 2;
-    const r = node.kind === 'genre' ? 1 : node.kind === 'sub' ? 1.4 : 1.8;
-    const wobble = ((index * 37) % 17) / 17 - 0.5;
-    pos.set(node.id, { x: Math.cos(angle + wobble) * r * 100, y: Math.sin(angle + wobble) * r * 100, vx: 0, vy: 0 });
-  });
-  const list = [...pos.values()];
-  const springs = edges.map(edge => ({ a: pos.get(edge.a), b: pos.get(edge.b), rest: edge.kind === 'tree' ? 70 : 110, k: edge.kind === 'tree' ? 0.06 : 0.02 })).filter(s => s.a && s.b);
-  for (let step = 0; step < steps; step++) {
-    const heat = 1 - step / steps;
-    for (let i = 0; i < list.length; i++) {
-      for (let j = i + 1; j < list.length; j++) {
-        const a = list[i], b = list[j];
-        const dx = a.x - b.x || 0.01, dy = a.y - b.y || 0.01;
-        const d2 = Math.max(dx * dx + dy * dy, 25);
-        const force = 3000 / d2;
-        const d = Math.sqrt(d2);
-        a.vx += (dx / d) * force; a.vy += (dy / d) * force;
-        b.vx -= (dx / d) * force; b.vy -= (dy / d) * force;
-      }
+/**
+ * A radial tree: genres near the middle, sub-topics around them, articles evenly spaced on the rim
+ * (grouped by topic, a gap between genres). Deterministic. Returns Map<id, {x, y, angle}>.
+ */
+export function layout({ nodes, edges }, { size = 960 } = {}) {
+  const parent = new Map(edges.filter(edge => edge.kind === 'tree').map(edge => [edge.b, edge.a]));
+  const children = id => nodes.filter(node => parent.get(node.id) === id);
+  const slots = [];                                   // article ids around the rim; null = a gap
+  const groupOf = new Map();                          // a topic with no articles still gets a slot
+  for (const genre of nodes.filter(node => node.kind === 'genre')) {
+    for (const group of [genre, ...children(genre.id).filter(node => node.kind === 'sub')]) {
+      const leaves = children(group.id).filter(node => node.kind === 'article');
+      if (!leaves.length && group.kind === 'sub') { groupOf.set(slots.length, group.id); slots.push(null); }
+      leaves.forEach(leaf => slots.push(leaf.id));
     }
-    for (const { a, b, rest, k } of springs) {
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const d = Math.hypot(dx, dy) || 1;
-      const force = (d - rest) * k;
-      a.vx += (dx / d) * force; a.vy += (dy / d) * force;
-      b.vx -= (dx / d) * force; b.vy -= (dy / d) * force;
-    }
-    for (const p of list) {
-      p.vx -= p.x * 0.01; p.vy -= p.y * 0.01;
-      const speed = Math.hypot(p.vx, p.vy);
-      const limit = 12 * heat + 0.5;
-      if (speed > limit) { p.vx *= limit / speed; p.vy *= limit / speed; }
-      p.x += p.vx; p.y += p.vy;
-      p.vx *= 0.5; p.vy *= 0.5;
-    }
+    slots.push(null);
   }
-  // Fit into the box with a margin for labels.
-  const xs = list.map(p => p.x), ys = list.map(p => p.y);
-  const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-  const margin = 60;
-  const scale = Math.min((width - margin * 2) / Math.max(1, maxX - minX), (height - margin * 2) / Math.max(1, maxY - minY), 2);
-  const offsetX = (width - (maxX - minX) * scale) / 2, offsetY = (height - (maxY - minY) * scale) / 2;
+  const c = size / 2;
+  const ring = { genre: size * 0.1, sub: size * 0.185, article: size * 0.27 };
+  const at = (angle, r) => ({ x: Math.round(c + Math.cos(angle) * r), y: Math.round(c + Math.sin(angle) * r), angle });
+  const angles = new Map();
+  slots.forEach((id, i) => { const angle = -Math.PI / 2 + (i / slots.length) * Math.PI * 2; if (id) angles.set(id, angle); else if (groupOf.has(i)) angles.set(groupOf.get(i), angle); });
+  // A topic sits in the middle of the arc its articles cover.
+  const span = id => {
+    const own = angles.has(id) && !nodes.some(node => parent.get(node.id) === id) ? [angles.get(id)] : [];
+    const all = [...own, ...children(id).flatMap(node => (node.kind === 'article' ? [angles.get(node.id)] : span(node.id)))];
+    return all.filter(value => value !== undefined);
+  };
   const result = new Map();
-  for (const [id, p] of pos) result.set(id, { x: Math.round(offsetX + (p.x - minX) * scale), y: Math.round(offsetY + (p.y - minY) * scale) });
+  for (const node of nodes) {
+    if (node.kind === 'article') { result.set(node.id, at(angles.get(node.id), ring.article)); continue; }
+    const arc = span(node.id);
+    const angle = arc.length ? (Math.min(...arc) + Math.max(...arc)) / 2 : 0;
+    result.set(node.id, at(angle, ring[node.kind]));
+  }
   return result;
 }
 
@@ -119,11 +103,47 @@ function edgeMarkup(edge, positions) {
   return `<line class="graph-edge edge-${edge.kind}" data-a="${escapeHtml(edge.a)}" data-b="${escapeHtml(edge.b)}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`;
 }
 
-/** The whole site as one SVG. */
-export function globalGraph({ width = 800, height = 560 } = {}) {
+/** The whole site as one SVG: the radial tree, with cross-links curving through the middle. */
+export function globalGraph({ size = 960 } = {}) {
   const data = graphData();
-  const positions = layout(data, { width, height });
-  return `<svg class="knowledge-graph" viewBox="0 0 ${width} ${height}" role="img" aria-label="文章关系图">${data.edges.map(edge => edgeMarkup(edge, positions)).join('')}${data.nodes.map(node => nodeMarkup(node, positions.get(node.id))).join('')}</svg>`;
+  const pos = layout(data, { size });
+  const c = size / 2;
+  const byId = new Map(data.nodes.map(node => [node.id, node]));
+  const genreOf = id => pos.get(`g:${byId.get(id).genre}`);
+  const path = (edge, d) => `<path class="graph-edge edge-${edge.kind}" data-a="${escapeHtml(edge.a)}" data-b="${escapeHtml(edge.b)}" d="${d}"/>`;
+  const edges = data.edges.map(edge => {
+    const a = pos.get(edge.a), b = pos.get(edge.b);
+    if (edge.kind === 'tree') {
+      // Out from the parent along its ring, then straight out to the child.
+      const bend = { x: Math.round(c + Math.cos(b.angle) * Math.hypot(a.x - c, a.y - c)), y: Math.round(c + Math.sin(b.angle) * Math.hypot(a.x - c, a.y - c)) };
+      return path(edge, `M${a.x} ${a.y}Q${bend.x} ${bend.y} ${b.x} ${b.y}`);
+    }
+    // Links bundle through the two articles' genres, pulled halfway to the centre.
+    const [ga, gb] = [genreOf(edge.a), genreOf(edge.b)].map(g => ({ x: Math.round(c + (g.x - c) * 0.5), y: Math.round(c + (g.y - c) * 0.5) }));
+    return path(edge, `M${a.x} ${a.y}C${ga.x} ${ga.y} ${gb.x} ${gb.y} ${b.x} ${b.y}`);
+  }).join('');
+  const nodesMarkup = data.nodes.map(node => {
+    const p = pos.get(node.id);
+    const size = SIZE[node.kind];
+    const box = `<rect x="${p.x - size / 2}" y="${p.y - size / 2}" width="${size}" height="${size}"/>`;
+    // Labels run outward along the radius, flipped on the left so they read left to right.
+    const left = Math.cos(p.angle) < -0.001;
+    const deg = (p.angle * 180) / Math.PI + (left ? 180 : 0);
+    const gap = size / 2 + 6;
+    const lx = Math.round(p.x + Math.cos(p.angle) * gap), ly = Math.round(p.y + Math.sin(p.angle) * gap);
+    const short = [...node.label].length > 14 ? `${[...node.label].slice(0, 13).join('')}…` : node.label;
+    // Topic names stay level (with a halo over the lines); genres under their node, sub-topics beside.
+    const label = node.kind === 'article'
+      ? `<text class="${left ? 'end' : 'start'}" transform="translate(${lx} ${ly}) rotate(${deg.toFixed(1)})" dy="0.35em">${escapeHtml(short)}</text>`
+      : node.kind === 'genre'
+        ? `<text class="halo" x="${p.x}" y="${p.y + size / 2 + 18}">${escapeHtml(node.label)}</text>`
+        : `<text class="halo ${left ? 'end' : 'start'}" x="${p.x + (left ? -gap : gap)}" y="${p.y}" dy="0.35em">${escapeHtml(node.label)}</text>`;
+    const attrs = `class="graph-node node-${node.kind} tone-${toneOf(node.genre)}" data-node="${escapeHtml(node.id)}"`;
+    const title = `<title>${escapeHtml(node.label)}</title>`;
+    if (node.kind === 'article') return `<a href="/articles/${node.id}/" data-article="${node.id}" ${attrs}>${title}${box}${label}</a>`;
+    return `<a href="/?view=blog" data-topic="${escapeHtml(node.id.slice(2))}" ${attrs}>${title}${box}${label}</a>`;
+  }).join('');
+  return `<svg class="knowledge-graph radial-graph" viewBox="0 0 ${size} ${size}" role="img" aria-label="文章关系图">${edges}${nodesMarkup}</svg>`;
 }
 
 /** One article in the middle, the articles it links to or is linked from around it. */
