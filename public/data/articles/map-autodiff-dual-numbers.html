@@ -1,0 +1,63 @@
+<h2 id="scope">Scope</h2>
+<p>从系数编码和微积分基础理解对偶数，再把它连接到程序中的前向自动微分、反向模式和神经网络参数梯度。当前地图覆盖的是已收录笔记中展开的概念，不宣称覆盖整个微分几何或所有自动微分实现。</p>
+<h2 id="knowledge-structure">Knowledge Structure</h2>
+<pre class="mermaid">flowchart TD
+    C[&#34;系数编码：生成函数与截断&#34;] --&#62; D[&#34;对偶数：保留零阶和一阶&#34;]
+    M[&#34;微积分：导数、微分与方向&#34;] --&#62; D
+    D --&#62; F[&#34;函数的一阶扩展与复合&#34;]
+    D --&#62; G[&#34;几何解释：缩放与剪切&#34;]
+    F --&#62; A[&#34;前向模式：传播方向导数&#34;]
+    M --&#62; R[&#34;反向模式：传播输出敏感度&#34;]
+    A --&#62; J[&#34;按输入输出维数选择求导方式&#34;]
+    R --&#62; J
+    J --&#62; N[&#34;神经网络损失与参数梯度&#34;]
+</pre>
+<p>箭头表示当前学习路径中的机制或依赖关系，不是所有概念唯一的学科父子关系。生成函数与对偶数共享系数运算机制；微分理论解释这些系数为什么代表变化率。</p>
+<h2 id="learning-path">Learning Path</h2>
+<ol>
+<li><a class="wikilink" href="/articles/generating-functions-counting/" data-article="generating-functions-counting">生成函数如何把组合计数变成系数运算</a>：从硬币选择理解“指数记录大小，系数记录数量”，掌握乘法卷积与安全截断。</li>
+<li><a class="wikilink" href="/articles/derivatives-and-differentials/" data-article="derivatives-and-differentials">导数与微分为什么描述一阶变化</a>：区分导数系数、微分映射、有限函数差，以及固定方向与趋零参数。</li>
+<li><a class="wikilink" href="/articles/dual-numbers-derivatives/" data-article="dual-numbers-derivatives">对偶数为什么能计算一阶导数</a>：构造一阶截断代数，推导算术和基本函数扩展，理解程序实际增加的导数计算。</li>
+<li><a class="wikilink" href="/articles/dual-number-shear/" data-article="dual-number-shear">对偶数的乘法为什么对应剪切</a>：以复数旋转为参照，理解系数平面的线性变换与不可逆元素。</li>
+<li><a class="wikilink" href="/articles/forward-reverse-autodiff/" data-article="forward-reverse-autodiff">前向与反向自动微分如何传播导数</a>：从小模型手算转到方向导数、完整梯度与真实参数张量。</li>
+</ol>
+<h2 id="foundations">Foundations</h2>
+<ul>
+<li><a class="wikilink" href="/articles/generating-functions-counting/" data-article="generating-functions-counting">生成函数如何把组合计数变成系数运算</a></li>
+<li><a class="wikilink" href="/articles/derivatives-and-differentials/" data-article="derivatives-and-differentials">导数与微分为什么描述一阶变化</a></li>
+</ul>
+<h2 id="core-topics">Core Topics</h2>
+<ul>
+<li><a class="wikilink" href="/articles/dual-numbers-derivatives/" data-article="dual-numbers-derivatives">对偶数为什么能计算一阶导数</a></li>
+<li><a class="wikilink" href="/articles/dual-number-shear/" data-article="dual-number-shear">对偶数的乘法为什么对应剪切</a></li>
+<li><a class="wikilink" href="/articles/forward-reverse-autodiff/" data-article="forward-reverse-autodiff">前向与反向自动微分如何传播导数</a></li>
+</ul>
+<h2 id="advanced-topics">Advanced Topics</h2>
+<ul>
+<li>高阶截断：保留更多扰动系数时的阶乘缩放与多方向信息。</li>
+<li>非光滑原语与可微整体之间的差别，以及具体实现如何选择规则。</li>
+<li>将一阶路径信息形式化为切向量或 jet：当前只作探索方向，见核心笔记的 Candidate Placements。</li>
+</ul>
+<h2 id="important-relationships">Important Relationships</h2>
+<ul>
+<li>对偶数的第二分量对应指定输入方向的输出变化率；没有指定播种时，不应直接把它称为整个梯度。</li>
+<li>前向模式与反向模式组织同一链式法则，普通前向求值与前向自动微分应分开理解。</li>
+<li><a class="wikilink" href="/articles/softmax-cross-entropy-gradient/" data-article="softmax-cross-entropy-gradient">Softmax 与交叉熵的梯度为什么是预测减目标</a> 给出损失端的具体导数；<a class="wikilink" href="/articles/transformer-training-step/" data-article="transformer-training-step">Transformer 的一次训练如何进行</a> 说明这些梯度在训练流程中的用途。</li>
+<li>可逆对偶数、所有非零对偶数和全部对偶数是不同集合；几何中的退化压缩解释了非零元素仍可能不可逆。</li>
+</ul>
+<h2 id="open-questions-and-gaps">Open Questions and Gaps</h2>
+<ul>
+<li>对多个输出和方向进行批处理的具体实现，以及何时利用稀疏 Jacobian。</li>
+<li>高阶截断与嵌套对偶数、混合前后向模式之间的关系。</li>
+<li>反向传播对复杂张量算子的详细规则与存储策略。</li>
+<li>以上是后续探索建议；阅读和口头理解不能替代手算或实现验证。</li>
+</ul>
+<h2 id="related-maps">Related Maps</h2>
+<ul>
+<li><a class="wikilink" href="/articles/knowledge-map/" data-article="knowledge-map">知识地图</a></li>
+<li><a class="wikilink" href="/articles/map-transformer-language-models/" data-article="map-transformer-language-models">Transformer 与语言模型</a></li>
+</ul>
+<h2 id="sources">Sources</h2>
+<ul>
+<li>2026-09-26 - 对偶数、微分与生成函数</li>
+</ul>

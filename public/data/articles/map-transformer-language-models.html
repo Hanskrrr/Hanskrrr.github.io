@@ -1,0 +1,71 @@
+<h2 id="scope">Scope</h2>
+<p>组织 Transformer 语言模型的完整数据流：token 如何成为向量，token 如何经由注意力和 FFN 更新，以及一次训练如何把预测误差转化为参数更新。</p>
+<h2 id="knowledge-structure">Knowledge Structure</h2>
+<pre class="mermaid">flowchart TD
+    A[Transformer 语言模型] --&#62; B[一次训练]
+    A --&#62; C[归一化与残差]
+    A --&#62; D[自注意力与多头]
+    A --&#62; E[逐 token FFN]
+    B --&#62; F[词表概率与交叉熵]
+    B --&#62; G[反向传播与参数更新]
+</pre>
+<p>核心笔记分别是 <a class="wikilink" href="/articles/transformer-training-step/" data-article="transformer-training-step">Transformer 的一次训练如何进行</a>、<a class="wikilink" href="/articles/transformer-normalization/" data-article="transformer-normalization">Transformer 中的归一化为什么重要</a>、<a class="wikilink" href="/articles/causal-multi-head-attention/" data-article="causal-multi-head-attention">自注意力中的因果掩码与多头输出</a> 与 <a class="wikilink" href="/articles/transformer-ffn-projections/" data-article="transformer-ffn-projections">Transformer FFN 的 projection up 与 projection down</a>。</p>
+<h2 id="learning-path">Learning Path</h2>
+<ol>
+<li><a class="wikilink" href="/articles/transformer-training-step/" data-article="transformer-training-step">Transformer 的一次训练如何进行</a>：先建立一次训练中的数据、张量形状、损失和更新过程。</li>
+<li><a class="wikilink" href="/articles/transformer-normalization/" data-article="transformer-normalization">Transformer 中的归一化为什么重要</a>：理解为什么深层 block 需要控制 token 向量的数值尺度。</li>
+<li><a class="wikilink" href="/articles/causal-multi-head-attention/" data-article="causal-multi-head-attention">自注意力中的因果掩码与多头输出</a>：理解 token 间的信息读取、掩码和 head 的汇合。</li>
+<li><a class="wikilink" href="/articles/transformer-ffn-projections/" data-article="transformer-ffn-projections">Transformer FFN 的 projection up 与 projection down</a>：理解每个 token 如何在 Attention 后独立加工其上下文表示。</li>
+</ol>
+<h2 id="foundations">Foundations</h2>
+<ul>
+<li>token、词表编号、embedding</li>
+<li>向量、矩阵乘法、softmax</li>
+<li><a class="wikilink" href="/articles/cross-entropy-negative-log-likelihood/" data-article="cross-entropy-negative-log-likelihood">交叉熵损失为什么是负对数似然</a>：从最大似然理解分类与 token 预测的损失目标。</li>
+<li><a class="wikilink" href="/articles/softmax-cross-entropy-gradient/" data-article="softmax-cross-entropy-gradient">Softmax 与交叉熵的梯度为什么是预测减目标</a>：从 logits 梯度连接全连接层及全网反向传播。</li>
+<li><a class="wikilink" href="/articles/forward-reverse-autodiff/" data-article="forward-reverse-autodiff">前向与反向自动微分如何传播导数</a>：区分普通前向求值、方向导数传播与标量损失的参数梯度。</li>
+<li><a class="wikilink" href="/articles/transformer-normalization/" data-article="transformer-normalization">Transformer 中的归一化为什么重要</a>：残差连接、LayerNorm、RMSNorm 与 BatchNorm 的选择边界。</li>
+</ul>
+<h2 id="core-topics">Core Topics</h2>
+<ul>
+<li><a class="wikilink" href="/articles/transformer-training-step/" data-article="transformer-training-step">Transformer 的一次训练如何进行</a></li>
+<li><a class="wikilink" href="/articles/transformer-normalization/" data-article="transformer-normalization">Transformer 中的归一化为什么重要</a></li>
+<li><a class="wikilink" href="/articles/causal-multi-head-attention/" data-article="causal-multi-head-attention">自注意力中的因果掩码与多头输出</a></li>
+<li><a class="wikilink" href="/articles/transformer-ffn-projections/" data-article="transformer-ffn-projections">Transformer FFN 的 projection up 与 projection down</a></li>
+</ul>
+<h2 id="advanced-topics">Advanced Topics</h2>
+<ul>
+<li>Multi-Head Attention 的不同 head 可能学习何种关系，以及它们的冗余性。</li>
+<li>更深层 Transformer 的训练稳定性、KV cache 与长上下文成本。</li>
+<li>Encoder-only、decoder-only 与 encoder-decoder 架构的差异。</li>
+</ul>
+<h2 id="important-relationships">Important Relationships</h2>
+<ul>
+<li>
+<p>训练中的概率目标见 <a class="wikilink" href="/articles/cross-entropy-negative-log-likelihood/" data-article="cross-entropy-negative-log-likelihood">交叉熵损失为什么是负对数似然</a>，误差如何进入参数更新见 <a class="wikilink" href="/articles/softmax-cross-entropy-gradient/" data-article="softmax-cross-entropy-gradient">Softmax 与交叉熵的梯度为什么是预测减目标</a>；两者共同补充 <a class="wikilink" href="/articles/transformer-training-step/" data-article="transformer-training-step">Transformer 的一次训练如何进行</a>。</p>
+</li>
+<li>
+<p>Attention 在 token 之间传递信息；FFN 在每个 token 内部变换特征。</p>
+</li>
+<li>
+<p>FFN 后的 token 表示会成为下一层 self-attention 的 Q、K、V 来源。</p>
+</li>
+<li>
+<p>Causal mask 限制 decoder 只能读取当前位置及过去的位置，使 next-token 训练不泄漏未来答案。</p>
+</li>
+</ul>
+<h2 id="open-questions-and-gaps">Open Questions and Gaps</h2>
+<ul>
+<li>反向传播如何对 Q、K、V 和 attention 权重分别分配梯度。</li>
+<li>SwiGLU 等门控 FFN 为什么常替代传统 GELU FFN。</li>
+</ul>
+<h2 id="related-maps">Related Maps</h2>
+<ul>
+<li><a class="wikilink" href="/articles/knowledge-map/" data-article="knowledge-map">知识地图</a></li>
+<li><a class="wikilink" href="/articles/map-autodiff-dual-numbers/" data-article="map-autodiff-dual-numbers">自动微分与对偶数</a></li>
+</ul>
+<h2 id="sources">Sources</h2>
+<ul>
+<li>2026-09-05 - Transformer 训练与模块数据流</li>
+<li>2026-09-13 - 交叉熵损失的数学逻辑与梯度</li>
+</ul>

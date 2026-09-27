@@ -1,0 +1,50 @@
+<h2 id="scope">Scope</h2>
+<p>围绕“怎样比较无穷集合的大小”组织定义、枚举、反证与等势构造。知识层约定 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="double-struck">N</mi><mo>=</mo><mo stretchy="false">{</mo><mn>0</mn><mo separator="true">,</mo><mn>1</mn><mo separator="true">,</mo><mn>2</mn><mo separator="true">,</mo><mo>…</mo><mo stretchy="false">}</mo></mrow><annotation encoding="application/x-tex">\mathbb N=\{0,1,2,\ldots\}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6889em;"></span><span class="mord mathbb">N</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">{</span><span class="mord">0</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">1</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">2</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="minner">…</span><span class="mclose">}</span></span></span></span>；涉及任意无限集合的结论默认采用 ZFC，个别定理的更弱前提在相应笔记中单独说明。</p>
+<h2 id="knowledge-structure">Knowledge Structure</h2>
+<pre class="mermaid">flowchart TD
+    root[&#34;集合与无穷&#34;] --&#62; size[&#34;势与可数性&#34;]
+    size --&#62; enum[&#34;有限元组、字符串和有理数的枚举&#34;]
+    root --&#62; larger[&#34;构造更大的集合&#34;]
+    larger --&#62; power[&#34;幂集与函数集&#34;]
+    power --&#62; diagonal[&#34;康托尔对角线论证&#34;]
+    root --&#62; same[&#34;构造等势映射&#34;]
+    same --&#62; csb[&#34;双向单射与图上的配对&#34;]
+    same --&#62; dimension[&#34;实数、平面与空间&#34;]
+    same --&#62; shift[&#34;无限集合与真子集的移位&#34;]
+</pre>
+<p>这是按已收录笔记组织的主题树；箭头表示主题包含关系，不把“可数”误当成某种几何维度。</p>
+<h2 id="learning-path">Learning Path</h2>
+<ol>
+<li><a class="wikilink" href="/articles/cardinality-countability-enumeration/" data-article="cardinality-countability-enumeration">集合的势、可数性与枚举</a>：分清单射、满射、双射；能写出自然数对和有限字符串的编号。</li>
+<li><a class="wikilink" href="/articles/power-sets-cantor-diagonal/" data-article="power-sets-cantor-diagonal">幂集、函数集与康托尔对角线论证</a>：分清 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi mathvariant="normal">Σ</mi><mo>∗</mo></msup></mrow><annotation encoding="application/x-tex">\Sigma^*</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6887em;"></span><span class="mord"><span class="mord">Σ</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6887em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mbin mtight">∗</span></span></span></span></span></span></span></span></span></span></span> 与 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi mathvariant="normal">Σ</mi><mi mathvariant="double-struck">N</mi></msup></mrow><annotation encoding="application/x-tex">\Sigma^{\mathbb N}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8452em;"></span><span class="mord"><span class="mord">Σ</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8452em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathbb mtight">N</span></span></span></span></span></span></span></span></span></span></span></span>，完成对角集合的形式证明。</li>
+<li><a class="wikilink" href="/articles/cantor-schroeder-bernstein/" data-article="cantor-schroeder-bernstein">康托尔–施罗德–伯恩斯坦定理的图解证明</a>：先理解链与环的配对，再读集合递推公式。</li>
+<li><a class="wikilink" href="/articles/infinite-sets-proper-subsets/" data-article="infinite-sets-proper-subsets">无限集合与真子集的等势构造</a>：用可数链移位写出区间与删除点的双射。</li>
+<li><a class="wikilink" href="/articles/real-space-equinumerosity/" data-article="real-space-equinumerosity">实数、平面与空间的等势构造</a>：通过可逆序列编码理解有限维连续统的等势。</li>
+</ol>
+<h2 id="important-relationships">Important Relationships</h2>
+<ul>
+<li>枚举证明给出“能列完”的正面构造；对角化说明任何候选列表都会遗漏对象。</li>
+<li>CSB 把两个单射合成为双射，与“有限元组可以枚举”是不同的证明工具。</li>
+<li>等势只比较集合大小，不等于拓扑、几何结构或可计算性相同。</li>
+<li><a class="wikilink" href="/articles/map-formal-languages-automata/" data-article="map-formal-languages-automata">形式语言与自动机</a> 使用有限字符串作为输入对象；其“表达力相同”要求语言保持，不是仅比较描述数量。</li>
+</ul>
+<h2 id="active-recall">Active Recall</h2>
+<ul>
+<li>怎样明确编号全部有限二进制字符串？为何普通字典序没有同样性质？</li>
+<li>两个可数集做固定二元运算，为什么只能保证结果至多可数？</li>
+<li>给定 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>F</mi><mo>:</mo><mi mathvariant="double-struck">N</mi><mo>→</mo><mi mathvariant="script">P</mi><mo stretchy="false">(</mo><mi mathvariant="double-struck">N</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">F:\mathbb N\to\mathcal P(\mathbb N)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">F</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">:</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6889em;"></span><span class="mord mathbb">N</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathcal" style="margin-right:0.0822em;">P</span><span class="mopen">(</span><span class="mord mathbb">N</span><span class="mclose">)</span></span></span></span>，怎样构造遗漏的子集？</li>
+<li>CSB 的 A 起点链为什么必须选择 f 边？</li>
+<li>为什么直接交错规范二进制展开不能未经证明就宣称得到了双射？</li>
+</ul>
+<h2 id="open-questions-and-gaps">Open Questions and Gaps</h2>
+<ul>
+<li>数学笔记均保留未独立逐条核验标记；优先复核选择公理边界和连续统假设的表述。</li>
+<li>可计算枚举、可判定集合、一般二分图匹配算法只记录必要区别，尚未展开成独立主题。</li>
+<li>不根据收藏或阅读行为推断已经掌握证明。</li>
+</ul>
+<h2 id="relationships">Relationships</h2>
+<ul>
+<li>Home: <a class="wikilink" href="/articles/knowledge-map/" data-article="knowledge-map">知识地图</a></li>
+<li>Related map: <a class="wikilink" href="/articles/map-formal-languages-automata/" data-article="map-formal-languages-automata">形式语言与自动机</a></li>
+<li>Source: 2026-09-14 - 集合势、可数性与等势构造</li>
+</ul>
