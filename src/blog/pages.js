@@ -204,7 +204,7 @@ function renderArticle(article) {
   });
 }
 function renderGraph() {
-  main.innerHTML = `${intro(`GRAPH / ${String(articles.length).padStart(2, '0')}`, '知识图谱', '指向一篇文章，看它连着哪些')}<div class="graph-frame">${globalGraph()}</div><ul class="graph-legend">${topics.map(genre => `<li><a class="tag tag-${toneOf(genre.id)}" href="/?view=blog" data-topic="${genre.id}">${escapeHtml(genre.name)}</a></li>`).join('')}</ul>`;
+  main.innerHTML = `${intro(`GRAPH / ${String(articles.length).padStart(2, '0')}`, '知识图谱(still working on it)', '点一下试试')}<div class="graph-frame">${globalGraph()}</div><ul class="graph-legend">${topics.map(genre => `<li><a class="tag tag-${toneOf(genre.id)}" href="/?view=blog" data-topic="${genre.id}">${escapeHtml(genre.name)}</a></li>`).join('')}</ul>`;
   attachHighlight($('.knowledge-graph'));
 }
 function intro(kicker,title,description) {
