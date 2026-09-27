@@ -184,7 +184,7 @@ function intro(kicker,title,description) {
   return `<div class="page-intro"><span class="eyebrow">${kicker}</span><h1>${title}</h1><p>${description}</p></div>`;
 }
 function renderAbout() {
-  main.innerHTML = `${intro('ABOUT / THIS SITE','关于本站','Hanskrrr的网站')}<div class="about-body"><p>一个普通的知识/技术记录博客。</p><div class="about-list"><div><strong>我是谁</strong><span>尝试把知识拼凑成完整故事的人</span></div><div><strong>会看到什么</strong><span>对知识的反刍，一些想法，还有可能存在的角落</span></div></div></div>`;
+  main.innerHTML = `${intro('ABOUT / THIS SITE','关于本站','Zespejo的网站')}<div class="about-body"><p>一个普通的知识/技术记录博客。</p><div class="about-list"><div><strong>我是谁</strong><span>尝试把知识拼凑成完整故事的人</span></div><div><strong>会看到什么</strong><span>对知识的反刍，一些想法，还有可能存在的角落</span></div></div></div>`;
 }
 
 export const blogPages = {
