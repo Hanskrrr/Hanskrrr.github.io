@@ -317,10 +317,35 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   const narrow = matchMedia('(max-width: 720px)');
 
   let closeup = null;
+  let closeupOrigin = null;
   let zoomTimer;
-  function zoom(name, { fill = true } = {}) {
+  // A breakpoint change only moves the existing reader. Reopening it would discard the
+  // current article, form state and scroll position, and restart the camera.
+  function placeReader() {
+    if (!closeup?.startsWith('item:')) return;
+    const focused = reader.contains(document.activeElement) ? document.activeElement : null;
+    const { scrollTop, scrollLeft } = panel;
+    reader.classList.toggle('room-reader-sheet', narrow.matches);
+    const parent = narrow.matches ? document.body : stage;
+    if (reader.parentNode !== parent) parent.append(reader);
+    focused?.focus({ preventScroll: true });
+    panel.scrollTop = scrollTop;
+    panel.scrollLeft = scrollLeft;
+  }
+  narrow.addEventListener('change', placeReader);
+
+  function zoom(name, { fill = true, trigger = null, restoreFocus = true } = {}) {
+    const previous = closeup;
     closeup = name === 'screen' && !projector.url ? null : name;
     const item = closeup?.startsWith('item:') ? closeup.slice(5) : null;
+    if (closeup && (closeup !== previous || trigger)) {
+      const object = item || (closeup === 'screen' ? 'films' : 'music');
+      const candidate = trigger || (!previous ? document.activeElement : null);
+      // Hotspots need the explicit pointer target (some browsers do not focus clicked
+      // buttons). A keyboard interaction with the creature falls back to its object.
+      closeupOrigin = candidate && container.contains(candidate) && !reader.contains(candidate) && !closeupControls.contains(candidate)
+        ? candidate : buttons[object] || viewLayer.querySelector(`[data-object="${object}"]`);
+    }
     const view = closeUp(item ? 'item' : closeup, camera, item ? HOTSPOTS[item] : null);
     // Animate only this change (the camera moves the view every frame without transitions).
     stage.classList.add('zooming');
@@ -332,19 +357,28 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     viewLayer.style.transform = view.transform;
     if (item) {
       if (fill) open(item, { walk: false });
-      (narrow.matches ? document.body : stage).append(reader);
-      reader.classList.toggle('room-reader-sheet', narrow.matches);
+      // Width changes otherwise let native scroll anchoring move the panel before the
+      // media-query event runs, so placeReader would save that adjusted position.
+      panel.style.overflowAnchor = 'none';
       if (!reader.contains(panel)) { panel.replaceWith(panelSlot); reader.append(panel); }
       reader.hidden = false;
+      placeReader();
       readerBack.focus({ preventScroll: true });
     } else if (reader.contains(panel)) {
       panelSlot.replaceWith(panel);
+      panel.style.removeProperty('overflow-anchor');
       reader.hidden = true;
     }
     place(screen, view.place(SCREEN));
     place(record, view.place(RECORD_WINDOW));
     syncAll();
     if (closeup) stage.scrollIntoView({ block: 'center', behavior: reducedMotion ? 'instant' : 'smooth' });
+    else if (previous) {
+      const object = previous.startsWith('item:') ? previous.slice(5) : previous === 'screen' ? 'films' : 'music';
+      const target = closeupOrigin?.isConnected && !closeupOrigin.disabled ? closeupOrigin : buttons[object];
+      if (restoreFocus) target?.focus({ preventScroll: true });
+      closeupOrigin = null;
+    }
   }
 
   // The projector.
@@ -390,7 +424,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     form.append(address, go);
     const message = el('p', 'room-text projector-status');
     message.setAttribute('role', 'status');
-    const near = control('', () => zoom(closeup === 'screen' ? null : 'screen'));
+    const near = control('', event => zoom(closeup === 'screen' ? null : 'screen', { trigger: event.currentTarget }));
     const power = control('⏻ 关机', powerOff);
     const buttons = el('div', 'projector-buttons');
     buttons.append(near, power);
@@ -496,7 +530,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     message.setAttribute('role', 'status');
     const buttons = el('div', 'projector-buttons');
     const play = control('', togglePlay);
-    const near = control('', () => zoom(closeup === 'jukebox' ? null : 'jukebox'));
+    const near = control('', event => zoom(closeup === 'jukebox' ? null : 'jukebox', { trigger: event.currentTarget }));
     buttons.append(control('⏮', () => step(-1)), play, control('⏭', () => step(1)), near);
     const seek = el('input', 'jukebox-seek');
     seek.type = 'range';
@@ -790,13 +824,13 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     },
   };
 
-  function open(name, { walk = true } = {}) {
+  function open(name, { walk = true, trigger = null } = {}) {
     if (name === 'creature') return life.pet();
     if (name === 'lamp') return life.toggleLamp();
     // Reading something up close and picking another thing: walk over to that one instead.
     if (closeup?.startsWith('item:') && closeup !== `item:${name}`) {
-      if (READABLE.includes(name)) zoom(`item:${name}`, { fill: false });
-      else zoom(null);
+      if (READABLE.includes(name)) zoom(`item:${name}`, { fill: false, trigger });
+      else zoom(null, { restoreFocus: false });
     }
     if (walk) life.goTo(name);
     // A film keeps playing while you look at other things in the room.
@@ -818,7 +852,7 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   const onClick = event => {
     if (event.target.closest('.room-reader')) return;
     const target = event.target.closest('[data-object]');
-    if (target) { open(target.dataset.object); return; }
+    if (target) { open(target.dataset.object, { trigger: target }); return; }
     // Clicking or tapping an empty spot in the room walks the creature there.
     if (explorer && event.currentTarget === stage && !closeup && !event.target.closest('button, a, iframe')) {
       const box = art.getBoundingClientRect();
@@ -831,12 +865,13 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   // Double-click the projector or the jukebox to walk up to it. A projector with nothing on
   // switches on with your first film (you asked for it, so its player may load).
   stage.addEventListener('dblclick', event => {
-    const name = event.target.closest('[data-object]')?.dataset.object;
-    if (READABLE.includes(name)) return zoom(`item:${name}`);
-    if (name === 'music') zoom('jukebox');
+    const trigger = event.target.closest('[data-object]');
+    const name = trigger?.dataset.object;
+    if (READABLE.includes(name)) return zoom(`item:${name}`, { trigger });
+    if (name === 'music') zoom('jukebox', { trigger });
     if (name !== 'films') return;
     if (!projector.url && !content.films.some(film => !film.locked && playFilm(film))) return;
-    zoom('screen');
+    zoom('screen', { trigger });
   });
   legend.addEventListener('click', onClick);
 
@@ -892,9 +927,10 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   }
   function use(name) {
     if (name === 'switch') return toggleTheme();
-    if (name === 'films' && panel.dataset.open === 'films' && projector.url) return zoom('screen');
-    if (name === 'music' && panel.dataset.open === 'music') return zoom('jukebox');
-    if (READABLE.includes(name) && panel.dataset.open === name) return zoom(`item:${name}`);
+    const trigger = buttons[name] || viewLayer.querySelector(`[data-object="${name}"]`);
+    if (name === 'films' && panel.dataset.open === 'films' && projector.url) return zoom('screen', { trigger });
+    if (name === 'music' && panel.dataset.open === 'music') return zoom('jukebox', { trigger });
+    if (READABLE.includes(name) && panel.dataset.open === name) return zoom(`item:${name}`, { trigger });
     open(name, { walk: false });
   }
   let nearName = null;
@@ -985,6 +1021,8 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     document.removeEventListener('keyup', onKeyUp);
     document.removeEventListener('pointerdown', onCloseupPress);
     document.removeEventListener('click', onCloseupBlank);
+    narrow.removeEventListener('change', placeReader);
+    closeupOrigin = null;
     removeEventListener('blur', onBlur);
     seen.disconnect();
     cancelAnimationFrame(cameraFrame);

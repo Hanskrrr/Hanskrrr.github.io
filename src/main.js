@@ -5,7 +5,7 @@
 //   vault/     decryption and the session-only exhibit page
 //   content/   public articles, photo and audio catalogues
 import { $, announce, main, reducedMotion, storage } from './core/dom.js';
-import { app, cancelTransitions, definePage, navigate, onLeave, renderView, routeFromUrl, runLeaveHooks } from './core/router.js';
+import { app, cancelTransitions, definePage, navigate, onLeave, rememberPage, renderView, routeFromUrl, runLeaveHooks, updateRouteUrl } from './core/router.js';
 import { labelThemeButton, toggleTheme } from './core/theme.js';
 import { blogPages, setSearch, setTopic } from './blog/pages.js';
 import { attachTorch } from './blog/uv-light.js';
@@ -35,11 +35,11 @@ document.addEventListener('click', event => {
     if (node) {
       event.preventDefault();
       node.scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth' });
-      history.replaceState(history.state, '', href);
+      updateRouteUrl(href);
       if (node === main) main.focus({ preventScroll: true });
     }
   }
-  if (target.dataset.nav) { event.preventDefault(); navigate(target.dataset.nav); }
+  if (target.dataset.nav) { event.preventDefault(); navigate(target.dataset.nav, undefined, { restore: target.hasAttribute('data-return') }); }
   if (target.dataset.article) { event.preventDefault(); navigate('article', target.dataset.article, { hash: target.hash }); }
   if (target.dataset.topic !== undefined) {
     event.preventDefault();
@@ -66,9 +66,11 @@ document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('c
 }));
 addEventListener('popstate', () => {
   const route = routeFromUrl();
-  navigate(route.view, route.article?.id, { push: false });
+  navigate(route.view, route.article?.id, { push: false, restore: true });
 });
+addEventListener('scroll', rememberPage, { passive: true });
 addEventListener('pagehide', () => {
+  rememberPage();
   cancelTransitions();
   runLeaveHooks();
   // Clear pending and unsubmitted input before a browser history snapshot is retained.

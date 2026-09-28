@@ -2,7 +2,7 @@
 // Articles come from the vault via scripts/publish.mjs: metadata in content/articles.js,
 // bodies as pre-rendered HTML in /data/articles/<slug>.html.
 import { $, el, main, reducedMotion } from '../core/dom.js';
-import { app } from '../core/router.js';
+import { app, rememberPage, updateRouteUrl } from '../core/router.js';
 import { articles, topics } from '../content/articles.js';
 import { profile } from '../content/profile.js';
 import { attachHighlight, globalGraph, localGraph, neighbours, toneOf, topicOf } from './graph.js';
@@ -31,7 +31,7 @@ export function setSearch(value) { search = value; page = 1; showPage(); renderA
 function showPage(push = false) {
   const url = new URL(location.href);
   if (page > 1) url.searchParams.set('page', page); else url.searchParams.delete('page');
-  if (url.href !== location.href) history[push ? 'pushState' : 'replaceState']({}, '', url);
+  if (url.href !== location.href) updateRouteUrl(url, { push });
 }
 
 function tag(article) {
@@ -58,6 +58,7 @@ function renderBlog() {
   $('#article-pager').addEventListener('click', event => {
     const button = event.target.closest('[data-page]');
     if (!button) return;
+    rememberPage();
     page = Number(button.dataset.page);
     showPage(true);
     renderArticleList();
@@ -168,13 +169,13 @@ function tableOfContents(prose) {
   update();
   return nav;
 }
-function renderArticle(article) {
+function renderArticle(article, { restoreScroll = false } = {}) {
   stopToc();
   const fromTerminal = new URLSearchParams(location.search).get('from') === 'terminal';
   const { genre, sub } = topicOf(article);
   const container = el('article', 'article-page');
   const place = [genre?.name, sub?.name].filter(Boolean).map(escapeHtml).join(' / ');
-  container.innerHTML = `<a class="back-link" href="${fromTerminal ? '/terminal/' : '/?view=blog'}" data-nav="${fromTerminal ? 'terminal' : 'blog'}">← 返回${fromTerminal ? '终端' : '文章列表'}</a><div class="article-meta">${tag(article)}${sub ? `<span>${place}</span>` : ''}${date(article.date)}<span>${article.minutes} 分钟</span></div><h1>${escapeHtml(article.title)}</h1><p class="article-lead muted">${escapeHtml(article.summary)}</p>`;
+  container.innerHTML = `<a class="back-link" data-return href="${fromTerminal ? '/terminal/' : '/?view=blog'}" data-nav="${fromTerminal ? 'terminal' : 'blog'}">← 返回${fromTerminal ? '终端' : '文章列表'}</a><div class="article-meta">${tag(article)}${sub ? `<span>${place}</span>` : ''}${date(article.date)}<span>${article.minutes} 分钟</span></div><h1>${escapeHtml(article.title)}</h1><p class="article-lead muted">${escapeHtml(article.summary)}</p>`;
   const prose = el('div', 'prose');
   prose.dataset.article = article.id;
   prose.setAttribute('aria-busy', 'true');
@@ -186,19 +187,23 @@ function renderArticle(article) {
   if (links) container.append(links);
   main.replaceChildren(container);
   attachReadingProgress(container, { reducedMotion: reducedMotion.matches });
-  body.then(html => {
+  return body.then(html => {
     if (!prose.isConnected) return;
     prose.innerHTML = html;
     prose.removeAttribute('aria-busy');
     const settled = enhance(prose);
     const toc = tableOfContents(prose);
     if (toc) column.prepend(toc);
-    // A #section link: jump now, and again once math fonts and diagrams have changed the layout.
-    const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
-    if (target) {
-      target.scrollIntoView({ behavior: 'instant' });
-      settled.then(() => { if (target.isConnected) target.scrollIntoView({ behavior: 'instant' }); });
-    }
+    // Return layout readiness to the router, which owns history and anchor scrolling.
+    if (!restoreScroll) return settled;
+    // Lazy images below the fold cannot load until we scroll there. A returning reader
+    // needs their sizes first; normal first visits retain lazy loading.
+    prose.querySelectorAll('img').forEach(image => { image.loading = 'eager'; });
+    const images = [...prose.querySelectorAll('img')].filter(image => !image.complete).map(image => new Promise(resolve => {
+      image.addEventListener('load', resolve, { once: true });
+      image.addEventListener('error', resolve, { once: true });
+    }));
+    return Promise.all([settled, ...images]);
   }, () => {
     if (prose.isConnected) prose.replaceChildren(el('p', 'empty-state', '文章加载失败，请检查网络后刷新页面。'));
   });
@@ -215,8 +220,12 @@ function renderAbout() {
 }
 
 export const blogPages = {
-  blog: { title: '技术博客', render: renderBlog },
-  article: { render: article => article && renderArticle(article) },
+  blog: {
+    title: '技术博客', render: renderBlog,
+    captureState: () => ({ topic, search }),
+    restoreState: state => { if (state) { topic = state.topic; search = state.search; } },
+  },
+  article: { render: (article, options) => article && renderArticle(article, options) },
   graph: { title: '知识图谱', render: renderGraph },
   about: { title: '关于', render: renderAbout },
 };
