@@ -840,6 +840,35 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
   });
   legend.addEventListener('click', onClick);
 
+  // Listen in the bubble phase so dragging and content controls keep their own behavior.
+  // The narrow reader lives under body, so room-only listeners miss its empty margins.
+  const closeupControl = target => target.closest('.room-panel, .room-screen, .jukebox-window, .jukebox-strips, .room-screen-controls, .room-legend, button, a, input, textarea, select, [contenteditable]');
+  let closeupPress = null;
+  const onCloseupPress = event => {
+    closeupPress = closeup ? { x: event.clientX, y: event.clientY, content: Boolean(closeupControl(event.target)) } : null;
+  };
+  const onCloseupBlank = event => {
+    const press = closeupPress;
+    closeupPress = null;
+    if (!closeup || event.defaultPrevented) return;
+    // A selection or drag can end on the empty reader even when it began in the content.
+    if (press && (press.content || Math.hypot(event.clientX - press.x, event.clientY - press.y) > 6)) return;
+    if (closeupControl(event.target)) return;
+    if (stage.contains(event.target) && !reader.contains(event.target)) {
+      // Hotspots are hidden while zoomed. Use the rendered scene bounds so the object
+      // itself stays protected even during the zoom animation or a camera offset.
+      const object = closeup.startsWith('item:') ? HOTSPOTS[closeup.slice(5)] : closeup === 'screen' ? SCREEN : HOTSPOTS.music;
+      const box = art.getBoundingClientRect();
+      const x = (event.clientX - box.left) / box.width * WORLD_WIDTH;
+      const y = (event.clientY - box.top) / box.height * ROOM_HEIGHT;
+      const [left, top, width, height] = object;
+      if (x >= left && x <= left + width && y >= top && y <= top + height) return;
+    }
+    zoom(null);
+  };
+  document.addEventListener('pointerdown', onCloseupPress);
+  document.addEventListener('click', onCloseupBlank);
+
   // --- walking the creature with the keys ---------------------------------------------
   //   ← → / A D walk · ↑ / W / Space jump · E / Enter use what it stands at (again at the
   //   projector or the jukebox: walk up to it). Keys work while the room is mostly on screen
@@ -954,6 +983,8 @@ export function mountRoom(container, content, { mediaUrl, onUnlock, start = 'int
     stage.removeEventListener('touchend', onTouchEnd);
     document.removeEventListener('keydown', onKey);
     document.removeEventListener('keyup', onKeyUp);
+    document.removeEventListener('pointerdown', onCloseupPress);
+    document.removeEventListener('click', onCloseupBlank);
     removeEventListener('blur', onBlur);
     seen.disconnect();
     cancelAnimationFrame(cameraFrame);
