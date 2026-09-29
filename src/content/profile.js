@@ -17,8 +17,8 @@ export const profile = {
     currentFocus: '机器学习系统优化',
     projectStatus: 'Several projects in progress.',
     paragraphs: [
-      '喜欢学习语言，也对语言怎样影响我们的生活感兴趣。正在学习西语，希望能更好地阅读南美文学。',
-      '喜欢阅读，但更喜欢写作。喜欢音乐，也更希望能够真正谱曲。',
+      '喜欢学习语言(语言怎样影响我们的生活)。正在学习西语，以便更好地阅读南美文学。',
+      '喜欢阅读，但更喜欢写作。喜欢音乐，但更希望能够真正谱曲。',
     ],
     games: [
       { title: 'Disco Elysium', cover: '/media/games/disco-elysium.jpg', href: 'https://store.steampowered.com/app/632470/' },
