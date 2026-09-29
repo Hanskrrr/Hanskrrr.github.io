@@ -9,6 +9,24 @@ export const profile = {
   links: [
     { label: 'GitHub', href: 'https://github.com/Hanskrrr' },
   ],
+  about: {
+    name: 'Zespejo',
+    affiliation: 'NJUST@AI4CS',
+    introduction: '关注如何更好地学习、解释知识，以及讲述一个故事。',
+    focusIntro: '仍在探索具体的技术兴趣，近期关注',
+    currentFocus: '机器学习系统优化',
+    projectStatus: 'Several projects in progress.',
+    paragraphs: [
+      '喜欢学习语言，也对语言怎样影响我们的生活感兴趣。正在学习西语，希望能更好地阅读南美文学。',
+      '喜欢阅读，但更喜欢写作。喜欢音乐，也更希望能够真正谱曲。',
+    ],
+    games: [
+      { title: 'Disco Elysium', cover: '/media/games/disco-elysium.jpg', href: 'https://store.steampowered.com/app/632470/' },
+      { title: 'Animal Well', cover: '/media/games/animal-well.jpg', href: 'https://store.steampowered.com/app/813230/' },
+      { title: 'Who’s Lila?', cover: '/media/games/whos-lila.jpg', href: 'https://store.steampowered.com/app/1697700/' },
+    ],
+    sourceUrl: 'https://github.com/Hanskrrr/Hanskrrr.github.io',
+  },
   // The "now" box on the homepage: [label, text] pairs. Update whenever you like.
   now: {
     updated: '2026-09-24',

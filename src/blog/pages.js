@@ -216,7 +216,19 @@ function intro(kicker,title,description) {
   return `<div class="page-intro"><span class="eyebrow">${kicker}</span><h1>${title}</h1><p>${description}</p></div>`;
 }
 function renderAbout() {
-  main.innerHTML = `${intro('ABOUT / THIS SITE','关于本站','Zespejo的网站')}<div class="about-body"><p>一个普通的知识/技术记录博客。</p><div class="about-list"><div><strong>我是谁</strong><span>尝试把知识拼凑成完整故事的人</span></div><div><strong>会看到什么</strong><span>对知识的反刍，一些想法，还有可能存在的角落</span></div></div></div>`;
+  const about = profile.about;
+  const games = about.games.map(game => `<li><a class="about-game" href="${escapeHtml(game.href)}" target="_blank" rel="noreferrer" aria-label="${escapeHtml(game.title)} — Steam（新标签页）"><figure><img src="${escapeHtml(game.cover)}" alt="" width="300" height="450" loading="lazy" decoding="async"><figcaption>${escapeHtml(game.title)} <span aria-hidden="true">↗</span></figcaption></figure></a></li>`).join('');
+  const links = profile.links.map(link => `<a class="small-link" href="${escapeHtml(link.href)}" target="_blank" rel="noreferrer">${escapeHtml(link.label)} <span aria-hidden="true">↗</span></a>`).join('');
+  main.innerHTML = `<article class="about-page" aria-labelledby="about-name">
+    <header class="page-intro about-header"><div><span class="eyebrow">ABOUT</span><h1 id="about-name">${escapeHtml(about.name)}</h1><p class="about-affiliation">${escapeHtml(about.affiliation)}</p></div><div class="avatar-tile" aria-hidden="true">${avatarSprite(profile.avatar)}</div></header>
+    <div class="about-copy">
+      <p class="about-lead">${escapeHtml(about.introduction)}</p>
+      <div class="about-current"><p>${escapeHtml(about.focusIntro)}<strong>${escapeHtml(about.currentFocus)}</strong>。</p><p class="about-status" lang="en">${escapeHtml(about.projectStatus)}</p></div>
+      ${about.paragraphs.map(text => `<p>${escapeHtml(text)}</p>`).join('')}
+    </div>
+    <section class="about-games" aria-labelledby="about-games-title"><h2 id="about-games-title">最喜欢的独立游戏</h2><ul class="about-game-list">${games}</ul></section>
+    <footer class="about-footer"><div class="profile-links">${links}</div><p class="about-colophon">博客框架：<a href="${escapeHtml(about.sourceUrl)}" target="_blank" rel="noreferrer" aria-label="why would I need one — 查看本站源码"><span aria-hidden="true">[</span><span lang="en">why would I need one</span><span aria-hidden="true">]</span></a></p></footer>
+  </article>`;
 }
 
 export const blogPages = {
