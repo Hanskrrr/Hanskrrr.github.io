@@ -11,7 +11,7 @@ export const profile = {
   ],
   about: {
     name: 'Zespejo',
-    affiliation: 'NJUST@AI4CS',
+    affiliation: 'STUDENT@NJUST·AI4CS',
     introduction: '关注如何更好地学习、解释知识，以及讲述一个故事。',
     focusIntro: '仍在探索具体的技术兴趣，近期关注',
     currentFocus: '机器学习系统优化',
